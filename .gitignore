@@ -1,0 +1,31 @@
+# Binaries
+bin/
+*.exe
+*.wasm
+*.test
+*.out
+
+# Build artifacts
+web/app.wasm
+web/wasm_exec.js
+
+# Static site output (uncomment to track for GitHub Pages deployment)
+# docs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+
+# Temporary files
+*.log
+*.tmp
