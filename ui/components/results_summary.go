@@ -11,7 +11,9 @@ import (
 type ResultsSummary struct {
 	app.Compo
 
-	Result *simulation.SimulationResult
+	Result          *simulation.SimulationResult
+	showCombatLog   bool
+	selectedOutcome int
 }
 
 // Render renders the results summary
@@ -26,6 +28,7 @@ func (rs *ResultsSummary) Render() app.UI {
 			rs.renderOverview(),
 			rs.renderStatistics(),
 			rs.renderWinRateChart(),
+			rs.renderCombatLogSection(),
 		)
 }
 
@@ -111,5 +114,75 @@ func (rs *ResultsSummary) renderWinRateChart() app.UI {
 								),
 						),
 				),
+		)
+}
+
+// renderCombatLogSection renders collapsible combat log viewer
+func (rs *ResultsSummary) renderCombatLogSection() app.UI {
+	if len(rs.Result.CombatOutcomes) == 0 {
+		return app.Div()
+	}
+
+	return app.Div().
+		Class("combat-log-section").
+		Body(
+			app.Div().
+				Class("combat-log-header").
+				Body(
+					app.H3().Text("Combat Log (Sample Run)"),
+					app.Button().
+						Class("btn btn-small").
+						Text(func() string {
+							if rs.showCombatLog {
+								return "Hide Log"
+							}
+							return "Show Log"
+						}()).
+						OnClick(func(ctx app.Context, e app.Event) {
+							rs.showCombatLog = !rs.showCombatLog
+							ctx.Update()
+						}),
+				),
+			app.If(rs.showCombatLog, func() app.UI {
+				return rs.renderCombatLog()
+			}),
+		)
+}
+
+// renderCombatLog renders the detailed action log
+func (rs *ResultsSummary) renderCombatLog() app.UI {
+	outcome := rs.Result.CombatOutcomes[rs.selectedOutcome]
+
+	logEntries := make([]app.UI, len(outcome.ActionHistory))
+	for i, action := range outcome.ActionHistory {
+		logEntries[i] = app.Div().
+			Class("log-entry").
+			Body(
+				app.Span().Class("log-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
+				app.Span().Class("log-actor").Text(action.Actor),
+				app.Span().Class("log-action").Text(action.ActionType.String()),
+				app.If(action.Target != "", func() app.UI {
+					return app.Span().Class("log-target").Text(fmt.Sprintf("→ %s", action.Target))
+				}),
+				app.If(action.Ability != "", func() app.UI {
+					return app.Span().Class("log-ability").Text(fmt.Sprintf("(%s)", action.Ability))
+				}),
+				app.Span().Class("log-result").Text(action.Result),
+				app.If(action.Damage > 0, func() app.UI {
+					return app.Span().Class("log-damage").Text(fmt.Sprintf("%d dmg", action.Damage))
+				}),
+			)
+	}
+
+	return app.Div().
+		Class("combat-log-viewer").
+		Body(
+			app.Div().
+				Class("log-info").
+				Text(fmt.Sprintf("Showing run #1 of %d (%d actions, %d turns)",
+					rs.Result.TotalRuns, len(outcome.ActionHistory), outcome.Turns)),
+			app.Div().
+				Class("log-entries").
+				Body(logEntries...),
 		)
 }

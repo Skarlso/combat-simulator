@@ -27,6 +27,7 @@ type CombatantList struct {
 	newArmor           int
 	newMinorThreshold  int
 	newMajorThreshold  int
+	newAbilities       []*models.Ability
 }
 
 // OnMount initializes default values
@@ -203,6 +204,12 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								OnInput(cl.handleIntInput(&cl.newMajorThreshold)),
 						),
 				),
+			&AbilityForm{
+				Abilities: cl.newAbilities,
+				OnChange: func() {
+					// Abilities updated
+				},
+			},
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -246,6 +253,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 	)
 	combatant.ArmorSlots = cl.newArmor
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
+	combatant.Abilities = cl.newAbilities
 
 	if cl.OnAdd != nil {
 		cl.OnAdd(ctx, combatant)
@@ -266,4 +274,5 @@ func (cl *CombatantList) resetForm() {
 	cl.newArmor = 0
 	cl.newMinorThreshold = 4
 	cl.newMajorThreshold = 7
+	cl.newAbilities = make([]*models.Ability, 0)
 }

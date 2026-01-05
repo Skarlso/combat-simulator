@@ -199,6 +199,7 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		Rounds:        state.RoundNumber,
 		FinalHopePool: state.HopePool,
 		FinalFearPool: state.FearPool,
+		ActionHistory: state.ActionHistory,
 	}
 
 	// Gather survivor stats
@@ -227,6 +228,7 @@ type CombatOutcome struct {
 	FinalFearPool     int
 	SurvivingPlayers  []string
 	SurvivingEnemies  []string
+	ActionHistory     []models.ActionRecord
 }
 
 // DecisionMaker is an interface for AI/strategy to choose actions

@@ -29,6 +29,7 @@ type AdversaryList struct {
 	newMajorThreshold  int
 	newMotives         string
 	newTactics         string
+	newAbilities       []*models.Ability
 }
 
 // OnMount initializes default values
@@ -147,12 +148,10 @@ func (al *AdversaryList) renderAddForm() app.UI {
 									al.newType = ctx.JSSrc().Get("value").String()
 								}).
 								Body(
-									app.Option().Value("Leader").Text("Leader").Selected(al.newType == "Leader"),
-									app.Option().Value("Bruiser").Text("Bruiser").Selected(al.newType == "Bruiser"),
+									app.Option().Value("Minion").Text("Minion").Selected(al.newType == "Minion"),
+									app.Option().Value("Standard").Text("Standard").Selected(al.newType == "Standard"),
+									app.Option().Value("Elite").Text("Elite").Selected(al.newType == "Elite"),
 									app.Option().Value("Solo").Text("Solo").Selected(al.newType == "Solo"),
-									app.Option().Value("Artillery").Text("Artillery").Selected(al.newType == "Artillery"),
-									app.Option().Value("Skirmisher").Text("Skirmisher").Selected(al.newType == "Skirmisher"),
-									app.Option().Value("Support").Text("Support").Selected(al.newType == "Support"),
 									app.Option().Value("Horde").Text("Horde").Selected(al.newType == "Horde"),
 								),
 						),
@@ -249,6 +248,12 @@ func (al *AdversaryList) renderAddForm() app.UI {
 							al.newTactics = text
 						}),
 				),
+			&AbilityForm{
+				Abilities: al.newAbilities,
+				OnChange: func() {
+					// Abilities updated
+				},
+			},
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -294,6 +299,7 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	)
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newTactics
+	adversary.Abilities = al.newAbilities
 
 	if al.OnAdd != nil {
 		al.OnAdd(ctx, adversary)
@@ -308,7 +314,7 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 func (al *AdversaryList) resetForm() {
 	al.newName = ""
 	al.newTier = "Tier 1"
-	al.newType = "Leader"
+	al.newType = "Standard"
 	al.newDifficulty = 12
 	al.newATK = 2
 	al.newHP = 7
@@ -317,4 +323,5 @@ func (al *AdversaryList) resetForm() {
 	al.newMajorThreshold = 16
 	al.newMotives = ""
 	al.newTactics = ""
+	al.newAbilities = make([]*models.Ability, 0)
 }
