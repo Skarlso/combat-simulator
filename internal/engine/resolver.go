@@ -37,11 +37,12 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	hopeModifier := 0
 	fearModifier := 0
 
-	// Apply proficiency if player
+	// Apply attack bonus
+	attackBonus := attacker.GetAttackBonus()
 	if attacker.Side == models.SidePlayer {
-		hopeModifier += attacker.Proficiency
+		hopeModifier += attackBonus
 	} else {
-		fearModifier += attacker.Proficiency
+		fearModifier += attackBonus
 	}
 
 	// Check for advantage/disadvantage from conditions
@@ -63,7 +64,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	}
 
 	// Check if attack hits
-	if dualityRoll.WithSpirit < defender.Evasion {
+	if dualityRoll.WithSpirit < defender.GetDefense() {
 		result.Hit = false
 		return result
 	}
@@ -83,7 +84,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 
 	result.Damage = damage
 	result.DamageType = damageEffect.DamageType
-	result.Threshold = models.DamageThresholdFromAmount(damage)
+	result.Threshold = models.DamageThresholdFromAmount(damage, defender)
 
 	// Handle Hope/Fear generation based on duality result
 	if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {

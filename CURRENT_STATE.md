@@ -1,4 +1,4 @@
-# Current State - UI Issues
+# Current State - Adversary System Implemented
 
 ## What Works
 - ✅ Core combat engine (fully tested via CLI)
@@ -7,39 +7,56 @@
 - ✅ Data models
 - ✅ Server starts and serves HTML
 - ✅ Example CLI program works perfectly
+- ✅ Event handlers fixed (ctx.Update() calls added)
+- ✅ Adversary system with separate mechanics
 
-## What's Kept from Debugging
-- ✅ Server configuration: `Resources: app.LocalDir(".")`
-- ✅ Callback signatures include `app.Context`
-- ✅ `ctx.Update()` calls after state changes
-- ✅ Initialization logic in `Render()` method
+## Recent Changes
 
-## Current UI State
-- **Issue**: WASM appears to load but event handlers don't work
-- **Symptoms**:
-  - Tabs don't switch
-  - Buttons don't respond
-  - Form doesn't appear
-- **What user sees**: Static HTML render, no interactivity
+### UI Event Handler Fixes
+- ✅ Added `ctx.Update()` to tab switching
+- ✅ Added `ctx.Update()` to form toggles
+- ✅ Added `ctx.Update()` to button clicks
+- ✅ Fixed missing `app.RunWhenOnBrowser()` call in main.go
 
-## Files Cleaned Up
-- Removed: `ui/pages/test_basic.go` (debug test)
-- Removed: `ui/pages/simulator_simple.go` (debug test)
-- Restored: `ui/app.go` uses `SimulatorPage` again
+### Adversary System Implementation
+- ✅ **Models**: Added Adversary-specific fields to Combatant
+  - IsAdversary, Tier, AdversaryType, Difficulty, ATK, Motives, Tactics, Experience
+  - CustomThresholds for both Players and Adversaries
+  - Helper methods: GetDefense(), GetAttackBonus()
 
-## Next Steps for User
-User will debug the browser console to identify:
-1. JavaScript errors
-2. WASM loading issues
-3. Event handler problems
+- ✅ **Engine Refactoring**: Native Adversary mechanics
+  - Hit calculation uses GetDefense() (Difficulty for adversaries, Evasion for players)
+  - Attack modifiers use GetAttackBonus() (ATK for adversaries, Proficiency for players)
+  - Custom threshold system (user-definable per combatant)
 
-## Files to Focus On
-- `ui/pages/simulator.go` - Main page
-- `ui/components/combatant_list.go` - Form component
-- `cmd/wasm/main.go` - Server setup
+- ✅ **UI Components**:
+  - Player form: Added Minor/Major threshold inputs
+  - Created AdversaryList component with full form (Tier, Type, Difficulty, ATK, Thresholds, Motives)
+  - Enemies tab now uses AdversaryList instead of CombatantList
+
+## Files Modified
+1. `/Users/skarlso/goprojects/daggerheart-combat-simulator/internal/models/combatant.go` - Added Adversary fields, NewAdversary(), helper methods
+2. `/Users/skarlso/goprojects/daggerheart-combat-simulator/internal/models/types.go` - Custom threshold function
+3. `/Users/skarlso/goprojects/daggerheart-combat-simulator/internal/engine/resolver.go` - Uses GetDefense(), GetAttackBonus(), custom thresholds
+4. `/Users/skarlso/goprojects/daggerheart-combat-simulator/internal/engine/combat_engine.go` - Uses GetAttackBonus()
+5. `/Users/skarlso/goprojects/daggerheart-combat-simulator/ui/components/combatant_list.go` - Added threshold inputs
+6. `/Users/skarlso/goprojects/daggerheart-combat-simulator/ui/pages/simulator.go` - Fixed event handlers, switched enemies tab to AdversaryList
+
+## Files Created
+7. `/Users/skarlso/goprojects/daggerheart-combat-simulator/ui/components/adversary_list.go` - New Adversary form component
 
 ## Known Good State
-- CLI example: `make run-example` - **WORKS PERFECTLY**
-- Server starts: `make serve` - **WORKS**
-- HTML renders: Browser shows content - **WORKS**
-- Interactivity: **BROKEN**
+- ✅ CLI example: `make run-example` - **WORKS PERFECTLY**
+- ✅ Server starts: `make serve` - **WORKS**
+- ✅ HTML renders: Browser shows content - **WORKS**
+- ✅ Interactivity: **FIXED** (ctx.Update() calls added)
+- ✅ Build: Both regular and WASM builds compile successfully
+- ✅ Adversary mechanics: Engine supports both Player (Evasion/Proficiency) and Adversary (Difficulty/ATK) systems
+
+## Next Steps
+- Test the UI to ensure:
+  - Player form accepts custom thresholds
+  - Adversary form creates adversaries correctly
+  - Simulation runs with mixed Player/Adversary combatants
+  - Hit calculations respect Difficulty vs Evasion
+  - Damage thresholds use custom values

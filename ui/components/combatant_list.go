@@ -18,13 +18,15 @@ type CombatantList struct {
 	OnRemove   func(app.Context, int)
 
 	// Form state for adding new combatant
-	showForm       bool
-	newName        string
-	newEvasion     int
-	newProficiency int
-	newHP          int
-	newStress      int
-	newArmor       int
+	showForm           bool
+	newName            string
+	newEvasion         int
+	newProficiency     int
+	newHP              int
+	newStress          int
+	newArmor           int
+	newMinorThreshold  int
+	newMajorThreshold  int
 }
 
 // OnMount initializes default values
@@ -46,6 +48,7 @@ func (cl *CombatantList) Render() app.UI {
 						Text("+ Add").
 						OnClick(func(ctx app.Context, e app.Event) {
 							cl.showForm = !cl.showForm
+							ctx.Update()
 						}),
 				),
 			app.If(cl.showForm, func() app.UI {
@@ -175,6 +178,32 @@ func (cl *CombatantList) renderAddForm() app.UI {
 						),
 				),
 			app.Div().
+				Class("form-row").
+				Body(
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Minor Threshold:"),
+							app.Input().
+								Type("number").
+								Value(cl.newMinorThreshold).
+								Min(1).
+								Max(20).
+								OnInput(cl.handleIntInput(&cl.newMinorThreshold)),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Major Threshold:"),
+							app.Input().
+								Type("number").
+								Value(cl.newMajorThreshold).
+								Min(1).
+								Max(30).
+								OnInput(cl.handleIntInput(&cl.newMajorThreshold)),
+						),
+				),
+			app.Div().
 				Class("form-actions").
 				Body(
 					app.Button().
@@ -190,6 +219,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 						OnClick(func(ctx app.Context, e app.Event) {
 							cl.showForm = false
 							cl.resetForm()
+							ctx.Update()
 						}),
 				),
 		)
@@ -215,6 +245,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		cl.newStress,
 	)
 	combatant.ArmorSlots = cl.newArmor
+	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
 
 	if cl.OnAdd != nil {
 		cl.OnAdd(ctx, combatant)
@@ -222,6 +253,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 
 	cl.showForm = false
 	cl.resetForm()
+	ctx.Update()
 }
 
 // resetForm resets the form to default values
@@ -232,4 +264,6 @@ func (cl *CombatantList) resetForm() {
 	cl.newHP = 5
 	cl.newStress = 6
 	cl.newArmor = 0
+	cl.newMinorThreshold = 4
+	cl.newMajorThreshold = 7
 }

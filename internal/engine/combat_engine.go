@@ -62,11 +62,11 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, targets []*models
 
 	target := targets[0]
 
-	// Basic attack uses proficiency for damage
+	// Basic attack uses attack bonus for damage
 	damageEffect := models.DamageEffect{
 		DiceCount:  1,
 		DiceSize:   6,
-		FlatBonus:  actor.Proficiency,
+		FlatBonus:  actor.GetAttackBonus(),
 		DamageType: models.DamagePhysical,
 	}
 

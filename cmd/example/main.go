@@ -10,7 +10,8 @@ import (
 
 func main() {
 	fmt.Println("Daggerheart Combat Simulator - Example")
-	fmt.Println("=======================================\n")
+	fmt.Println("=======================================")
+	fmt.Println()
 
 	// Create player characters
 	rogue := models.NewCombatant("p1", "Grimjaw the Rogue", models.SidePlayer, 12, 2, 6, 6)

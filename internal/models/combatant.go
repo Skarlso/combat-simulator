@@ -1,21 +1,41 @@
 package models
 
+// ExperienceSkill represents an adversary's trained skill
+type ExperienceSkill struct {
+	Name  string
+	Bonus int
+}
+
 // Combatant represents any character in combat (player or enemy)
 type Combatant struct {
 	ID   string
 	Name string
 	Side Side
 
-	// Core stats
+	// Player-specific stats
 	Evasion     int
 	Proficiency int // Used for damage thresholds
 
+	// Adversary-specific stats
+	IsAdversary     bool
+	Tier            string // "Tier 1", "Tier 2", etc.
+	AdversaryType   string // "Leader", "Bruiser", "Solo", etc.
+	Difficulty      int    // Replaces Evasion for adversaries
+	ATK             int    // Replaces Proficiency for adversaries
+	Motives         string // Free text field
+	Tactics         string // Free text field
+	Experience      []ExperienceSkill
+
+	// Custom damage thresholds (for both Players and Adversaries)
+	CustomThresholds []int // e.g., [8, 16] means: <8=Minor, 8-15=Major, 16+=Severe
+	// Empty = use default [4, 7]
+
 	// Resources
-	HP          int
-	HPMax       int
-	Stress      int
-	StressMax   int
-	ArmorSlots  int // How many hits can armor absorb
+	HP         int
+	HPMax      int
+	Stress     int
+	StressMax  int
+	ArmorSlots int // How many hits can armor absorb
 
 	// Spotlight system
 	SpotlightTokens int
@@ -34,18 +54,19 @@ type Combatant struct {
 	IsFullyStressed bool
 }
 
-// Resistance reduces incoming damage of specific type
+// Resistance reduces incoming damage to specific type
 type Resistance struct {
 	Type   DamageType
 	Amount int // Flat reduction
 }
 
-// NewCombatant creates a combatant with basic stats
+// NewCombatant creates a player combatant with basic stats
 func NewCombatant(id, name string, side Side, evasion, proficiency, hpMax, stressMax int) *Combatant {
 	return &Combatant{
 		ID:              id,
 		Name:            name,
 		Side:            side,
+		IsAdversary:     false,
 		Evasion:         evasion,
 		Proficiency:     proficiency,
 		HP:              hpMax,
@@ -56,8 +77,35 @@ func NewCombatant(id, name string, side Side, evasion, proficiency, hpMax, stres
 		Abilities:       make([]*Ability, 0),
 		Resistances:     make([]Resistance, 0),
 		Conditions:      make([]*ActiveCondition, 0),
+		Experience:      make([]ExperienceSkill, 0),
 		IsDefeated:      false,
 		IsFullyStressed: false,
+	}
+}
+
+// NewAdversary creates an adversary combatant
+func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, stressMax int, thresholds []int) *Combatant {
+	return &Combatant{
+		ID:               id,
+		Name:             name,
+		Side:             SideEnemy,
+		IsAdversary:      true,
+		Tier:             tier,
+		AdversaryType:    adversaryType,
+		Difficulty:       difficulty,
+		ATK:              atk,
+		CustomThresholds: thresholds,
+		HP:               hpMax,
+		HPMax:            hpMax,
+		Stress:           0,
+		StressMax:        stressMax,
+		SpotlightTokens:  0,
+		Abilities:        make([]*Ability, 0),
+		Resistances:      make([]Resistance, 0),
+		Conditions:       make([]*ActiveCondition, 0),
+		Experience:       make([]ExperienceSkill, 0),
+		IsDefeated:       false,
+		IsFullyStressed:  false,
 	}
 }
 
@@ -171,4 +219,20 @@ func (c *Combatant) AddSpotlightToken() {
 // ResetSpotlightTokens clears tokens after taking action
 func (c *Combatant) ResetSpotlightTokens() {
 	c.SpotlightTokens = 0
+}
+
+// GetDefense returns appropriate defense stat
+func (c *Combatant) GetDefense() int {
+	if c.IsAdversary {
+		return c.Difficulty
+	}
+	return c.Evasion
+}
+
+// GetAttackBonus returns appropriate attack bonus
+func (c *Combatant) GetAttackBonus() int {
+	if c.IsAdversary {
+		return c.ATK
+	}
+	return c.Proficiency
 }

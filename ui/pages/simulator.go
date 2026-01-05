@@ -84,6 +84,7 @@ func (p *SimulatorPage) renderTab(id, label string) app.UI {
 		Text(label).
 		OnClick(func(ctx app.Context, e app.Event) {
 			p.currentTab = id
+			ctx.Update()
 		})
 }
 
@@ -117,10 +118,9 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 			Class("tab-content").
 			Body(
 				app.H2().Text("Adversaries"),
-				&components.CombatantList{
-					Title:      "Enemies",
-					Combatants: p.enemies,
-					Side:       models.SideEnemy,
+				&components.AdversaryList{
+					Title:       "Adversaries",
+					Adversaries: p.enemies,
 					OnAdd: func(ctx app.Context, c *models.Combatant) {
 						p.enemies = append(p.enemies, c)
 						ctx.Update()
@@ -170,6 +170,7 @@ func (p *SimulatorPage) renderActionButtons() app.UI {
 				OnClick(func(ctx app.Context, e app.Event) {
 					p.result = nil
 					p.errorMessage = ""
+					ctx.Update()
 				}),
 			app.If(p.isRunning, func() app.UI {
 				return app.Span().

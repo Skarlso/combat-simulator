@@ -40,12 +40,18 @@ const (
 	ThresholdSevere                        // 7+ damage
 )
 
-// DamageThresholdFromAmount determines threshold based on damage value
-func DamageThresholdFromAmount(damage int) DamageThreshold {
+// DamageThresholdFromAmount determines threshold based on combatant's custom thresholds
+func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold {
+	thresholds := combatant.CustomThresholds
+	if len(thresholds) == 0 {
+		// Default thresholds: <4=Minor, 4-6=Major, 7+=Severe
+		thresholds = []int{4, 7}
+	}
+
 	switch {
-	case damage >= 7:
+	case damage >= thresholds[1]:
 		return ThresholdSevere
-	case damage >= 4:
+	case damage >= thresholds[0]:
 		return ThresholdMajor
 	default:
 		return ThresholdMinor
