@@ -21,11 +21,15 @@ func NewCombatResolver(dice DiceRoller) *CombatResolver {
 // AttackResult contains outcome of an attack
 type AttackResult struct {
 	Hit            bool
-	Damage         int
+	DamageRoll     int   // Raw damage rolled (total)
+	DamageDice     []int // Individual dice values
+	DamageBonus    int   // Flat bonus
+	HPDamage       int   // Actual HP damage (1/2/3 based on threshold)
 	DamageType     models.DamageType
 	Threshold      models.DamageThreshold
-	DualityResult  DualityRollResult
-	EvasionRoll    int
+	DualityResult  DualityRollResult // Player attacks only
+	D20Result      D20RollResult     // Enemy attacks only
+	AttackRoll     int               // The final attack roll value
 	GeneratedHope  bool
 	GeneratedFear  bool
 	CriticalResult bool
@@ -33,78 +37,90 @@ type AttackResult struct {
 
 // ResolveAttack handles a basic attack from attacker to defender
 func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, damageEffect models.DamageEffect, state *models.CombatState) AttackResult {
-	// Roll duality dice
-	hopeModifier := 0
-	fearModifier := 0
+	result := AttackResult{}
 
-	// Apply attack bonus
-	attackBonus := attacker.GetAttackBonus()
+	// Players use duality dice, enemies use d20
 	if attacker.Side == models.SidePlayer {
-		hopeModifier += attackBonus
+		// Player attack - use duality dice
+		hopeModifier := attacker.GetAttackBonus()
+		fearModifier := 0
+
+		// Check for advantage/disadvantage from conditions
+		if attacker.HasCondition(models.ConditionAdvantage) {
+			hopeModifier += 2
+		}
+		if attacker.HasCondition(models.ConditionDisadvantage) {
+			hopeModifier -= 2
+		}
+		if attacker.IsFullyStressed {
+			hopeModifier -= 2
+		}
+
+		dualityRoll := cr.dice.RollDuality(hopeModifier, fearModifier)
+		result.DualityResult = dualityRoll
+		result.AttackRoll = dualityRoll.WithSpirit
+
+		// Check if attack hits
+		if dualityRoll.WithSpirit < defender.GetDefense() {
+			result.Hit = false
+			return result
+		}
+
+		// Handle Hope/Fear generation based on duality result
+		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
+			state.AddHope(1)
+			result.GeneratedHope = true
+			if dualityRoll.IsCritical {
+				state.AddHope(1) // Critical Hope generates extra
+			}
+		} else {
+			state.AddFear(1)
+			result.GeneratedFear = true
+			if dualityRoll.IsCritical {
+				state.AddFear(1) // Critical Fear generates extra
+			}
+		}
+
+		result.CriticalResult = dualityRoll.IsCritical
 	} else {
-		fearModifier += attackBonus
-	}
+		// Enemy attack - use d20
+		attackModifier := attacker.GetAttackBonus()
+		d20Roll := cr.dice.RollD20Attack(attackModifier)
+		result.D20Result = d20Roll
+		result.AttackRoll = d20Roll.Total
 
-	// Check for advantage/disadvantage from conditions
-	if attacker.HasCondition(models.ConditionAdvantage) {
-		hopeModifier += 2
-	}
-	if attacker.HasCondition(models.ConditionDisadvantage) {
-		hopeModifier -= 2
-	}
-	if attacker.IsFullyStressed {
-		hopeModifier -= 2
-	}
+		// Check if attack hits
+		if d20Roll.Total < defender.GetDefense() {
+			result.Hit = false
+			return result
+		}
 
-	dualityRoll := cr.dice.RollDuality(hopeModifier, fearModifier)
-
-	result := AttackResult{
-		DualityResult: dualityRoll,
-		EvasionRoll:   dualityRoll.WithSpirit,
-	}
-
-	// Check if attack hits
-	if dualityRoll.WithSpirit < defender.GetDefense() {
-		result.Hit = false
-		return result
+		result.CriticalResult = d20Roll.IsCritical
 	}
 
 	result.Hit = true
 
-	// Roll damage
-	damage := cr.dice.RollDamage(damageEffect.DiceCount, damageEffect.DiceSize, damageEffect.FlatBonus)
+	// Roll damage with individual dice tracking
+	damageResult := cr.dice.RollDamageDetailed(damageEffect.DiceCount, damageEffect.DiceSize, damageEffect.FlatBonus)
+	damageRoll := damageResult.Total
 
 	// Apply vulnerability/resistance from conditions
 	if defender.HasCondition(models.ConditionVulnerable) {
-		damage = int(float64(damage) * 1.5)
+		damageRoll = int(float64(damageRoll) * 1.5)
 	}
 	if defender.HasCondition(models.ConditionResistant) {
-		damage = int(float64(damage) * 0.5)
+		damageRoll = int(float64(damageRoll) * 0.5)
 	}
 
-	result.Damage = damage
+	result.DamageRoll = damageRoll
+	result.DamageDice = damageResult.DiceValues
+	result.DamageBonus = damageResult.FlatBonus
 	result.DamageType = damageEffect.DamageType
-	result.Threshold = models.DamageThresholdFromAmount(damage, defender)
+	result.Threshold = models.DamageThresholdFromAmount(damageRoll, defender)
 
-	// Handle Hope/Fear generation based on duality result
-	if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
-		state.AddHope(1)
-		result.GeneratedHope = true
-		if dualityRoll.IsCritical {
-			state.AddHope(1) // Critical Hope generates extra
-		}
-	} else {
-		state.AddFear(1)
-		result.GeneratedFear = true
-		if dualityRoll.IsCritical {
-			state.AddFear(1) // Critical Fear generates extra
-		}
-	}
-
-	result.CriticalResult = dualityRoll.IsCritical
-
-	// Apply damage to defender
-	defender.TakeDamage(damage, damageEffect.DamageType)
+	// Apply damage to defender (returns actual HP damage dealt)
+	hpDamage := defender.TakeDamage(damageRoll, damageEffect.DamageType)
+	result.HPDamage = hpDamage
 
 	return result
 }

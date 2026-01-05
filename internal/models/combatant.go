@@ -37,6 +37,9 @@ type Combatant struct {
 	StressMax  int
 	ArmorSlots int // How many hits can armor absorb
 
+	// Damage dice notation (e.g., "2d6+2", "1d6+1d6+4")
+	DamageDice string
+
 	// Spotlight system
 	SpotlightTokens int
 
@@ -122,10 +125,11 @@ func (c *Combatant) AddResistance(damageType DamageType, amount int) {
 	})
 }
 
-// TakeDamage applies damage after resistances
-func (c *Combatant) TakeDamage(amount int, damageType DamageType) int {
-	// Apply resistances
-	actualDamage := amount
+// TakeDamage applies damage using threshold system
+// Returns actual HP damage dealt
+func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType) int {
+	// Apply resistances to raw damage
+	actualDamage := rawDamage
 	for _, resist := range c.Resistances {
 		if resist.Type == damageType {
 			actualDamage -= resist.Amount
@@ -142,14 +146,26 @@ func (c *Combatant) TakeDamage(amount int, damageType DamageType) int {
 		return 0 // Armor absorbed the hit
 	}
 
-	// Apply to HP
-	c.HP -= actualDamage
+	// Apply threshold-based HP damage
+	threshold := DamageThresholdFromAmount(actualDamage, c)
+	hpDamage := 0
+
+	switch threshold {
+	case ThresholdMinor:
+		hpDamage = 1
+	case ThresholdMajor:
+		hpDamage = 2
+	case ThresholdSevere:
+		hpDamage = 3
+	}
+
+	c.HP -= hpDamage
 	if c.HP <= 0 {
 		c.HP = 0
 		c.IsDefeated = true
 	}
 
-	return actualDamage
+	return hpDamage
 }
 
 // Heal restores HP

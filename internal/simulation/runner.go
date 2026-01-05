@@ -171,22 +171,32 @@ func (sr *SimulationRunner) cloneCombatants(templates []*models.Combatant) []*mo
 
 	for i, template := range templates {
 		clone := &models.Combatant{
-			ID:          template.ID,
-			Name:        template.Name,
-			Side:        template.Side,
-			Evasion:     template.Evasion,
-			Proficiency: template.Proficiency,
-			HP:          template.HPMax,
-			HPMax:       template.HPMax,
-			Stress:      0,
-			StressMax:   template.StressMax,
-			ArmorSlots:  template.ArmorSlots,
-			SpotlightTokens: 0,
-			Abilities:       template.Abilities, // Shared reference OK (abilities are read-only)
-			Resistances:     append([]models.Resistance{}, template.Resistances...),
-			Conditions:      make([]*models.ActiveCondition, 0),
-			IsDefeated:      false,
-			IsFullyStressed: false,
+			ID:               template.ID,
+			Name:             template.Name,
+			Side:             template.Side,
+			Evasion:          template.Evasion,
+			Proficiency:      template.Proficiency,
+			IsAdversary:      template.IsAdversary,
+			Tier:             template.Tier,
+			AdversaryType:    template.AdversaryType,
+			Difficulty:       template.Difficulty,
+			ATK:              template.ATK,
+			Motives:          template.Motives,
+			Tactics:          template.Tactics,
+			CustomThresholds: append([]int{}, template.CustomThresholds...),
+			HP:               template.HPMax,
+			HPMax:            template.HPMax,
+			Stress:           0,
+			StressMax:        template.StressMax,
+			ArmorSlots:       template.ArmorSlots,
+			DamageDice:       template.DamageDice,
+			SpotlightTokens:  0,
+			Abilities:        template.Abilities, // Shared reference OK (abilities are read-only)
+			Resistances:      append([]models.Resistance{}, template.Resistances...),
+			Conditions:       make([]*models.ActiveCondition, 0),
+			Experience:       append([]models.ExperienceSkill{}, template.Experience...),
+			IsDefeated:       false,
+			IsFullyStressed:  false,
 		}
 
 		clones[i] = clone

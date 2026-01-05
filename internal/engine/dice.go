@@ -9,12 +9,22 @@ import (
 // DiceRoller handles all dice rolling operations
 type DiceRoller interface {
 	RollDuality(hopeModifier, fearModifier int) DualityRollResult
+	RollD20Attack(modifier int) D20RollResult
 	RollDamage(diceCount, diceSize, flatBonus int) int
+	RollDamageDetailed(diceCount, diceSize, flatBonus int) DamageRollResult
 	RollD12() int
+	RollD20() int
 	RollDice(diceCount, diceSize int) int
 }
 
-// DualityRollResult contains outcome of a duality roll
+// DamageRollResult contains individual dice values
+type DamageRollResult struct {
+	DiceValues []int // Individual dice results
+	FlatBonus  int   // Flat bonus added
+	Total      int   // Sum of all values
+}
+
+// DualityRollResult contains outcome of a duality roll (players only)
 type DualityRollResult struct {
 	HopeDie      int
 	FearDie      int
@@ -23,6 +33,14 @@ type DualityRollResult struct {
 	Result       models.DiceResult
 	WithSpirit   int // The actual value to use (highest die + modifiers)
 	IsCritical   bool
+}
+
+// D20RollResult contains outcome of a d20 roll (enemies)
+type D20RollResult struct {
+	D20Roll   int // The d20 roll
+	Modifier  int // Attack modifier
+	Total     int // d20 + modifier
+	IsCritical bool // Natural 20
 }
 
 // StandardDiceRoller is the default implementation
@@ -81,9 +99,45 @@ func (dr *StandardDiceRoller) RollDamage(diceCount, diceSize, flatBonus int) int
 	return total
 }
 
+// RollDamageDetailed rolls damage dice and returns individual values
+func (dr *StandardDiceRoller) RollDamageDetailed(diceCount, diceSize, flatBonus int) DamageRollResult {
+	diceValues := make([]int, diceCount)
+	total := flatBonus
+
+	for i := 0; i < diceCount; i++ {
+		roll := dr.rng.Intn(diceSize) + 1
+		diceValues[i] = roll
+		total += roll
+	}
+
+	return DamageRollResult{
+		DiceValues: diceValues,
+		FlatBonus:  flatBonus,
+		Total:      total,
+	}
+}
+
+// RollD20Attack rolls d20 + modifier for enemy attacks
+func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
+	d20 := dr.RollD20()
+	total := d20 + modifier
+
+	return D20RollResult{
+		D20Roll:    d20,
+		Modifier:   modifier,
+		Total:      total,
+		IsCritical: d20 == 20,
+	}
+}
+
 // RollD12 rolls a single d12
 func (dr *StandardDiceRoller) RollD12() int {
 	return dr.rng.Intn(12) + 1
+}
+
+// RollD20 rolls a single d20
+func (dr *StandardDiceRoller) RollD20() int {
+	return dr.rng.Intn(20) + 1
 }
 
 // RollDice rolls multiple dice of given size

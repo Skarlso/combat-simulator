@@ -409,6 +409,122 @@ body {
   background-color: var(--danger);
 }
 
+/* Combat Log */
+.combat-log-section {
+  margin-top: 2rem;
+  border-top: 2px solid var(--border);
+  padding-top: 2rem;
+}
+
+.combat-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.combat-log-header h3 {
+  margin: 0;
+}
+
+.log-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.run-indicator {
+  padding: 0.5rem 1rem;
+  background-color: var(--light);
+  border-radius: 4px;
+  font-weight: 500;
+  min-width: 100px;
+  text-align: center;
+}
+
+.log-info {
+  margin-bottom: 1rem;
+  padding: 1rem;
+  background-color: var(--light);
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.outcome-player-win {
+  color: var(--success);
+  font-weight: bold;
+}
+
+.outcome-enemy-win {
+  color: var(--danger);
+  font-weight: bold;
+}
+
+.outcome-draw {
+  color: #666;
+  font-weight: bold;
+}
+
+.log-table {
+  overflow-x: auto;
+}
+
+.log-row {
+  display: grid;
+  grid-template-columns: 90px 150px 100px 150px 180px 140px 150px 120px;
+  gap: 0.5rem;
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.875rem;
+}
+
+.log-row.log-header {
+  font-weight: bold;
+  background-color: var(--dark);
+  color: white;
+  border-radius: 4px 4px 0 0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.log-row:not(.log-header):hover {
+  background-color: var(--light);
+}
+
+.log-col-turn,
+.log-col-actor,
+.log-col-action,
+.log-col-target,
+.log-col-dice,
+.log-col-damage,
+.log-col-result,
+.log-col-pools {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-col-dice {
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.log-col-damage {
+  font-weight: 500;
+  color: var(--danger);
+}
+
+.log-col-result {
+  color: #666;
+}
+
+.log-col-pools {
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .app-main {
@@ -426,5 +542,14 @@ body {
 
   .chart-row {
     grid-template-columns: 80px 1fr;
+  }
+
+  .log-row {
+    grid-template-columns: 70px 100px 80px 100px 140px 100px 100px 100px;
+    font-size: 0.75rem;
+  }
+
+  .log-controls {
+    flex-wrap: wrap;
   }
 }

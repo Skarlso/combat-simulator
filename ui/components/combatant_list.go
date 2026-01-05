@@ -25,6 +25,7 @@ type CombatantList struct {
 	newHP              int
 	newStress          int
 	newArmor           int
+	newDamageDice      string
 	newMinorThreshold  int
 	newMajorThreshold  int
 	newAbilities       []*models.Ability
@@ -179,6 +180,18 @@ func (cl *CombatantList) renderAddForm() app.UI {
 						),
 				),
 			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
+					app.Input().
+						Type("text").
+						Value(cl.newDamageDice).
+						Placeholder("e.g., 2d6+2 or 1d6+1d4+3").
+						OnInput(func(ctx app.Context, e app.Event) {
+							cl.newDamageDice = ctx.JSSrc().Get("value").String()
+						}),
+				),
+			app.Div().
 				Class("form-row").
 				Body(
 					app.Div().
@@ -252,6 +265,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		cl.newStress,
 	)
 	combatant.ArmorSlots = cl.newArmor
+	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
 	combatant.Abilities = cl.newAbilities
 
@@ -272,6 +286,7 @@ func (cl *CombatantList) resetForm() {
 	cl.newHP = 5
 	cl.newStress = 6
 	cl.newArmor = 0
+	cl.newDamageDice = "1d6"
 	cl.newMinorThreshold = 4
 	cl.newMajorThreshold = 7
 	cl.newAbilities = make([]*models.Ability, 0)

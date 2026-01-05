@@ -129,19 +129,46 @@ func (rs *ResultsSummary) renderCombatLogSection() app.UI {
 			app.Div().
 				Class("combat-log-header").
 				Body(
-					app.H3().Text("Combat Log (Sample Run)"),
-					app.Button().
-						Class("btn btn-small").
-						Text(func() string {
-							if rs.showCombatLog {
-								return "Hide Log"
-							}
-							return "Show Log"
-						}()).
-						OnClick(func(ctx app.Context, e app.Event) {
-							rs.showCombatLog = !rs.showCombatLog
-							ctx.Update()
-						}),
+					app.H3().Text("Combat Log"),
+					app.Div().
+						Class("log-controls").
+						Body(
+							app.Button().
+								Class("btn btn-small").
+								Text("◀ Prev").
+								Disabled(rs.selectedOutcome <= 0).
+								OnClick(func(ctx app.Context, e app.Event) {
+									if rs.selectedOutcome > 0 {
+										rs.selectedOutcome--
+										ctx.Update()
+									}
+								}),
+							app.Span().
+								Class("run-indicator").
+								Text(fmt.Sprintf("Run %d/%d", rs.selectedOutcome+1, len(rs.Result.CombatOutcomes))),
+							app.Button().
+								Class("btn btn-small").
+								Text("Next ▶").
+								Disabled(rs.selectedOutcome >= len(rs.Result.CombatOutcomes)-1).
+								OnClick(func(ctx app.Context, e app.Event) {
+									if rs.selectedOutcome < len(rs.Result.CombatOutcomes)-1 {
+										rs.selectedOutcome++
+										ctx.Update()
+									}
+								}),
+							app.Button().
+								Class("btn btn-small").
+								Text(func() string {
+									if rs.showCombatLog {
+										return "Hide Log"
+									}
+									return "Show Log"
+								}()).
+								OnClick(func(ctx app.Context, e app.Event) {
+									rs.showCombatLog = !rs.showCombatLog
+									ctx.Update()
+								}),
+						),
 				),
 			app.If(rs.showCombatLog, func() app.UI {
 				return rs.renderCombatLog()
@@ -153,25 +180,100 @@ func (rs *ResultsSummary) renderCombatLogSection() app.UI {
 func (rs *ResultsSummary) renderCombatLog() app.UI {
 	outcome := rs.Result.CombatOutcomes[rs.selectedOutcome]
 
-	logEntries := make([]app.UI, len(outcome.ActionHistory))
-	for i, action := range outcome.ActionHistory {
-		logEntries[i] = app.Div().
-			Class("log-entry").
-			Body(
-				app.Span().Class("log-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
-				app.Span().Class("log-actor").Text(action.Actor),
-				app.Span().Class("log-action").Text(action.ActionType.String()),
-				app.If(action.Target != "", func() app.UI {
-					return app.Span().Class("log-target").Text(fmt.Sprintf("→ %s", action.Target))
-				}),
-				app.If(action.Ability != "", func() app.UI {
-					return app.Span().Class("log-ability").Text(fmt.Sprintf("(%s)", action.Ability))
-				}),
-				app.Span().Class("log-result").Text(action.Result),
-				app.If(action.Damage > 0, func() app.UI {
-					return app.Span().Class("log-damage").Text(fmt.Sprintf("%d dmg", action.Damage))
-				}),
-			)
+	// Determine winner
+	outcomeText := "Draw"
+	outcomeClass := "outcome-draw"
+	if outcome.PlayerVictory {
+		outcomeText = "✓ Players Victory"
+		outcomeClass = "outcome-player-win"
+	} else if outcome.EnemyVictory {
+		outcomeText = "✓ Enemies Victory"
+		outcomeClass = "outcome-enemy-win"
+	}
+
+	// Build table rows
+	rows := []app.UI{
+		// Header row
+		app.Div().Class("log-row log-header").Body(
+			app.Span().Class("log-col-turn").Text("Round/Turn"),
+			app.Span().Class("log-col-actor").Text("Actor"),
+			app.Span().Class("log-col-action").Text("Action"),
+			app.Span().Class("log-col-target").Text("Target"),
+			app.Span().Class("log-col-dice").Text("Dice Roll"),
+			app.Span().Class("log-col-damage").Text("Damage"),
+			app.Span().Class("log-col-result").Text("Result"),
+			app.Span().Class("log-col-pools").Text("Hope/Fear"),
+		),
+	}
+
+	for _, action := range outcome.ActionHistory {
+		// Format dice roll
+		diceRoll := "-"
+		if action.HopeDie > 0 || action.FearDie > 0 {
+			// Check if this is a player (both Hope and Fear) or enemy (only HopeDie used for d20)
+			if action.FearDie > 0 {
+				// Player attack - duality dice
+				diceRoll = fmt.Sprintf("H:%d F:%d = %d (vs %d)",
+					action.HopeDie, action.FearDie, action.TotalRoll, action.TargetDefense)
+			} else {
+				// Enemy attack - d20
+				diceRoll = fmt.Sprintf("d20:%d = %d (vs %d)",
+					action.HopeDie, action.TotalRoll, action.TargetDefense)
+			}
+		}
+
+		// Format damage with individual dice
+		damageText := "-"
+		if action.DamageRoll > 0 {
+			diceStr := ""
+			if len(action.DamageDice) > 0 {
+				// Show individual dice values
+				parts := make([]string, len(action.DamageDice))
+				for i, val := range action.DamageDice {
+					parts[i] = fmt.Sprintf("%d", val)
+				}
+				diceStr = fmt.Sprintf("%s", parts[0])
+				for i := 1; i < len(parts); i++ {
+					diceStr += fmt.Sprintf("+%s", parts[i])
+				}
+				if action.DamageBonus > 0 {
+					diceStr += fmt.Sprintf("+%d", action.DamageBonus)
+				}
+			} else {
+				diceStr = fmt.Sprintf("%d", action.DamageRoll)
+			}
+			damageText = fmt.Sprintf("%s=%d→%dHP [%s]", diceStr, action.DamageRoll, action.HPDamage, action.Threshold)
+		}
+
+		// Format result
+		resultText := action.Result
+		if action.Target != "" && action.TargetHPAfter >= 0 {
+			resultText = fmt.Sprintf("%s (HP:%d)", action.Result, action.TargetHPAfter)
+		}
+
+		targetText := action.Target
+		if targetText == "" {
+			targetText = "-"
+		}
+
+		// Format Hope/Fear pools
+		poolsText := fmt.Sprintf("H:%d F:%d", action.HopePoolAfter, action.FearPoolAfter)
+		if action.HopeGenerated > 0 {
+			poolsText = fmt.Sprintf("H:%d(+%d) F:%d", action.HopePoolAfter, action.HopeGenerated, action.FearPoolAfter)
+		} else if action.FearGenerated > 0 {
+			poolsText = fmt.Sprintf("H:%d F:%d(+%d)", action.HopePoolAfter, action.FearPoolAfter, action.FearGenerated)
+		}
+
+		rows = append(rows, app.Div().Class("log-row").Body(
+			app.Span().Class("log-col-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
+			app.Span().Class("log-col-actor").Text(action.Actor),
+			app.Span().Class("log-col-action").Text(action.ActionType.String()),
+			app.Span().Class("log-col-target").Text(targetText),
+			app.Span().Class("log-col-dice").Text(diceRoll),
+			app.Span().Class("log-col-damage").Text(damageText),
+			app.Span().Class("log-col-result").Text(resultText),
+			app.Span().Class("log-col-pools").Text(poolsText),
+		))
 	}
 
 	return app.Div().
@@ -179,10 +281,12 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 		Body(
 			app.Div().
 				Class("log-info").
-				Text(fmt.Sprintf("Showing run #1 of %d (%d actions, %d turns)",
-					rs.Result.TotalRuns, len(outcome.ActionHistory), outcome.Turns)),
+				Body(
+					app.Span().Text(fmt.Sprintf("%d actions, %d turns - ", len(outcome.ActionHistory), outcome.Turns)),
+					app.Span().Class(outcomeClass).Text(outcomeText),
+				),
 			app.Div().
-				Class("log-entries").
-				Body(logEntries...),
+				Class("log-table").
+				Body(rows...),
 		)
 }

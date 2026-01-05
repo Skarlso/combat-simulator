@@ -22,14 +22,28 @@ type CombatState struct {
 
 // ActionRecord logs what happened during combat
 type ActionRecord struct {
-	Round      int
-	Turn       int
-	Actor      string
-	ActionType ActionType
-	Target     string
-	Ability    string
-	Result     string
-	Damage     int
+	Round          int
+	Turn           int
+	Actor          string
+	ActionType     ActionType
+	Target         string
+	Ability        string
+	Result         string
+	DamageRoll     int    // Raw damage rolled (total)
+	DamageDice     []int  // Individual dice values
+	DamageBonus    int    // Flat bonus
+	HPDamage       int    // Actual HP damage dealt (1/2/3)
+	Threshold      string // "Minor", "Major", "Severe"
+	TargetHPAfter  int    // Target's HP after this action
+	HopeDie        int    // Hope die result (d12)
+	FearDie        int    // Fear die result (d12)
+	TotalRoll      int    // Hope + Fear + modifiers
+	TargetDefense  int    // Defense value to beat
+	SpotlightShift bool   // Did spotlight change hands?
+	HopeGenerated  int    // Hope tokens generated this action
+	FearGenerated  int    // Fear tokens generated this action
+	HopePoolAfter  int    // Hope pool after this action
+	FearPoolAfter  int    // Fear pool after this action
 }
 
 // NewCombatState initializes combat
@@ -147,18 +161,42 @@ func (cs *CombatState) SpendFear(amount int) bool {
 }
 
 // RecordAction logs an action taken during combat
-func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, ability *Ability, result string, damage int) {
+func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, ability *Ability, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
 	record := ActionRecord{
-		Round:      cs.RoundNumber,
-		Turn:       cs.TurnNumber,
-		Actor:      actor.Name,
-		ActionType: actionType,
-		Result:     result,
-		Damage:     damage,
+		Round:          cs.RoundNumber,
+		Turn:           cs.TurnNumber,
+		Actor:          actor.Name,
+		ActionType:     actionType,
+		Result:         result,
+		DamageRoll:     damageRoll,
+		DamageDice:     damageDice,
+		DamageBonus:    damageBonus,
+		HPDamage:       hpDamage,
+		HopeDie:        hopeDie,
+		FearDie:        fearDie,
+		TotalRoll:      totalRoll,
+		TargetDefense:  targetDefense,
+		SpotlightShift: spotlightShift,
+		HopeGenerated:  hopeGenerated,
+		FearGenerated:  fearGenerated,
+		HopePoolAfter:  cs.HopePool,
+		FearPoolAfter:  cs.FearPool,
+	}
+
+	// Convert threshold to string
+	switch threshold {
+	case ThresholdMinor:
+		record.Threshold = "Minor"
+	case ThresholdMajor:
+		record.Threshold = "Major"
+	case ThresholdSevere:
+		record.Threshold = "Severe"
 	}
 
 	if target != nil {
 		record.Target = target.Name
+		record.TargetHPAfter = target.HP
+		record.TargetDefense = target.GetDefense()
 	}
 
 	if ability != nil {

@@ -27,6 +27,7 @@ type AdversaryList struct {
 	newStress          int
 	newMinorThreshold  int
 	newMajorThreshold  int
+	newDamageDice      string
 	newMotives         string
 	newTactics         string
 	newAbilities       []*models.Ability
@@ -237,6 +238,18 @@ func (al *AdversaryList) renderAddForm() app.UI {
 			app.Div().
 				Class("form-group").
 				Body(
+					app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
+					app.Input().
+						Type("text").
+						Value(al.newDamageDice).
+						Placeholder("e.g., 2d6+4 or 1d8+1d4+2").
+						OnInput(func(ctx app.Context, e app.Event) {
+							al.newDamageDice = ctx.JSSrc().Get("value").String()
+						}),
+				),
+			app.Div().
+				Class("form-group").
+				Body(
 					app.Label().Text("Motives & Tactics:"),
 					app.Textarea().
 						Text(al.newMotives).
@@ -297,6 +310,7 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 		al.newStress,
 		[]int{al.newMinorThreshold, al.newMajorThreshold},
 	)
+	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newTactics
 	adversary.Abilities = al.newAbilities
@@ -319,6 +333,7 @@ func (al *AdversaryList) resetForm() {
 	al.newATK = 2
 	al.newHP = 7
 	al.newStress = 5
+	al.newDamageDice = "1d8"
 	al.newMinorThreshold = 8
 	al.newMajorThreshold = 16
 	al.newMotives = ""
