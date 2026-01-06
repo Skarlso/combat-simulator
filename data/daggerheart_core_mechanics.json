@@ -1,0 +1,465 @@
+{
+  "daggerheart_core_mechanics": {
+    "game_flow": {
+      "core_loop": [
+        {
+          "step": 1,
+          "name": "Set the Scene",
+          "description": "GM describes scenario, establishing surroundings, dangers, NPCs, and important details"
+        },
+        {
+          "step": 2,
+          "name": "Ask and Answer Questions",
+          "description": "Players ask clarifying questions, GM responds with info or asks questions back. Build fiction collaboratively."
+        },
+        {
+          "step": 3,
+          "name": "Build on the Fiction",
+          "description": "Players describe actions. Auto-succeed if no failure chance or failure would be boring. Otherwise GM calls for action roll. Work outcome into story."
+        },
+        {
+          "step": 4,
+          "name": "Repeat",
+          "description": "GM relays updated details. Continue until scene ends mechanically or organically."
+        }
+      ],
+      "spotlight": {
+        "description": "Symbol representing table's attention and immediate narrative/mechanical focus",
+        "movement": "Moves organically or via mechanical trigger (e.g., failed roll triggers GM move)"
+      },
+      "turn_order": {
+        "description": "No rigid initiative. No set action count. Player describes action, spotlight swings to:",
+        "priorities": [
+          "Who fiction naturally turns toward",
+          "Who hasn't had focus recently",
+          "Who a triggered mechanic puts it on"
+        ],
+        "optional_tracker": {
+          "name": "Spotlight Tracker Tool",
+          "mechanics": "Each player starts with 3 tokens, removes one per action. When out, spotlight goes elsewhere. Refill when all players exhausted."
+        }
+      }
+    },
+    "action_rolls": {
+      "overview": {
+        "trigger": "Required when move is difficult or risky. Auto-succeed if trivial or failure would be boring.",
+        "dice": "Duality Dice: 2 visually distinct d12s (Hope die and Fear die)",
+        "procedure": "Roll, sum results, apply modifiers, compare to Difficulty"
+      },
+      "outcomes": {
+        "success_with_hope": {
+          "condition": "Total >= Difficulty AND Hope Die > Fear Die",
+          "result": "Succeed and gain a Hope"
+        },
+        "success_with_fear": {
+          "condition": "Total >= Difficulty AND Fear Die > Hope Die",
+          "result": "Succeed with cost/complication, GM gains a Fear"
+        },
+        "failure_with_hope": {
+          "condition": "Total < Difficulty AND Hope Die > Fear Die",
+          "result": "Fail with minor consequence, gain a Hope, spotlight swings to GM"
+        },
+        "failure_with_fear": {
+          "condition": "Total < Difficulty AND Fear Die > Hope Die",
+          "result": "Fail with major consequence, GM gains a Fear, spotlight swings to GM"
+        },
+        "critical_success": {
+          "condition": "Duality Dice show matching results",
+          "result": "Auto-succeed with bonus, gain a Hope, clear a Stress. If attack: deal critical damage",
+          "note": "Counts as roll 'with Hope'"
+        }
+      },
+      "failing_forward": {
+        "principle": "Every roll changes the scene. No 'nothing happens' results. Fiction constantly evolves."
+      },
+      "procedure_steps": [
+        {
+          "step": 1,
+          "name": "Pick Appropriate Trait",
+          "description": "Some actions specify trait. Otherwise GM tells player which trait applies."
+        },
+        {
+          "step": 2,
+          "name": "Determine Difficulty",
+          "description": "Some actions specify Difficulty. Otherwise GM determines based on scenario. GM may or may not share Difficulty but should communicate potential failure consequences."
+        },
+        {
+          "step": 3,
+          "name": "Apply Extra Dice and Modifiers",
+          "description": "Player decides to Utilize Experience or activate effects. Add tokens/dice (advantage, Rally) to pool. Must declare before rolling."
+        },
+        {
+          "step": 4,
+          "name": "Roll the Dice",
+          "description": "Roll entire pool, announce as '[total] with [Hope/Fear]' or 'Critical Success!'"
+        },
+        {
+          "step": 5,
+          "name": "Resolve Outcome",
+          "description": "Player and GM work together with table to resolve action outcome"
+        }
+      ]
+    },
+    "special_rolls": {
+      "trait_rolls": {
+        "description": "Action roll specifying which character trait applies",
+        "format": "[Trait] Roll (Difficulty), e.g., 'Agility Roll (12)'",
+        "note": "Features affecting trait rolls also affect standard action rolls, attack rolls, and Spellcast rolls using that trait"
+      },
+      "spellcast_rolls": {
+        "description": "Trait rolls using Spellcast trait (determined by subclass)",
+        "when_made": "Only when feature requires one",
+        "note_damage": "Spellcast Roll that can damage is also an attack roll",
+        "spell_duration": {
+          "ending": "Text specifies when effect ends, or GM spends Fear to end temporary effect, or caster chooses, or natural story moment",
+          "multiple": "Can cast and maintain multiple spells simultaneously"
+        }
+      },
+      "reaction_rolls": {
+        "description": "Made in response to attack/hazard. Attempt to avoid/withstand imminent effect",
+        "differences_from_action_rolls": [
+          "Don't generate Hope or Fear",
+          "Don't trigger additional GM moves",
+          "Other characters can't Help an Ally"
+        ],
+        "critical_success": "Don't clear Stress or gain Hope, but ignore any success effects (damage, marking Stress)"
+      },
+      "group_action_rolls": {
+        "description": "Multiple PCs acting together",
+        "procedure": [
+          "Party chooses one PC to lead",
+          "Others describe how they collaborate",
+          "Leader makes action roll",
+          "Others make reaction rolls using appropriate traits",
+          "Leader gains +1 per successful reaction roll, -1 per failed reaction roll"
+        ]
+      },
+      "tag_team_rolls": {
+        "cost": "3 Hope",
+        "limit": "Once per session per player (but can participate in multiple)",
+        "procedure": [
+          "Players describe combined action",
+          "Both make separate action rolls",
+          "Choose one roll to apply to both actions",
+          "On roll with Hope: all involved gain Hope",
+          "On roll with Fear: GM gains Fear per PC involved"
+        ],
+        "attack_damage": "Both roll damage, add totals together, treat as single source. Choose damage type if different.",
+        "note": "Counts as single action roll for countdown/tracking purposes"
+      },
+      "advantage_and_disadvantage": {
+        "advantage": {
+          "description": "Seize opportunity to increase success chance",
+          "mechanics": "Roll d6 advantage die, add to total"
+        },
+        "disadvantage": {
+          "description": "Additional difficulty/hardship/challenge",
+          "mechanics": "Roll d6 disadvantage die, subtract from total"
+        },
+        "stacking": "Cancel one-for-one. Never roll both simultaneously. External sources (like Help an Ally) stack with rolled results."
+      }
+    },
+    "hope_and_fear": {
+      "hope": {
+        "description": "Metacurrency powering PC abilities",
+        "starting": 2,
+        "maximum": 6,
+        "carries_over": true,
+        "uses": [
+          {
+            "name": "Help an Ally",
+            "cost": 1,
+            "effect": "Describe how you help, roll advantage die. Multiple can help, only highest result added."
+          },
+          {
+            "name": "Utilize an Experience",
+            "cost": 1,
+            "effect": "Add Experience modifier to roll. Can spend multiple Hope for multiple Experiences."
+          },
+          {
+            "name": "Initiate Tag Team Roll",
+            "cost": 3,
+            "effect": "Combine two PC actions. Both roll, choose which results apply."
+          },
+          {
+            "name": "Activate Hope Feature",
+            "cost": "Varies (class features cost 3)",
+            "effect": "Use specified Hope-powered ability",
+            "note": "Hope gained from roll 'with Hope' can be spent on that feature immediately"
+          }
+        ]
+      },
+      "fear": {
+        "description": "Metacurrency powering GM and adversary abilities",
+        "maximum": 12,
+        "carries_over": true,
+        "gain": "Whenever player rolls with Fear",
+        "uses": "Make/enhance GM moves, use Fear Features"
+      }
+    },
+    "combat": {
+      "evasion": {
+        "description": "Character's ability to avoid attacks and unwanted effects",
+        "mechanics": "Rolls against PC use target's Evasion as Difficulty. Base determined by class, modified by cards/equipment/conditions.",
+        "note": "Attacks against adversaries use target's Difficulty instead"
+      },
+      "hit_points_and_damage": {
+        "hit_points": {
+          "description": "Ability to withstand physical injury",
+          "starting": "Based on class",
+          "maximum": 12,
+          "when_last_marked": "Character falls. PC makes death move."
+        },
+        "damage_thresholds": {
+          "severe": "Mark 3 HP",
+          "major": "Mark 2 HP (at or above Major, below Severe)",
+          "minor": "Mark 1 HP (below Major)",
+          "none": "No HP marked if damage reduced to 0 or less"
+        },
+        "threshold_calculation": {
+          "pc": "Level + equipped armor's damage thresholds",
+          "adversary": "Listed in stat block"
+        },
+        "optional_massive_damage": "If damage >= 2x Severe threshold, mark 4 HP instead of 3",
+        "clearing": "Downtime moves or special abilities"
+      },
+      "stress": {
+        "description": "Mental, physical, emotional strain character can endure",
+        "starting": 6,
+        "maximum": 12,
+        "marking_reasons": [
+          "Activating special abilities",
+          "GM move",
+          "Cost/complication/consequence of action roll"
+        ],
+        "when_last_marked": "Become Vulnerable until at least 1 cleared",
+        "overflow": "When must mark but can't, mark 1 HP instead",
+        "restriction": "Can't use move requiring Stress if all marked",
+        "clearing": "Downtime moves"
+      },
+      "attacking": {
+        "attack_rolls": {
+          "description": "Action roll intended to inflict harm",
+          "trait": "Specified by weapon/spell. Unarmed uses Strength or Finesse (GM choice)",
+          "difficulty": "Target's Difficulty (adversaries) or Evasion (PCs)"
+        },
+        "damage_rolls": {
+          "format": "xdy+[modifier], e.g., 1d8+2",
+          "spellcast_damage": "Roll dice equal to Spellcast trait. If +0 or lower, roll nothing.",
+          "weapon_damage": "Dice count = Proficiency. Proficiency multiplies dice, not modifier. E.g., Proficiency 2 with d8+2 weapon deals 2d8+2.",
+          "unarmed_damage": "[Proficiency]d4"
+        },
+        "critical_damage": {
+          "trigger": "Critical success (matching Duality Dice) on attack roll",
+          "calculation": "Roll damage normally, then add maximum possible dice result to total. E.g., 2d8+1 becomes 2d8+1+16"
+        },
+        "damage_types": {
+          "physical": "From mundane weapons and unarmed attacks (unless stated otherwise)",
+          "magic": "From spells (unless stated otherwise)"
+        },
+        "resistance_immunity": {
+          "resistance": "Reduce incoming damage of that type by half before comparing to thresholds. Apply resistance before other reductions. Multiple resistances to same type don't stack.",
+          "immunity": "Ignore incoming damage of that type",
+          "mixed_damage": "Only benefit from resistance/immunity if resistant/immune to BOTH types",
+          "direct_damage": "Can't be reduced by marking Armor Slots"
+        },
+        "multi_target_attacks": "Make one attack roll, one damage roll. Apply results to each target individually.",
+        "multiple_damage_sources": "Damage from simultaneous sources totaled before comparing to thresholds"
+      }
+    },
+    "maps_and_movement": {
+      "ranges": {
+        "melee": {
+          "description": "Close enough to touch, up to a few feet away",
+          "map": "N/A"
+        },
+        "very_close": {
+          "description": "Close enough to see fine details, about 5-10 feet",
+          "movement": "Can move from Very Close to Melee as part of action while in danger",
+          "map": "Within shortest length of game card (2-3 inches)"
+        },
+        "close": {
+          "description": "Close enough to see prominent details, about 10-30 feet",
+          "movement": "Can move from Close to Melee as part of action while in danger",
+          "map": "Within length of pencil (5-6 inches)"
+        },
+        "far": {
+          "description": "Close enough to see very little detail, about 30-100 feet",
+          "movement": "Must make Agility Roll to safely move from Far to Melee while in danger",
+          "map": "Within length of copy paper long edge (11-12 inches)"
+        },
+        "very_far": {
+          "description": "Too far to make out details, about 100-300 feet",
+          "movement": "Must make Agility Roll to safely move from Very Far to Melee while in danger",
+          "map": "Beyond Far range but within conflict/scene bounds"
+        },
+        "out_of_range": {
+          "description": "Anything beyond Very Far range",
+          "targeting": "Usually can't be targeted"
+        }
+      },
+      "range_mechanics": {
+        "measurement": "From source (attacker/spellcaster) to target",
+        "maximum": "Stated range is maximum, can use at closer distances unless noted"
+      },
+      "optional_defined_ranges": {
+        "note": "Use 1-inch grid battle map",
+        "melee": "1 square",
+        "very_close": "3 squares",
+        "close": "6 squares",
+        "far": "12 squares",
+        "very_far": "13+ squares",
+        "out_of_range": "Off battlemap"
+      },
+      "movement_under_pressure": {
+        "with_action_roll": "Can move to location within Close range as part of action",
+        "without_action_or_farther": "Need successful Agility Roll to safely reposition",
+        "adversary": "Move within Close range free as part of action, or within Very Far as separate action"
+      },
+      "area_of_effect": {
+        "default": "All targets within Very Close range of single origin point within effect's range"
+      },
+      "line_of_sight_and_cover": {
+        "line_of_sight": "Ranged attacker must have LoS to target unless stated otherwise",
+        "cover": {
+          "partial_obstruction": "Target has cover. Attacks through cover have disadvantage.",
+          "total_obstruction": "No line of sight"
+        }
+      }
+    },
+    "conditions": {
+      "standard": {
+        "hidden": {
+          "requirements": "Out of sight from all enemies AND they don't know location",
+          "effect": "Rolls against Hidden creature have disadvantage",
+          "ends": "Adversary moves to see you, you move into LoS, or you attack"
+        },
+        "restrained": {
+          "effect": "Can't move but can take actions from current position"
+        },
+        "vulnerable": {
+          "effect": "All rolls targeting creature have advantage"
+        }
+      },
+      "special_and_temporary": {
+        "temporary": {
+          "description": "Denotes condition creature can clear by making move against it",
+          "clearing_pc": "Successful action roll using appropriate trait",
+          "clearing_adversary": "GM spotlights adversary, describes how they clear it. No roll needed but uses spotlight."
+        },
+        "special": {
+          "description": "Only cleared when specific requirements met",
+          "requirements": "Stated in effect text that applies condition"
+        }
+      },
+      "stacking": "Unless noted, same condition can't be applied more than once to same target"
+    },
+    "downtime": {
+      "rest_types": {
+        "short_rest": {
+          "duration": "About 1 hour in-world",
+          "limit": "If take 3 short rests in row, next must be long rest",
+          "interruption": "If interrupted, don't gain benefits",
+          "moves": "Choose 2 downtime moves (can repeat)",
+          "moves_list": [
+            {
+              "name": "Tend to Wounds",
+              "effect": "Clear 1d4+Tier HP for self or ally"
+            },
+            {
+              "name": "Clear Stress",
+              "effect": "Clear 1d4+Tier Stress"
+            },
+            {
+              "name": "Repair Armor",
+              "effect": "Clear 1d4+Tier Armor Slots from self or ally's armor"
+            },
+            {
+              "name": "Prepare",
+              "effect": "Describe preparation, gain Hope. If with 1+ party members, each gains 2 Hope."
+            }
+          ],
+          "end_effects": [
+            "Features with per-rest uses refresh",
+            "Effects lasting 'until next rest' expire",
+            "Can move domain cards between loadout and vault for free"
+          ],
+          "gm_consequence": "GM gains 1d4 Fear"
+        },
+        "long_rest": {
+          "duration": "Several in-game hours (camp, sleep)",
+          "interruption": "If interrupted, only gain short rest benefits",
+          "moves": "Choose 2 downtime moves (can repeat)",
+          "moves_list": [
+            {
+              "name": "Tend to All Wounds",
+              "effect": "Clear all HP for self or ally"
+            },
+            {
+              "name": "Clear All Stress",
+              "effect": "Clear all Stress"
+            },
+            {
+              "name": "Repair All Armor",
+              "effect": "Clear all Armor Slots from self or ally's armor"
+            },
+            {
+              "name": "Prepare",
+              "effect": "Describe preparation, gain Hope. If with 1+ party members, each gains 2 Hope."
+            },
+            {
+              "name": "Work on a Project",
+              "effect": "With GM approval, pursue long-term project. Assign countdown on first start. Either advance automatically or make action roll (GM choice)."
+            }
+          ],
+          "end_effects": [
+            "Features with per-rest or per-long-rest uses refresh",
+            "Effects lasting 'until next rest' or 'until next long rest' expire",
+            "Can move domain cards between loadout and vault for free"
+          ],
+          "gm_consequence": "GM gains 1d4 + number of PCs Fear and can advance long-term countdown"
+        }
+      }
+    },
+    "gm_mechanics": {
+      "gm_moves": {
+        "trigger_when_pc": [
+          "Rolls with Fear on action roll",
+          "Fails action roll",
+          "Does something with consequences",
+          "Gives golden opportunity",
+          "Looks to GM for what happens next"
+        ],
+        "after_gm_turn": "Spotlight returns to PCs"
+      },
+      "fear_features": {
+        "description": "Especially powerful/consequential moves GM must spend Fear to activate",
+        "note": "Fear cost is in addition to Fear spent to seize spotlight or activate other actions"
+      },
+      "adversary_actions": {
+        "when_spotlighted_can": [
+          "Move within Close range and make standard attack",
+          "Move within Close range and use adversary action",
+          "Clear a condition",
+          "Sprint within Far or Very Far range on battlefield",
+          "Do anything else fiction demands or GM deems appropriate"
+        ],
+        "additional_spotlights": "GM can spend additional Fear to spotlight more adversaries"
+      }
+    },
+    "player_principles": [
+      "Be a fan of your character and their journey",
+      "Spotlight your friends",
+      "Address the characters and address the players",
+      "Build the world together",
+      "Play to find out what happens",
+      "Hold on gently"
+    ],
+    "player_best_practices": [
+      "Embrace danger",
+      "Use your resources",
+      "Tell the story",
+      "Discover your character"
+    ]
+  }
+}

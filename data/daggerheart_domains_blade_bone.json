@@ -1,0 +1,308 @@
+{
+  "domains": [
+    {
+      "domain": "Blade",
+      "cards": [
+        {
+          "name": "Get Back Up",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you take Severe damage, you can mark a Stress to reduce the severity by one threshold."
+        },
+        {
+          "name": "Not Good Enough",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you roll your damage dice, you can reroll any 1s or 2s."
+        },
+        {
+          "name": "Whirlwind",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "When you make a successful attack against a target within Very Close range, you can spend a Hope to use the attack against all other targets within Very Close range. All additional adversaries you succeed against with this ability take half damage."
+        },
+        {
+          "name": "A Soldier's Bond",
+          "level": 2,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Once per long rest, when you compliment someone or ask them about something they're good at, you can both gain 3 Hope."
+        },
+        {
+          "name": "Reckless",
+          "level": 2,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Mark a Stress to gain advantage on an attack."
+        },
+        {
+          "name": "Scramble",
+          "level": 3,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Once per rest, when a creature within Melee range would deal damage to you, you can avoid the attack and safely move out of Melee range of the enemy."
+        },
+        {
+          "name": "Versatile Fighter",
+          "level": 3,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "You can use a different character trait for an equipped weapon, rather than the trait the weapon calls for. When you deal damage, you can mark a Stress to use the maximum result of one of your damage dice instead of rolling it."
+        },
+        {
+          "name": "Deadly Focus",
+          "level": 4,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "Once per rest, you can apply all your focus toward a target of your choice. Until you attack another creature, you defeat the target, or the battle ends, gain a +1 bonus to your Proficiency."
+        },
+        {
+          "name": "Fortified Armor",
+          "level": 4,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "While you are wearing armor, gain a +2 bonus to your damage thresholds."
+        },
+        {
+          "name": "Champion's Edge",
+          "level": 5,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you critically succeed on an attack, you can spend up to 3 Hope and choose one of the following options for each Hope spent: You clear a Hit Point. You clear an Armor Slot. The target must mark an additional Hit Point. You can't choose the same option more than once."
+        },
+        {
+          "name": "Vitality",
+          "level": 5,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "When you choose this card, permanently gain two of the following benefits: One Stress slot. One Hit Point slot. +2 bonus to your damage thresholds. Then place this card in your vault permanently."
+        },
+        {
+          "name": "Battle-Hardened",
+          "level": 6,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "Once per long rest when you would make a Death Move, you can spend a Hope to clear a Hit Point instead."
+        },
+        {
+          "name": "Rage Up",
+          "level": 6,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Before you make an attack, you can mark a Stress to gain a bonus to your damage roll equal to twice your Strength. You can Rage Up twice per attack."
+        },
+        {
+          "name": "Blade-Touched",
+          "level": 7,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When 4 or more of the domain cards in your loadout are from the Blade domain, gain the following benefits: +2 bonus to your attack rolls. +4 bonus to your Severe damage threshold."
+        },
+        {
+          "name": "Glancing Blow",
+          "level": 7,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you fail an attack, you can mark a Stress to deal weapon damage using half your Proficiency."
+        },
+        {
+          "name": "Battle Cry",
+          "level": 8,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "Once per long rest, while you're charging into danger, you can muster a rousing call that inspires your allies. All allies who can hear you each clear a Stress and gain a Hope. Additionally, your allies gain advantage on attack rolls until you or an ally rolls a failure with Fear."
+        },
+        {
+          "name": "Frenzy",
+          "level": 8,
+          "type": "Ability",
+          "recall_cost": 3,
+          "description": "Once per long rest, you can go into a Frenzy until there are no more adversaries within sight. While Frenzied, you can't use Armor Slots, and you gain a +10 bonus to your damage rolls and a +8 bonus to your Severe damage threshold."
+        },
+        {
+          "name": "Gore and Glory",
+          "level": 9,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "When you critically succeed on a weapon attack, gain an additional Hope or clear an additional Stress. Additionally, when you deal enough damage to defeat an enemy, gain a Hope or clear a Stress."
+        },
+        {
+          "name": "Reaper's Strike",
+          "level": 9,
+          "type": "Ability",
+          "recall_cost": 3,
+          "description": "Once per long rest, spend a Hope to make an attack roll. The GM tells you which targets within range it would succeed against. Choose one of these targets and force them to mark 5 Hit Points."
+        },
+        {
+          "name": "Battle Monster",
+          "level": 10,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "When you make a successful attack against an adversary, you can mark 4 Stress to force the target to mark a number of Hit Points equal to the number of Hit Points you currently have marked instead of rolling for damage."
+        },
+        {
+          "name": "Onslaught",
+          "level": 10,
+          "type": "Ability",
+          "recall_cost": 3,
+          "description": "When you successfully make an attack with your weapon, you never deal damage beneath a target's Major damage threshold (the target always marks a minimum of 2 Hit Points). Additionally, when a creature within your weapon's range deals damage to an ally with an attack that doesn't include you, you can mark a Stress to force them to make a Reaction Roll (15). On a failure, the target must mark a Hit Point."
+        }
+      ]
+    },
+    {
+      "domain": "Bone",
+      "cards": [
+        {
+          "name": "Deft Maneuvers",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "Once per rest, mark a Stress to sprint anywhere within Far range without making an Agility Roll to get there. If you end this movement within Melee range of an adversary and immediately make an attack against them, gain a +1 bonus to the attack roll."
+        },
+        {
+          "name": "I See It Coming",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you're targeted by an attack made from beyond Melee range, you can mark a Stress to roll a d4 and gain a bonus to your Evasion equal to the result against the attack."
+        },
+        {
+          "name": "Untouchable",
+          "level": 1,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Gain a bonus to your Evasion equal to half your Agility."
+        },
+        {
+          "name": "Ferocity",
+          "level": 2,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "When you cause an adversary to mark 1 or more Hit Points, you can spend 2 Hope to increase your Evasion by the number of Hit Points they marked. This bonus lasts until after the next attack made against you."
+        },
+        {
+          "name": "Strategic Approach",
+          "level": 2,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "After a long rest, place a number of tokens equal to your Knowledge on this card (minimum 1). The first time you move within Close range of an adversary and make an attack against them, you can spend one token to choose one of the following options: You make the attack with advantage. You clear a Stress on an ally within Melee range of the adversary. You add a d8 to your damage roll. When you take a long rest, clear all unspent tokens."
+        },
+        {
+          "name": "Brace",
+          "level": 3,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you mark an Armor Slot to reduce incoming damage, you can mark a Stress to mark an additional Armor Slot."
+        },
+        {
+          "name": "Tactician",
+          "level": 3,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you Help an Ally, they can spend a Hope to add one of your Experiences to their roll alongside your advantage die. When making a Tag Team Roll, you can roll a d20 as your Hope Die."
+        },
+        {
+          "name": "Boost",
+          "level": 4,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Mark a Stress to boost off a willing ally within Close range, fling yourself into the air, and perform an aerial attack against a target within Far range. You have advantage on the attack, add a d10 to the damage roll, and end your move within Melee range of the target."
+        },
+        {
+          "name": "Redirect",
+          "level": 4,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When an attack made against you from beyond Melee range fails, roll a number of d6s equal to your Proficiency. If any roll a 6, you can mark a Stress to redirect the attack to damage an adversary within Very Close range instead."
+        },
+        {
+          "name": "Know Thy Enemy",
+          "level": 5,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When observing a creature, you can make an Instinct Roll against them. On a success, spend a Hope and ask the GM for one set of information about the target from the following options: Their unmarked Hit Points and Stress. Their Difficulty and damage thresholds. Their tactics and standard attack damage dice. Their features and Experiences. Additionally on a success, you can mark a Stress to remove a Fear from the GM's Fear Pool."
+        },
+        {
+          "name": "Signature Move",
+          "level": 5,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Name and describe your signature combat move. Once per rest, when you perform this signature move as part of an action you're taking, you can roll a d20 as your Hope Die. On a success, clear a Stress."
+        },
+        {
+          "name": "Rapid Riposte",
+          "level": 6,
+          "type": "Ability",
+          "recall_cost": 0,
+          "description": "When an attack made against you from within Melee range fails, you can mark a Stress and seize the opportunity to deal the weapon damage of one of your active weapons to the attacker."
+        },
+        {
+          "name": "Recovery",
+          "level": 6,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "During a short rest, you can choose a long rest downtime move instead. You can spend a Hope to let an ally do the same."
+        },
+        {
+          "name": "Bone-Touched",
+          "level": 7,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "When 4 or more of the domain cards in your loadout are from the Bone domain, gain the following benefits: +1 bonus to Agility. Once per rest, you can spend 3 Hope to cause an attack that succeeded against you to fail instead."
+        },
+        {
+          "name": "Cruel Precision",
+          "level": 7,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you make a successful attack with a weapon, gain a bonus to your damage roll equal to either your Finesse or Agility."
+        },
+        {
+          "name": "Breaking Blow",
+          "level": 8,
+          "type": "Ability",
+          "recall_cost": 3,
+          "description": "When you make a successful attack, you can mark a Stress to make the next successful attack against that same target deal an extra 2d12 damage."
+        },
+        {
+          "name": "Wrangle",
+          "level": 8,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Make an Agility Roll against all targets within Close range. Spend a Hope to move targets you succeed against, and any willing allies within Close range, to another point within Close range."
+        },
+        {
+          "name": "On the Brink",
+          "level": 9,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "When you have 2 or fewer Hit Points unmarked, you don't take Minor damage."
+        },
+        {
+          "name": "Splintering Strike",
+          "level": 9,
+          "type": "Ability",
+          "recall_cost": 3,
+          "description": "Spend a Hope and make an attack against all adversaries within your weapon's range. Once per long rest, on a success against any targets, roll your weapon's damage and distribute that damage however you wish between the targets you succeeded against. Before you deal damage to each target, roll an additional damage die and add its result to the damage you deal to them."
+        },
+        {
+          "name": "Deathrun",
+          "level": 10,
+          "type": "Ability",
+          "recall_cost": 1,
+          "description": "Spend 3 Hope to run a straight path through the battlefield to a point within Far range, making an attack against all adversaries within your weapon's range along that path. Choose the order in which you deal damage to the targets you succeeded against. For the first, roll your weapon damage with a +1 bonus to your Proficiency. Then remove a die from your damage roll and deal the remaining damage to the next target. Continue to remove a die for each subsequent target until you have no more damage dice or adversaries. You can't target the same adversary more than once per attack."
+        },
+        {
+          "name": "Swift Step",
+          "level": 10,
+          "type": "Ability",
+          "recall_cost": 2,
+          "description": "When an attack made against you fails, clear a Stress. If you can't clear a Stress, gain a Hope."
+        }
+      ]
+    }
+  ]
+}
