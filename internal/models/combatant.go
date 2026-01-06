@@ -13,6 +13,7 @@ type Combatant struct {
 	Side Side
 
 	// Player-specific stats
+	Level       int // PC level for threshold calculation
 	Evasion     int
 	Proficiency int // Used for damage thresholds
 
@@ -64,12 +65,13 @@ type Resistance struct {
 }
 
 // NewCombatant creates a player combatant with basic stats
-func NewCombatant(id, name string, side Side, evasion, proficiency, hpMax, stressMax int) *Combatant {
+func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax, stressMax int) *Combatant {
 	return &Combatant{
 		ID:              id,
 		Name:            name,
 		Side:            side,
 		IsAdversary:     false,
+		Level:           level,
 		Evasion:         evasion,
 		Proficiency:     proficiency,
 		HP:              hpMax,
@@ -178,6 +180,16 @@ func (c *Combatant) Heal(amount int) {
 
 // AddStress increases stress level
 func (c *Combatant) AddStress(amount int) {
+	if c.Stress >= c.StressMax {
+		// Stress overflow: mark HP instead
+		c.HP--
+		if c.HP <= 0 {
+			c.HP = 0
+			c.IsDefeated = true
+		}
+		return
+	}
+
 	c.Stress += amount
 	if c.Stress >= c.StressMax {
 		c.Stress = c.StressMax

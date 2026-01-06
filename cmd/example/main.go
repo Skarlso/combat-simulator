@@ -14,16 +14,16 @@ func main() {
 	fmt.Println()
 
 	// Create player characters
-	rogue := models.NewCombatant("p1", "Grimjaw the Rogue", models.SidePlayer, 12, 2, 6, 6)
+	rogue := models.NewCombatant("p1", "Grimjaw the Rogue", models.SidePlayer, 1, 12, 2, 6, 6)
 	rogue.AddAbility(createSneakAttack())
 
-	fighter := models.NewCombatant("p2", "Thora the Fighter", models.SidePlayer, 11, 2, 8, 6)
+	fighter := models.NewCombatant("p2", "Thora the Fighter", models.SidePlayer, 1, 11, 2, 8, 6)
 	fighter.ArmorSlots = 2
 
-	// Create enemies
-	goblin1 := models.NewCombatant("e1", "Goblin Archer", models.SideEnemy, 10, 1, 4, 4)
-	goblin2 := models.NewCombatant("e2", "Goblin Warrior", models.SideEnemy, 10, 1, 4, 4)
-	goblinBoss := models.NewCombatant("e3", "Goblin Boss", models.SideEnemy, 11, 2, 7, 5)
+	// Create enemies (level 0 for adversaries - doesn't affect their thresholds)
+	goblin1 := models.NewCombatant("e1", "Goblin Archer", models.SideEnemy, 0, 10, 1, 4, 4)
+	goblin2 := models.NewCombatant("e2", "Goblin Warrior", models.SideEnemy, 0, 10, 1, 4, 4)
+	goblinBoss := models.NewCombatant("e3", "Goblin Boss", models.SideEnemy, 0, 11, 2, 7, 5)
 	goblinBoss.AddAbility(createBossRage())
 
 	// Configure simulation

@@ -47,10 +47,10 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 
 		// Check for advantage/disadvantage from conditions
 		if attacker.HasCondition(models.ConditionAdvantage) {
-			hopeModifier += 2
+			hopeModifier += cr.dice.RollD6()
 		}
 		if attacker.HasCondition(models.ConditionDisadvantage) {
-			hopeModifier -= 2
+			hopeModifier -= cr.dice.RollD6()
 		}
 		if attacker.IsFullyStressed {
 			hopeModifier -= 2
@@ -72,6 +72,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 			result.GeneratedHope = true
 			if dualityRoll.IsCritical {
 				state.AddHope(1) // Critical Hope generates extra
+				attacker.ClearStress(1) // Critical success clears a Stress
 			}
 		} else {
 			state.AddFear(1)
@@ -103,6 +104,12 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	// Roll damage with individual dice tracking
 	damageResult := cr.dice.RollDamageDetailed(damageEffect.DiceCount, damageEffect.DiceSize, damageEffect.FlatBonus)
 	damageRoll := damageResult.Total
+
+	// Apply critical damage bonus
+	if result.CriticalResult {
+		maxDiceResult := damageEffect.DiceCount * damageEffect.DiceSize
+		damageRoll += maxDiceResult
+	}
 
 	// Apply vulnerability/resistance from conditions
 	if defender.HasCondition(models.ConditionVulnerable) {

@@ -20,6 +20,7 @@ type CombatantList struct {
 	// Form state for adding new combatant
 	showForm           bool
 	newName            string
+	newLevel           int
 	newEvasion         int
 	newProficiency     int
 	newHP              int
@@ -122,6 +123,17 @@ func (cl *CombatantList) renderAddForm() app.UI {
 					app.Div().
 						Class("form-group").
 						Body(
+							app.Label().Text("Level:"),
+							app.Input().
+								Type("number").
+								Value(cl.newLevel).
+								Min(1).
+								Max(10).
+								OnInput(cl.handleIntInput(&cl.newLevel)),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
 							app.Label().Text("HP Max:"),
 							app.Input().
 								Type("number").
@@ -141,6 +153,10 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Max(20).
 								OnInput(cl.handleIntInput(&cl.newEvasion)),
 						),
+				),
+			app.Div().
+				Class("form-row").
+				Body(
 					app.Div().
 						Class("form-group").
 						Body(
@@ -259,6 +275,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		fmt.Sprintf("%s-%d", cl.Side, len(cl.Combatants)),
 		cl.newName,
 		cl.Side,
+		cl.newLevel,
 		cl.newEvasion,
 		cl.newProficiency,
 		cl.newHP,
@@ -281,6 +298,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 // resetForm resets the form to default values
 func (cl *CombatantList) resetForm() {
 	cl.newName = ""
+	cl.newLevel = 1
 	cl.newEvasion = 10
 	cl.newProficiency = 1
 	cl.newHP = 5

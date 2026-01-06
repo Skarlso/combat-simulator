@@ -12,6 +12,7 @@ type DiceRoller interface {
 	RollD20Attack(modifier int) D20RollResult
 	RollDamage(diceCount, diceSize, flatBonus int) int
 	RollDamageDetailed(diceCount, diceSize, flatBonus int) DamageRollResult
+	RollD6() int
 	RollD12() int
 	RollD20() int
 	RollDice(diceCount, diceSize int) int
@@ -70,21 +71,23 @@ func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) Dualit
 		FearTotal: fearTotal,
 	}
 
-	// Determine winner with Spirit (use highest die)
+	// Check for critical success (matching dice)
+	if hopeDie == fearDie {
+		result.IsCritical = true
+		// Critical success counts as "with Hope"
+		result.Result = models.ResultCriticalHope
+		result.WithSpirit = hopeTotal + fearTotal
+		return result
+	}
+
+	// Sum both dice for total
+	result.WithSpirit = hopeTotal + fearTotal
+
+	// Determine winner (Hope vs Fear)
 	if hopeTotal >= fearTotal {
 		result.Result = models.ResultHope
-		result.WithSpirit = hopeTotal
-		if hopeDie == 12 {
-			result.Result = models.ResultCriticalHope
-			result.IsCritical = true
-		}
 	} else {
 		result.Result = models.ResultFear
-		result.WithSpirit = fearTotal
-		if fearDie == 12 {
-			result.Result = models.ResultCriticalFear
-			result.IsCritical = true
-		}
 	}
 
 	return result
@@ -128,6 +131,11 @@ func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
 		Total:      total,
 		IsCritical: d20 == 20,
 	}
+}
+
+// RollD6 rolls a single d6
+func (dr *StandardDiceRoller) RollD6() int {
+	return dr.rng.Intn(6) + 1
 }
 
 // RollD12 rolls a single d12

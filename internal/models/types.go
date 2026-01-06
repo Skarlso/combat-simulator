@@ -44,8 +44,19 @@ const (
 func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold {
 	thresholds := combatant.CustomThresholds
 	if len(thresholds) == 0 {
-		// Default thresholds: <4=Minor, 4-6=Major, 7+=Severe
-		thresholds = []int{4, 7}
+		// For PCs: base threshold + level
+		// For adversaries: use tier-based default
+		if !combatant.IsAdversary {
+			// PC thresholds scale with level
+			// Base armor thresholds: Minor=3, Major=6
+			// Add level to each threshold
+			minorThreshold := 3 + combatant.Level
+			majorThreshold := 6 + combatant.Level
+			thresholds = []int{minorThreshold, majorThreshold}
+		} else {
+			// Default adversary thresholds: <4=Minor, 4-6=Major, 7+=Severe
+			thresholds = []int{4, 7}
+		}
 	}
 
 	switch {
