@@ -190,8 +190,45 @@ GOARCH=wasm GOOS=js go build -o web/app.wasm cmd/wasm/main.go
 - Core mechanics verified against official rules
 - Combat simulation results are now accurate
 
+## Current Session (2026-01-06 Part 2)
+
+### Feature Quantization System Design
+
+Started designing a system to convert human-readable adversary/player features into quantifiable mechanics:
+
+1. **Problem**: Features in adversary JSON have free-form text descriptions
+   - Example: "Relentless" - "Can be spotlighted up to 3 times per GM turn"
+   - Need to convert this into actionable data for combat simulation
+
+2. **Solution**: Categorize features into mechanical types
+   - Created `TODO.md` with 7 important feature categories
+   - Each category has specific fields (magnitude, condition, cost, etc.)
+   - Ignored positional mechanics (knockback, pull, immobilize) since we don't simulate movement
+
+3. **Important Categories** (marked ⭐):
+   - Action Economy (spotlight modifiers, fear costs)
+   - Damage Modifiers (amplifiers, direct damage, conditional)
+   - Resistance/Weakness (damage reduction/amplification)
+   - Status Application (vulnerable, poison, ignite, taunt, hidden)
+   - Resource Manipulation (stress, HP, armor, hope, fear)
+   - Summoning (dynamic enemy addition - requires special handling)
+   - Special Mechanics (slow, minion, horde, countdown)
+
+4. **Domain Card Analysis Completed**:
+   - Reviewed Arcana and Codex domain cards
+   - Identified key patterns: damage spells, status effects, defensive abilities
+   - Key difference: player abilities are **active choices** with **resource costs** (Hope/Stress)
+   - Added findings to `TODO.md`
+
+5. **Next**: Design unified feature definition format
+
 ## Next Steps
+- ✅ Parse and analyze domain card data (player skills)
+- ⬜ Design unified feature definition format (adversary + player)
+- ⬜ Create user input system for defining quantized features
+- ⬜ Implement feature application in combat engine
+- ⬜ Add dynamic summoning to combat state
+- ⬜ Implement resource cost tracking (Hope/Stress/Fear costs)
 - Additional testing with complex scenarios
-- More abilities and features from domain cards
 - Advanced AI strategies
 - Performance optimization for larger simulations
