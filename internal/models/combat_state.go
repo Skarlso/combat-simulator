@@ -40,6 +40,7 @@ type ActionRecord struct {
 	TotalRoll      int    // Hope + Fear + modifiers
 	TargetDefense  int    // Defense value to beat
 	SpotlightShift bool   // Did spotlight change hands?
+	IsCritical     bool   // Was this a critical success?
 	HopeGenerated  int    // Hope tokens generated this action
 	FearGenerated  int    // Fear tokens generated this action
 	HopePoolAfter  int    // Hope pool after this action
@@ -162,6 +163,9 @@ func (cs *CombatState) SpendFear(amount int) bool {
 
 // RecordAction logs an action taken during combat
 func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, ability *Ability, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+	// Detect critical (matching duality dice)
+	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
+
 	record := ActionRecord{
 		Round:          cs.RoundNumber,
 		Turn:           cs.TurnNumber,
@@ -177,6 +181,7 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 		TotalRoll:      totalRoll,
 		TargetDefense:  targetDefense,
 		SpotlightShift: spotlightShift,
+		IsCritical:     isCritical,
 		HopeGenerated:  hopeGenerated,
 		FearGenerated:  fearGenerated,
 		HopePoolAfter:  cs.HopePool,

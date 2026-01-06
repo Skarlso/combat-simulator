@@ -264,7 +264,13 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 			poolsText = fmt.Sprintf("H:%d F:%d(+%d)", action.HopePoolAfter, action.FearPoolAfter, action.FearGenerated)
 		}
 
-		rows = append(rows, app.Div().Class("log-row").Body(
+		// Add critical class if this was a critical hit
+		rowClass := "log-row"
+		if action.IsCritical {
+			rowClass = "log-row log-row-critical"
+		}
+
+		rows = append(rows, app.Div().Class(rowClass).Body(
 			app.Span().Class("log-col-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
 			app.Span().Class("log-col-actor").Text(action.Actor),
 			app.Span().Class("log-col-action").Text(action.ActionType.String()),

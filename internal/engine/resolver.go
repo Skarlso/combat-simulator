@@ -59,12 +59,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		dualityRoll := cr.dice.RollDuality(hopeModifier, fearModifier)
 		result.DualityResult = dualityRoll
 		result.AttackRoll = dualityRoll.WithSpirit
-
-		// Check if attack hits
-		if dualityRoll.WithSpirit < defender.GetDefense() {
-			result.Hit = false
-			return result
-		}
+		result.CriticalResult = dualityRoll.IsCritical
 
 		// Handle Hope/Fear generation based on duality result
 		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
@@ -82,24 +77,37 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 			}
 		}
 
-		result.CriticalResult = dualityRoll.IsCritical
+		// Critical success = auto-hit regardless of roll vs defense
+		if dualityRoll.IsCritical {
+			result.Hit = true
+		} else {
+			// Normal roll: check if attack hits
+			if dualityRoll.WithSpirit < defender.GetDefense() {
+				result.Hit = false
+				return result
+			}
+			result.Hit = true
+		}
 	} else {
 		// Enemy attack - use d20
 		attackModifier := attacker.GetAttackBonus()
 		d20Roll := cr.dice.RollD20Attack(attackModifier)
 		result.D20Result = d20Roll
 		result.AttackRoll = d20Roll.Total
-
-		// Check if attack hits
-		if d20Roll.Total < defender.GetDefense() {
-			result.Hit = false
-			return result
-		}
-
 		result.CriticalResult = d20Roll.IsCritical
-	}
 
-	result.Hit = true
+		// Natural 20 = auto-hit regardless of total vs defense
+		if d20Roll.IsCritical {
+			result.Hit = true
+		} else {
+			// Normal roll: check if attack hits
+			if d20Roll.Total < defender.GetDefense() {
+				result.Hit = false
+				return result
+			}
+			result.Hit = true
+		}
+	}
 
 	// Roll damage with individual dice tracking
 	damageResult := cr.dice.RollDamageDetailed(damageEffect.DiceCount, damageEffect.DiceSize, damageEffect.FlatBonus)
