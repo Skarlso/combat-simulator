@@ -191,7 +191,8 @@ func (sr *SimulationRunner) cloneCombatants(templates []*models.Combatant) []*mo
 			ArmorSlots:       template.ArmorSlots,
 			DamageDice:       template.DamageDice,
 			SpotlightTokens:  0,
-			Abilities:        template.Abilities, // Shared reference OK (abilities are read-only)
+			AdversaryFeatures: append([]models.AdversaryFeature{}, template.AdversaryFeatures...),
+			DomainAbilities:   append([]models.DomainAbility{}, template.DomainAbilities...),
 			Resistances:      append([]models.Resistance{}, template.Resistances...),
 			Conditions:       make([]*models.ActiveCondition, 0),
 			Experience:       append([]models.ExperienceSkill{}, template.Experience...),
@@ -211,8 +212,8 @@ type UnifiedDecisionMaker struct {
 	enemyStrategy  *strategy.AIDecisionMaker
 }
 
-// ChooseAction selects action based on combatant side
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Action {
+// ChooseAction selects target based on combatant side
+func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Combatant {
 	if actor.Side == models.SidePlayer {
 		return udm.playerStrategy.ChooseAction(state, actor)
 	}

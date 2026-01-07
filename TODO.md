@@ -138,31 +138,33 @@ Domain cards differ from adversary features - they are **active player choices**
 - UI forms for adding features to combatants
 - Working standalone example
 
-### ⚠️ Legacy Removal - PARTIAL
-- Old Ability system partially removed
-- Combat engine broken (does not compile)
-- Needs integration with new feature system
+### ✅ Legacy Removal - COMPLETE
+- Old Ability system fully removed
+- Combat engine refactored (compiles and runs)
+- Basic simulation working (no features yet)
+- Ready for feature system integration
 
 ### 📋 Next Steps
 
-**Priority 1 - Fix Broken Compilation:**
-1. ⬜ Refactor combat_engine.go to remove Ability references
-2. ⬜ Refactor decision_maker.go to use features instead of abilities
-3. ⬜ Update resolver.go attack resolution
-4. ⬜ Integrate FeatureResolver into combat flow
-5. ⬜ Test basic simulation without features first
+**Priority 1 - Fix Broken Compilation:** ✅ COMPLETE
+1. ✅ Refactor combat_engine.go to remove Ability references
+2. ✅ Refactor decision_maker.go to use features instead of abilities
+3. ✅ Update resolver.go attack resolution
+4. ✅ Test basic simulation without features first
 
-**Priority 2 - Feature Integration:**
-6. ⬜ Add AI logic for when to activate features
-7. ⬜ Wire up feature activation in combat turns
-8. ⬜ Resource cost tracking during simulation
-9. ⬜ Feature usage in combat log
+**Priority 2 - Feature Integration:** ✅ COMPLETE
+6. ✅ Add AI logic for when to activate features (30% chance, simple logic)
+7. ✅ Wire up feature activation in combat turns
+8. ✅ Resource cost tracking during simulation
+9. ✅ Feature usage in combat log (purple styling)
 
 **Priority 3 - Advanced Features:**
 10. ⬜ Add dynamic summoning system to combat state
-11. ⬜ Parse real adversary features from tier 1 data
-12. ⬜ Feature display in results summary
+11. ✅ Parse real adversary features from tier 1 data (33 features mapped, 52% tier 1 coverage)
+12. ✅ Feature display in results summary (purple styling in combat log)
 13. ⬜ Domain ability usage limits and refresh mechanics
+14. ⬜ Expand feature_mappings.json (currently 33/340 features = 9.7% coverage)
+15. ⬜ Add more sophisticated AI feature selection logic (currently 30% random chance)
 
 ## Completed Work (2026-01-06 Part 3)
 

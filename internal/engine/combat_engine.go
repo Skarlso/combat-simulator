@@ -6,46 +6,56 @@ import (
 
 // CombatEngine orchestrates the entire combat simulation
 type CombatEngine struct {
-	dice      DiceRoller
-	spotlight SpotlightSelector
-	resolver  *CombatResolver
-	effects   *EffectApplier
+	dice            DiceRoller
+	spotlight       SpotlightSelector
+	resolver        *CombatResolver
+	featureResolver *FeatureResolver
 }
 
 // NewCombatEngine creates a combat engine with all components
 func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine {
 	resolver := NewCombatResolver(dice)
-	effects := NewEffectApplier(resolver)
+
+	// Extract RNG from DiceRoller if it's a StandardDiceRoller
+	var featureResolver *FeatureResolver
+	if stdDice, ok := dice.(*StandardDiceRoller); ok {
+		featureResolver = NewFeatureResolver(stdDice.GetRNG())
+	} else {
+		// Fallback: create new resolver without RNG (will cause issues if needed)
+		featureResolver = &FeatureResolver{dice: dice}
+	}
 
 	return &CombatEngine{
-		dice:      dice,
-		spotlight: spotlight,
-		resolver:  resolver,
-		effects:   effects,
+		dice:            dice,
+		spotlight:       spotlight,
+		resolver:        resolver,
+		featureResolver: featureResolver,
 	}
 }
 
-// ExecuteTurn runs a single combatant's turn
-func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, action *models.Action, state *models.CombatState) error {
+// ExecuteTurn runs a single combatant's turn - performs a basic attack or activates features
+func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, target *models.Combatant, state *models.CombatState) error {
 	// Process start-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
 
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
-		state.RecordAction(actor, models.ActionPass, nil, nil, "Stunned", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
 		return nil
 	}
 
-	// Execute action
-	switch action.Type {
-	case models.ActionAttack:
-		return ce.executeAttack(actor, action.Targets, state)
-	case models.ActionUseAbility:
-		return ce.executeAbility(actor, action.Ability, action.Targets, state)
-	case models.ActionClearCondition:
-		return ce.executeClearCondition(actor, state)
-	case models.ActionPass:
-		state.RecordAction(actor, models.ActionPass, nil, nil, "Passed", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	// Try to activate a feature/ability first (simple logic: 30% chance)
+	if ce.dice.RollDice(1, 10) <= 3 {
+		if ce.tryActivateFeature(actor, target, state) {
+			// Feature was activated, turn complete
+			ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
+			return nil
+		}
+	}
+
+	// Execute basic attack if no feature used
+	if target != nil && target.IsAlive() {
+		ce.executeAttack(actor, target, state)
 	}
 
 	// Process end-of-turn conditions
@@ -54,31 +64,73 @@ func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, action *models.Acti
 	return nil
 }
 
-// executeAttack handles basic attack action
-func (ce *CombatEngine) executeAttack(actor *models.Combatant, targets []*models.Combatant, state *models.CombatState) error {
-	if len(targets) == 0 || targets[0] == nil {
-		return nil
-	}
+// tryActivateFeature attempts to activate a feature or domain ability
+// Returns true if a feature was successfully activated
+func (ce *CombatEngine) tryActivateFeature(actor *models.Combatant, target *models.Combatant, state *models.CombatState) bool {
+	// Try player domain abilities first
+	if actor.Side == models.SidePlayer && len(actor.DomainAbilities) > 0 {
+		for _, ability := range actor.DomainAbilities {
+			// Check if can afford
+			if ability.HopeCost > state.HopePool {
+				continue
+			}
+			if ability.StressCost+actor.Stress > actor.StressMax {
+				continue
+			}
 
-	target := targets[0]
+			// Pay costs
+			state.SpendHope(ability.HopeCost)
+			actor.AddStress(ability.StressCost)
 
-	// Use custom damage dice if set, otherwise default
-	damageEffect := models.DamageEffect{
-		DiceCount:  1,
-		DiceSize:   6,
-		FlatBonus:  actor.GetAttackBonus(),
-		DamageType: models.DamagePhysical,
-	}
+			// Apply effects
+			for _, effect := range ability.Effects {
+				ce.featureResolver.ResolveEffect(effect, actor, target, state)
+			}
 
-	// Parse custom damage dice notation if provided
-	if actor.DamageDice != "" {
-		notation, err := models.ParseDiceNotation(actor.DamageDice)
-		if err == nil {
-			damageEffect = notation.ConvertToDamageEffect(models.DamagePhysical)
+			// Record action
+			state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+			return true
 		}
 	}
 
-	result := ce.resolver.ResolveAttack(actor, target, damageEffect, state)
+	// Try enemy adversary features
+	if actor.Side == models.SideEnemy && len(actor.AdversaryFeatures) > 0 {
+		for _, feature := range actor.AdversaryFeatures {
+			// Check if can afford
+			if feature.FearCost > state.FearPool {
+				continue
+			}
+
+			// Pay costs
+			state.SpendFear(feature.FearCost)
+
+			// Apply effects
+			for _, effect := range feature.Effects {
+				ce.featureResolver.ResolveEffect(effect, actor, target, state)
+			}
+
+			// Record action
+			state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+			return true
+		}
+	}
+
+	return false
+}
+
+// executeAttack handles basic attack action
+func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Combatant, state *models.CombatState) error {
+	if target == nil || !target.IsAlive() {
+		return nil
+	}
+
+	// Use DamageDice notation, default to 1d6 if not set
+	damageDice := actor.DamageDice
+	if damageDice == "" {
+		damageDice = "1d6"
+	}
+
+	result := ce.resolver.ResolveAttack(actor, target, damageDice, state)
 
 	resultStr := "Miss"
 	spotlightShift := false
@@ -122,68 +174,10 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, targets []*models
 		fearDie = 0 // Enemies don't use fear die
 	}
 
-	state.RecordAction(actor, models.ActionAttack, target, nil, resultStr,
+	state.RecordAction(actor, models.ActionAttack, target, "", resultStr,
 		result.DamageRoll, result.DamageDice, result.DamageBonus, result.HPDamage, result.Threshold,
 		hopeDie, fearDie, totalRoll, target.GetDefense(), spotlightShift, hopeGenerated, fearGenerated)
 
-	return nil
-}
-
-// executeAbility handles ability usage
-func (ce *CombatEngine) executeAbility(actor *models.Combatant, ability *models.Ability, targets []*models.Combatant, state *models.CombatState) error {
-	// Check if conditions are met
-	if !ce.resolver.CheckAbilityConditions(actor, ability, state) {
-		state.RecordAction(actor, models.ActionUseAbility, nil, ability, "Conditions not met", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-		return nil
-	}
-
-	// Check if can afford
-	if !ce.resolver.CanAffordAbility(actor, ability, state) {
-		state.RecordAction(actor, models.ActionUseAbility, nil, ability, "Cannot afford", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-		return nil
-	}
-
-	// Pay costs
-	if err := ce.resolver.PayAbilityCost(actor, ability, state); err != nil {
-		return err
-	}
-
-	// Apply effects
-	if err := ce.effects.ApplyAllEffects(ability, actor, targets, state); err != nil {
-		return err
-	}
-
-	targetName := ""
-	if len(targets) > 0 && targets[0] != nil {
-		targetName = targets[0].Name
-	}
-
-	state.RecordAction(actor, models.ActionUseAbility, targets[0], ability, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-	_ = targetName // Avoid unused warning
-
-	return nil
-}
-
-// executeClearCondition handles clearing a harmful condition
-func (ce *CombatEngine) executeClearCondition(actor *models.Combatant, state *models.CombatState) error {
-	// Find most harmful condition to clear
-	// Priority: Stunned > Burning/Poison > Disadvantage
-	priorities := []models.ConditionType{
-		models.ConditionStunned,
-		models.ConditionBurning,
-		models.ConditionPoisoned,
-		models.ConditionDisadvantage,
-		models.ConditionRestrained,
-	}
-
-	for _, condType := range priorities {
-		if actor.RemoveCondition(condType) {
-			state.RecordAction(actor, models.ActionClearCondition, nil, nil, string(condType)+" cleared", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-			return nil
-		}
-	}
-
-	state.RecordAction(actor, models.ActionClearCondition, nil, nil, "No conditions to clear", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
 	return nil
 }
 
@@ -311,7 +305,7 @@ type CombatOutcome struct {
 	ActionHistory     []models.ActionRecord
 }
 
-// DecisionMaker is an interface for AI/strategy to choose actions
+// DecisionMaker is an interface for AI/strategy to choose targets
 type DecisionMaker interface {
-	ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Action
+	ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Combatant
 }

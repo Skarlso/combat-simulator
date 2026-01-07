@@ -264,16 +264,24 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 			poolsText = fmt.Sprintf("H:%d F:%d(+%d)", action.HopePoolAfter, action.FearPoolAfter, action.FearGenerated)
 		}
 
-		// Add critical class if this was a critical hit
+		// Add styling classes
 		rowClass := "log-row"
 		if action.IsCritical {
 			rowClass = "log-row log-row-critical"
+		} else if action.IsFeature {
+			rowClass = "log-row log-row-feature"
+		}
+
+		// Show feature name if present
+		actionText := action.ActionType.String()
+		if action.IsFeature && action.FeatureName != "" {
+			actionText = fmt.Sprintf("%s: %s", action.ActionType.String(), action.FeatureName)
 		}
 
 		rows = append(rows, app.Div().Class(rowClass).Body(
 			app.Span().Class("log-col-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
 			app.Span().Class("log-col-actor").Text(action.Actor),
-			app.Span().Class("log-col-action").Text(action.ActionType.String()),
+			app.Span().Class("log-col-action").Text(actionText),
 			app.Span().Class("log-col-target").Text(targetText),
 			app.Span().Class("log-col-dice").Text(diceRoll),
 			app.Span().Class("log-col-damage").Text(damageText),

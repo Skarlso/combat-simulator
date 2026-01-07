@@ -502,6 +502,16 @@ body {
   background-color: rgba(255, 215, 0, 0.25);
 }
 
+.log-row-feature {
+  background-color: rgba(138, 43, 226, 0.12);
+  font-weight: 500;
+  border-left: 4px solid #8a2be2;
+}
+
+.log-row-feature:hover {
+  background-color: rgba(138, 43, 226, 0.20);
+}
+
 .log-col-turn,
 .log-col-actor,
 .log-col-action,

@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"fmt"
-
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
 
@@ -36,8 +34,43 @@ type AttackResult struct {
 }
 
 // ResolveAttack handles a basic attack from attacker to defender
-func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, damageEffect models.DamageEffect, state *models.CombatState) AttackResult {
+func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, damageDice string, state *models.CombatState) AttackResult {
 	result := AttackResult{}
+
+	// Parse damage dice notation
+	notation, err := models.ParseDiceNotation(damageDice)
+	if err != nil || len(notation.Terms) == 0 {
+		// Default to 1d6 if parsing fails
+		notation, _ = models.ParseDiceNotation("1d6")
+	}
+
+	// Extract dice count, size, and bonus from first term (simple notation)
+	// For now, support simple notation like "2d6+3" (single dice type + bonus)
+	diceCount := 0
+	diceSize := 6
+	flatBonus := 0
+
+	for _, term := range notation.Terms {
+		if term.Count == 0 {
+			// Flat bonus
+			flatBonus += term.Size
+		} else {
+			// Dice roll - use the first dice term found
+			if diceCount == 0 {
+				diceCount = term.Count
+				diceSize = term.Size
+			} else {
+				// Additional dice terms - add as bonus (approximation)
+				flatBonus += term.Count * (term.Size / 2)
+			}
+		}
+	}
+
+	// Default to 1d6 if no dice found
+	if diceCount == 0 {
+		diceCount = 1
+		diceSize = 6
+	}
 
 	// Players use duality dice, enemies use d20
 	if attacker.Side == models.SidePlayer {
@@ -110,12 +143,12 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	}
 
 	// Roll damage with individual dice tracking
-	damageResult := cr.dice.RollDamageDetailed(damageEffect.DiceCount, damageEffect.DiceSize, damageEffect.FlatBonus)
+	damageResult := cr.dice.RollDamageDetailed(diceCount, diceSize, flatBonus)
 	damageRoll := damageResult.Total
 
 	// Apply critical damage bonus
 	if result.CriticalResult {
-		maxDiceResult := damageEffect.DiceCount * damageEffect.DiceSize
+		maxDiceResult := diceCount * diceSize
 		damageRoll += maxDiceResult
 	}
 
@@ -130,11 +163,11 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.DamageRoll = damageRoll
 	result.DamageDice = damageResult.DiceValues
 	result.DamageBonus = damageResult.FlatBonus
-	result.DamageType = damageEffect.DamageType
+	result.DamageType = models.DamagePhysical // Default to physical damage
 	result.Threshold = models.DamageThresholdFromAmount(damageRoll, defender)
 
 	// Apply damage to defender (returns actual HP damage dealt)
-	hpDamage := defender.TakeDamage(damageRoll, damageEffect.DamageType)
+	hpDamage := defender.TakeDamage(damageRoll, models.DamagePhysical)
 	result.HPDamage = hpDamage
 
 	return result

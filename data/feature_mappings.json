@@ -1,0 +1,416 @@
+{
+  "mappings": {
+    "Relentless": {
+      "category": "spotlight_modifier",
+      "effects": [
+        {
+          "category": "FeatureEffectSpotlightModifier",
+          "magnitude": 3,
+          "description": "Can be spotlighted up to 3 times per GM turn"
+        }
+      ]
+    },
+    "Momentum": {
+      "category": "fear_generation",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1,
+          "condition": "on_successful_attack",
+          "description": "Gain 1 Fear on successful attack"
+        }
+      ]
+    },
+    "Backstab": {
+      "category": "damage_amplifier",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageAmplifier",
+          "magnitude": 2,
+          "dice_formula": "2d6",
+          "condition": "from_behind",
+          "description": "Extra 2d6 damage when attacking from behind"
+        }
+      ]
+    },
+    "From Above": {
+      "category": "damage_amplifier",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageAmplifier",
+          "magnitude": 2,
+          "dice_formula": "2d6",
+          "condition": "elevated_position",
+          "description": "Extra 2d6 damage when attacking from above"
+        }
+      ]
+    },
+    "Bone Breaker": {
+      "category": "direct_damage",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical",
+          "description": "2d8 direct damage (bypasses armor)"
+        }
+      ]
+    },
+    "Armor-Shredding Shards": {
+      "category": "armor_damage",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Target marks 1 Armor Slot"
+        },
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8",
+          "damage_type": "physical",
+          "description": "Deal 1d8 physical damage"
+        }
+      ]
+    },
+    "Burning": {
+      "category": "status_application",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyIgnite",
+          "duration": "until_cleared",
+          "magnitude": 2,
+          "description": "Target takes 2 damage per action while burning"
+        }
+      ]
+    },
+    "Venomous": {
+      "category": "status_application",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyPoison",
+          "duration": "until_cleared",
+          "magnitude": 1,
+          "description": "Target is poisoned"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "description": "Target marks 2 Stress"
+        }
+      ]
+    },
+    "Goading Strike": {
+      "category": "status_application",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyTaunt",
+          "duration": "until_cleared",
+          "description": "Target has disadvantage against other targets"
+        }
+      ]
+    },
+    "Hellfire": {
+      "category": "area_damage",
+      "fear_cost": 2,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "3d8 magic damage to all in area"
+        },
+        {
+          "category": "FeatureEffectApplyIgnite",
+          "duration": "3_rounds",
+          "magnitude": 2,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Bite": {
+      "category": "damage_plus_status",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d4+10",
+          "damage_type": "physical",
+          "description": "Deal 3d4+10 physical damage"
+        }
+      ]
+    },
+    "Earth Eruption": {
+      "category": "aoe_vulnerable",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_next_turn",
+          "target_type": "aoe",
+          "description": "All targets Very Close are knocked over (Vulnerable)"
+        }
+      ]
+    },
+    "Double Strike": {
+      "category": "extra_attack",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6",
+          "damage_type": "physical",
+          "description": "Make two attacks"
+        }
+      ]
+    },
+    "Deadly Shot": {
+      "category": "high_damage",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d10",
+          "damage_type": "physical",
+          "description": "3d10 ranged damage"
+        }
+      ]
+    },
+    "Crush": {
+      "category": "damage_stress",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 3,
+          "description": "Target marks 3 Stress"
+        }
+      ]
+    },
+    "Flying": {
+      "category": "passive_modifier",
+      "passive": true,
+      "effects": []
+    },
+    "Climber": {
+      "category": "passive_modifier",
+      "passive": true,
+      "effects": []
+    },
+    "Guards, Seize Them!": {
+      "category": "summoning",
+      "fear_cost": 2,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Bladed Guard",
+          "dice_formula": "1d4",
+          "description": "Summon 1d4 Bladed Guards"
+        }
+      ]
+    },
+    "Pack Tactics": {
+      "category": "damage_amplifier",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageAmplifier",
+          "dice_formula": "1d6",
+          "damage_type": "physical",
+          "condition": "ally_nearby",
+          "description": "Extra 1d6 damage when ally is near target"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1,
+          "description": "Gain 1 Fear on successful use"
+        }
+      ]
+    },
+    "Overwhelming Force": {
+      "category": "passive_knockback",
+      "passive": true,
+      "effects": []
+    },
+    "Venomous Stinger": {
+      "category": "poison_attack",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d4+4",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyPoison",
+          "duration": "until_cleared",
+          "magnitude": 1,
+          "description": "Target is poisoned, marks Stress on 4 or lower"
+        }
+      ]
+    },
+    "Hobbling Strike": {
+      "category": "direct_damage_vulnerable",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d4+10",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "description": "Vulnerable until target clears HP"
+        }
+      ]
+    },
+    "Hobbling Shot": {
+      "category": "ranged_hobble",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12+3",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Bloodsucker": {
+      "category": "hp_drain",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "magnitude": 1,
+          "description": "Force target to mark additional HP"
+        }
+      ]
+    },
+    "Detain": {
+      "category": "restrain",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d6",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Curse": {
+      "category": "hope_manipulation",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "description": "Convert Hope roll to Fear roll"
+        }
+      ]
+    },
+    "Poison Strike": {
+      "category": "poison_attack",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyPoison",
+          "duration": "until_cleared",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Web": {
+      "category": "restrain",
+      "fear_cost": 1,
+      "effects": []
+    },
+    "Stunning Blow": {
+      "category": "stun",
+      "fear_cost": 2,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+3",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Sneak Attack": {
+      "category": "damage_amplifier",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageAmplifier",
+          "dice_formula": "2d8",
+          "condition": "hidden",
+          "description": "Extra 2d8 when attacking from hidden"
+        }
+      ]
+    },
+    "Charge": {
+      "category": "damage_amplifier",
+      "fear_cost": 0,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageAmplifier",
+          "dice_formula": "1d10",
+          "condition": "after_movement",
+          "description": "Extra 1d10 after moving"
+        }
+      ]
+    },
+    "Reckless Attack": {
+      "category": "high_damage",
+      "fear_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d6+5",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Shield Bash": {
+      "category": "damage_stun",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+4",
+          "damage_type": "physical"
+        }
+      ]
+    }
+  },
+  "metadata": {
+    "version": "1.1",
+    "mapped_features": 33,
+    "total_features": 340,
+    "coverage": "9.7%",
+    "last_updated": "2026-01-07"
+  }
+}

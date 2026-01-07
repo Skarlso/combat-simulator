@@ -28,6 +28,8 @@ type ActionRecord struct {
 	ActionType     ActionType
 	Target         string
 	Ability        string
+	FeatureName    string // Name of feature/ability used (if any)
+	IsFeature      bool   // True if a feature was activated
 	Result         string
 	DamageRoll     int    // Raw damage rolled (total)
 	DamageDice     []int  // Individual dice values
@@ -206,6 +208,54 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 
 	if abilityName != "" {
 		record.Ability = abilityName
+	}
+
+	cs.ActionHistory = append(cs.ActionHistory, record)
+}
+
+// RecordActionWithFeature logs an action involving a feature or domain ability
+func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType ActionType, target *Combatant, featureName string, isFeature bool, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+	// Detect critical (matching duality dice)
+	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
+
+	record := ActionRecord{
+		Round:          cs.RoundNumber,
+		Turn:           cs.TurnNumber,
+		Actor:          actor.Name,
+		ActionType:     actionType,
+		FeatureName:    featureName,
+		IsFeature:      isFeature,
+		Result:         result,
+		DamageRoll:     damageRoll,
+		DamageDice:     damageDice,
+		DamageBonus:    damageBonus,
+		HPDamage:       hpDamage,
+		HopeDie:        hopeDie,
+		FearDie:        fearDie,
+		TotalRoll:      totalRoll,
+		TargetDefense:  targetDefense,
+		SpotlightShift: spotlightShift,
+		IsCritical:     isCritical,
+		HopeGenerated:  hopeGenerated,
+		FearGenerated:  fearGenerated,
+		HopePoolAfter:  cs.HopePool,
+		FearPoolAfter:  cs.FearPool,
+	}
+
+	// Convert threshold to string
+	switch threshold {
+	case ThresholdMinor:
+		record.Threshold = "Minor"
+	case ThresholdMajor:
+		record.Threshold = "Major"
+	case ThresholdSevere:
+		record.Threshold = "Severe"
+	}
+
+	if target != nil {
+		record.Target = target.Name
+		record.TargetHPAfter = target.HP
+		record.TargetDefense = target.GetDefense()
 	}
 
 	cs.ActionHistory = append(cs.ActionHistory, record)

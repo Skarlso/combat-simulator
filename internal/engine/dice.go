@@ -56,6 +56,11 @@ func NewStandardDiceRoller(rng *rand.Rand) *StandardDiceRoller {
 	}
 }
 
+// GetRNG returns the underlying random number generator
+func (dr *StandardDiceRoller) GetRNG() *rand.Rand {
+	return dr.rng
+}
+
 // RollDuality performs the core d12 Hope vs d12 Fear roll
 func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) DualityRollResult {
 	hopeDie := dr.RollD12()
