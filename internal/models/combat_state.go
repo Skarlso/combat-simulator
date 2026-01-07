@@ -162,7 +162,7 @@ func (cs *CombatState) SpendFear(amount int) bool {
 }
 
 // RecordAction logs an action taken during combat
-func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, ability *Ability, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, abilityName string, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
 	// Detect critical (matching duality dice)
 	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
 
@@ -204,8 +204,8 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 		record.TargetDefense = target.GetDefense()
 	}
 
-	if ability != nil {
-		record.Ability = ability.Name
+	if abilityName != "" {
+		record.Ability = abilityName
 	}
 
 	cs.ActionHistory = append(cs.ActionHistory, record)

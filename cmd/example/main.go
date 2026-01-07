@@ -15,16 +15,21 @@ func main() {
 
 	// Create player characters
 	rogue := models.NewCombatant("p1", "Grimjaw the Rogue", models.SidePlayer, 1, 12, 2, 6, 6)
-	rogue.AddAbility(createSneakAttack())
+	rogue.DamageDice = "2d6+1"
 
 	fighter := models.NewCombatant("p2", "Thora the Fighter", models.SidePlayer, 1, 11, 2, 8, 6)
 	fighter.ArmorSlots = 2
+	fighter.DamageDice = "2d8+2"
 
 	// Create enemies (level 0 for adversaries - doesn't affect their thresholds)
 	goblin1 := models.NewCombatant("e1", "Goblin Archer", models.SideEnemy, 0, 10, 1, 4, 4)
+	goblin1.DamageDice = "1d6"
+
 	goblin2 := models.NewCombatant("e2", "Goblin Warrior", models.SideEnemy, 0, 10, 1, 4, 4)
+	goblin2.DamageDice = "1d6+1"
+
 	goblinBoss := models.NewCombatant("e3", "Goblin Boss", models.SideEnemy, 0, 11, 2, 7, 5)
-	goblinBoss.AddAbility(createBossRage())
+	goblinBoss.DamageDice = "2d6+2"
 
 	// Configure simulation
 	config := simulation.DefaultSimulationConfig()
@@ -72,64 +77,5 @@ func main() {
 			winner = "Player"
 		}
 		fmt.Printf("  #%d: %s victory in %d turns\n", i+1, winner, outcome.Turns)
-	}
-}
-
-// createSneakAttack creates the rogue's sneak attack ability
-func createSneakAttack() *models.Ability {
-	return &models.Ability{
-		Name:          "Sneak Attack",
-		Description:   "Deal extra damage when cloaked or ally in melee",
-		Trigger:       models.TriggerManual,
-		TargetSingle:  true,
-		TargetEnemies: true,
-		Costs: models.ResourceCost{
-			Stress: 1,
-		},
-		Conditions: []models.AbilityCondition{
-			{
-				Type:  models.ConditionAllyInMelee,
-				Value: nil,
-			},
-		},
-		Effects: []models.Effect{
-			models.DamageEffect{
-				DiceCount:  3,
-				DiceSize:   6,
-				FlatBonus:  2,
-				DamageType: models.DamagePhysical,
-			},
-		},
-	}
-}
-
-// createBossRage creates the boss's rage ability
-func createBossRage() *models.Ability {
-	return &models.Ability{
-		Name:          "Boss Rage",
-		Description:   "Gain advantage when below 50% HP",
-		Trigger:       models.TriggerManual,
-		TargetSelf:    true,
-		Costs: models.ResourceCost{
-			Fear: 1,
-		},
-		Conditions: []models.AbilityCondition{
-			{
-				Type:  models.ConditionHPBelow,
-				Value: 50,
-			},
-		},
-		Effects: []models.Effect{
-			models.AddConditionEffect{
-				Condition: models.NewCondition(models.ConditionAdvantage, models.DurationRounds),
-				Target:    models.TargetSelf,
-			},
-			models.DamageEffect{
-				DiceCount:  2,
-				DiceSize:   8,
-				FlatBonus:  3,
-				DamageType: models.DamagePhysical,
-			},
-		},
 	}
 }

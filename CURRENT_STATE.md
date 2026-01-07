@@ -224,11 +224,150 @@ Started designing a system to convert human-readable adversary/player features i
 
 ## Next Steps
 - ✅ Parse and analyze domain card data (player skills)
-- ⬜ Design unified feature definition format (adversary + player)
-- ⬜ Create user input system for defining quantized features
-- ⬜ Implement feature application in combat engine
+- ✅ Design unified feature definition format (adversary + player)
+- ✅ Implement feature application in combat engine
+- ✅ Implement resource cost tracking (Hope/Stress/Fear costs)
+- ✅ Test feature system with example features
+- ⬜ Create user input system for defining quantized features (UI forms)
+- ⬜ Parse real adversary features from tier 1 data
+- ⬜ Integrate feature system with existing combat engine
 - ⬜ Add dynamic summoning to combat state
-- ⬜ Implement resource cost tracking (Hope/Stress/Fear costs)
 - Additional testing with complex scenarios
 - Advanced AI strategies
 - Performance optimization for larger simulations
+
+## Session 3 Summary (2026-01-06 Part 3)
+
+### Feature System Implementation ✅
+
+Implemented complete feature quantization system:
+
+**What Was Built:**
+- Separated AdversaryFeature and DomainAbility types (different mechanics)
+- Shared FeatureEffect resolution system (20+ effect categories)
+- FeatureResolver engine with resource cost validation
+- Full support for dice formulas, conditions, durations
+- Added missing condition types (ConditionTaunted, ConditionHidden)
+
+**New Files:**
+1. `internal/models/feature.go` - Type definitions (FeatureEffect, AdversaryFeature, DomainAbility)
+2. `internal/engine/feature_resolver.go` - Resolution logic (340 lines)
+3. `cmd/feature-example/main.go` - Working demonstration
+
+**Effect Categories Implemented:**
+- Damage: standard, amplifier, direct, area
+- Status: poison, burning, vulnerable, taunt, hidden
+- Resources: stress inflict/clear, HP heal, armor damage, hope/fear manipulation
+- Resistance: damage resistance/vulnerability (passive)
+- Action economy: spotlight modifiers
+
+**Example Output:**
+```
+Player uses Rune Strike (2 Hope) → Enemy takes 2 HP damage
+Enemy uses Venomous Stinger → Player gets poisoned + 2 stress
+Enemy uses Dark Ritual (2 Fear) → Player takes 6 HP direct damage
+```
+
+**Modified Files:**
+- `internal/models/combatant.go` - Added AdversaryFeatures and DomainAbilities fields
+- `internal/models/types.go` - Added ConditionTaunted and ConditionHidden
+
+Run: `go run cmd/feature-example/main.go`
+
+## Session 4 Summary (2026-01-07)
+
+### UI Forms for Feature System ✅
+
+Added UI components for creating and managing features/abilities through the web interface:
+
+**New Components:**
+1. `ui/components/domain_ability_form.go` - Form for player domain abilities
+   - Hope/Stress costs
+   - Refresh types (rest, long_rest, scene, unlimited)
+   - Usage limits
+   - Effect types (damage, heal, status, stress manipulation)
+   - Dice formula support
+
+2. `ui/components/adversary_feature_form.go` - Form for enemy features
+   - Fear costs
+   - Spotlight limits
+   - Passive vs active toggle
+   - Effect types (damage, stress, status, armor damage)
+
+**Modified Components:**
+- `ui/components/adversary_list.go` - Integrated AdversaryFeatureForm
+- `ui/components/combatant_list.go` - Integrated DomainAbilityForm
+
+**What Users Can Do:**
+- Add domain abilities to players (with Hope/Stress costs, usage limits)
+- Add adversary features to enemies (with Fear costs, spotlight limits)
+- Choose effect types (damage, heal, status conditions, etc.)
+- Set dice formulas for variable effects
+- Configure durations and targeting
+
+**To Test:**
+```bash
+make serve
+# Open http://localhost:8080
+# Navigate to Players or Enemies tabs
+# Click "+ Add" to create combatant
+# Use "Add Ability" or "Add Feature" buttons to add skills
+```
+
+Run example CLI: `go run cmd/feature-example/main.go`
+
+## Session 5 Summary (2026-01-07 Part 2) - PARTIAL MIGRATION
+
+### Legacy System Removal - IN PROGRESS ⚠️
+
+**Goal:** Remove old Ability system in favor of new Feature system
+
+**Successfully Removed:**
+- ✅ `internal/models/ability.go` (216 lines) - Legacy Ability types
+- ✅ `internal/engine/effects.go` (145 lines) - EffectApplier
+- ✅ `internal/models/action.go` (24 lines) - Action wrappers
+- ✅ `ui/components/ability_form.go` (351 lines) - UI form
+- ✅ Combatant.Abilities field removed from model
+- ✅ AddAbility() method removed
+- ✅ UI forms updated (adversary_list, combatant_list)
+- ✅ cmd/example/main.go simplified (no ability usage)
+
+**Currently Broken (Does Not Compile):**
+- ❌ `internal/engine/combat_engine.go` - References to Ability, EffectApplier, Action
+- ❌ `internal/engine/resolver.go` - ResolveAttack() expects DamageEffect
+- ❌ `internal/strategy/decision_maker.go` - shouldUseAbility(), ability logic throughout
+- ❌ Main simulation system (`make run-example` fails)
+
+**What Works:**
+- ✅ Feature system standalone: `go run cmd/feature-example/main.go`
+- ✅ Web UI compiles: WASM binary builds successfully
+- ✅ Feature models: AdversaryFeature, DomainAbility, FeatureEffect
+- ✅ Feature resolver: Full effect resolution system
+- ✅ UI forms: Domain abilities and adversary features
+
+**What Remains To Do:**
+1. Integrate FeatureResolver into combat engine
+2. Rewrite decision_maker.go to use features instead of abilities
+3. Update combat_engine.go to call feature activation
+4. Remove remaining ability stubs from resolver.go
+5. Test full simulation with features
+
+**Recommendation:**
+The feature system is complete and working. The main combat simulation needs to be refactored to use it. This is a significant task requiring:
+- AI decision logic for when to use features
+- Feature activation during combat
+- Resource tracking (Hope/Fear/Stress costs)
+- Integration with existing attack/defense flow
+
+**Current Working Commands:**
+```bash
+# Feature system example - WORKS
+go run cmd/feature-example/main.go
+
+# Web UI - WORKS
+GOARCH=wasm GOOS=js go build -o web/app.wasm cmd/wasm/main.go
+go run cmd/wasm/main.go
+
+# Main simulation - BROKEN
+go run cmd/example/main.go  # Does not compile
+```

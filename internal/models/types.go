@@ -97,6 +97,8 @@ const (
 	ConditionRestrained   ConditionType = "restrained"
 	ConditionAdvantage    ConditionType = "advantage"
 	ConditionDisadvantage ConditionType = "disadvantage"
+	ConditionTaunted      ConditionType = "taunted"
+	ConditionHidden       ConditionType = "hidden"
 )
 
 // DurationType defines how long conditions persist

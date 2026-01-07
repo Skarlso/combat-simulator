@@ -129,19 +129,135 @@ Domain cards differ from adversary features - they are **active player choices**
 3. **Frequency Limits**: "once per rest", "once per long rest"
 4. **Scaling Options**: Many abilities let players spend more resources for more effect
 
-## Next Steps
+## Current Status (2026-01-07)
 
-1. ✅ Parse domain cards (player skills) from data folder
-2. ⬜ Create unified feature definition format (adversary + player)
-3. ⬜ Design user input system for defining quantized features
-4. ⬜ Implement feature application in combat engine
-5. ⬜ Add dynamic summoning system to combat state
-6. ⬜ Implement resource cost tracking (Hope/Stress/Fear)
-7. ⬜ Test with real adversary features from tier 1 data
+### ✅ Feature System - COMPLETE
+- Separated AdversaryFeature and DomainAbility structures
+- FeatureEffect resolution with 20+ effect categories
+- FeatureResolver engine with resource validation
+- UI forms for adding features to combatants
+- Working standalone example
+
+### ⚠️ Legacy Removal - PARTIAL
+- Old Ability system partially removed
+- Combat engine broken (does not compile)
+- Needs integration with new feature system
+
+### 📋 Next Steps
+
+**Priority 1 - Fix Broken Compilation:**
+1. ⬜ Refactor combat_engine.go to remove Ability references
+2. ⬜ Refactor decision_maker.go to use features instead of abilities
+3. ⬜ Update resolver.go attack resolution
+4. ⬜ Integrate FeatureResolver into combat flow
+5. ⬜ Test basic simulation without features first
+
+**Priority 2 - Feature Integration:**
+6. ⬜ Add AI logic for when to activate features
+7. ⬜ Wire up feature activation in combat turns
+8. ⬜ Resource cost tracking during simulation
+9. ⬜ Feature usage in combat log
+
+**Priority 3 - Advanced Features:**
+10. ⬜ Add dynamic summoning system to combat state
+11. ⬜ Parse real adversary features from tier 1 data
+12. ⬜ Feature display in results summary
+13. ⬜ Domain ability usage limits and refresh mechanics
+
+## Completed Work (2026-01-06 Part 3)
+
+### Feature System Implementation ✅
+
+Created a complete feature quantization system for converting human-readable abilities into mechanical data:
+
+**New Files:**
+- `internal/models/feature.go` - Feature type definitions
+- `internal/engine/feature_resolver.go` - Effect resolution logic
+- `cmd/feature-example/main.go` - Working example demonstrating the system
+
+**Key Components:**
+1. **FeatureEffect** - Shared effect system with 20+ categories (damage, status, resource manipulation)
+2. **AdversaryFeature** - Enemy abilities with Fear costs and spotlight limits
+3. **DomainAbility** - Player spells with Hope/Stress costs and usage limits
+4. **FeatureResolver** - Engine for activating features and resolving effects
+
+**Supported Effect Categories:**
+- Damage (standard, amplifier, direct, area)
+- Status application (poison, burning, vulnerable, taunt, hidden)
+- Resource manipulation (stress, HP, armor, hope, fear)
+- Resistance/vulnerability (passive modifiers)
+- Action economy (spotlight modifiers)
+
+**Tested Features:**
+- Player: "Rune Strike" - 2 Hope, deals 2d6+3 magic damage
+- Enemy: "Venomous Stinger" - Applies poison + 2 stress
+- Enemy: "Dark Ritual" - 2 Fear, deals 1d8 direct damage
+
+Run example: `go run cmd/feature-example/main.go`
+
+## Completed Work (2026-01-07)
+
+### UI Forms for Feature System ✅
+
+**Components Created:**
+- `ui/components/domain_ability_form.go` - Player ability form (300+ lines)
+- `ui/components/adversary_feature_form.go` - Enemy feature form (290+ lines)
+
+**Features:**
+- Dynamic form fields based on effect type
+- Dice formula input (e.g., "2d6+3")
+- Resource cost configuration (Hope, Stress, Fear)
+- Usage limits and refresh types
+- Passive/active toggle for adversaries
+- Duration and targeting options
+
+**Integration:**
+- Added to `adversary_list.go` for enemies
+- Added to `combatant_list.go` for players
+- Forms follow existing pattern from `ability_form.go`
+
+Test: `make serve` → http://localhost:8080
+
+## Partial Work (2026-01-07 Part 2)
+
+### Legacy System Removal - INCOMPLETE ⚠️
+
+**Files Deleted:**
+- `internal/models/ability.go` (216 lines)
+- `internal/engine/effects.go` (145 lines)
+- `internal/models/action.go` (24 lines)
+- `ui/components/ability_form.go` (351 lines)
+
+**Files Modified:**
+- `internal/models/combatant.go` - Removed Abilities field and AddAbility()
+- `internal/models/combat_state.go` - RecordAction signature changed (ability → string)
+- `internal/models/dice_notation.go` - Removed ConvertToDamageEffect()
+- `internal/engine/resolver.go` - Removed ability methods (CheckAbilityConditions, CanAffordAbility, PayAbilityCost, ApplyHealing)
+- `ui/components/adversary_list.go` - Removed AbilityForm usage
+- `ui/components/combatant_list.go` - Removed AbilityForm usage
+- `cmd/example/main.go` - Removed ability creation functions
+
+**Compilation Status:** ❌ BROKEN
+- Combat engine references deleted types
+- Decision maker expects old ability system
+- Main simulation cannot run
+
+**Why Incomplete:**
+Legacy system deeply integrated into:
+- Combat turn execution logic
+- AI decision making for ability usage
+- Attack resolution expecting DamageEffect interface
+
+**Next Session Should:**
+1. Restore compilation (stub out or rewrite broken parts)
+2. Get basic simulation working without features
+3. Then incrementally add feature system integration
 
 ## Related Files
 
-- `data/daggerheart_adversaries-tier-*.json` - Adversary features to quantize
-- `data/daggerheart_domain_*.json` - Player domain card abilities
-- `internal/models/combatant.go` - Where features will attach
-- `internal/engine/resolver.go` - Where features will be applied
+- `internal/models/feature.go` - Feature type definitions ✅
+- `internal/models/combatant.go` - Features attached here ✅
+- `internal/engine/feature_resolver.go` - Feature resolution logic ✅
+- `cmd/feature-example/main.go` - Working example ✅
+- `data/daggerheart_adversaries-tier-*.json` - Source for adversary features
+- `data/daggerheart_domain_*.json` - Source for player domain abilities

@@ -29,7 +29,7 @@ type CombatantList struct {
 	newDamageDice      string
 	newMinorThreshold  int
 	newMajorThreshold  int
-	newAbilities       []*models.Ability
+	newDomainAbilities []*models.DomainAbility
 }
 
 // OnMount initializes default values
@@ -233,10 +233,10 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								OnInput(cl.handleIntInput(&cl.newMajorThreshold)),
 						),
 				),
-			&AbilityForm{
-				Abilities: cl.newAbilities,
+			&DomainAbilityForm{
+				Abilities: cl.newDomainAbilities,
 				OnChange: func() {
-					// Abilities updated
+					// Domain abilities updated
 				},
 			},
 			app.Div().
@@ -284,7 +284,11 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 	combatant.ArmorSlots = cl.newArmor
 	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
-	combatant.Abilities = cl.newAbilities
+
+	// Copy domain abilities (need to dereference pointers)
+	for _, ability := range cl.newDomainAbilities {
+		combatant.DomainAbilities = append(combatant.DomainAbilities, *ability)
+	}
 
 	if cl.OnAdd != nil {
 		cl.OnAdd(ctx, combatant)
@@ -307,5 +311,5 @@ func (cl *CombatantList) resetForm() {
 	cl.newDamageDice = "1d6"
 	cl.newMinorThreshold = 4
 	cl.newMajorThreshold = 7
-	cl.newAbilities = make([]*models.Ability, 0)
+	cl.newDomainAbilities = make([]*models.DomainAbility, 0)
 }

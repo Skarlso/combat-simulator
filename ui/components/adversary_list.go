@@ -28,9 +28,9 @@ type AdversaryList struct {
 	newMinorThreshold  int
 	newMajorThreshold  int
 	newDamageDice      string
-	newMotives         string
-	newTactics         string
-	newAbilities       []*models.Ability
+	newMotives  string
+	newTactics  string
+	newFeatures []*models.AdversaryFeature
 }
 
 // OnMount initializes default values
@@ -261,10 +261,10 @@ func (al *AdversaryList) renderAddForm() app.UI {
 							al.newTactics = text
 						}),
 				),
-			&AbilityForm{
-				Abilities: al.newAbilities,
+			&AdversaryFeatureForm{
+				Features: al.newFeatures,
 				OnChange: func() {
-					// Abilities updated
+					// Features updated
 				},
 			},
 			app.Div().
@@ -313,7 +313,11 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newTactics
-	adversary.Abilities = al.newAbilities
+
+	// Copy features (need to dereference pointers)
+	for _, feature := range al.newFeatures {
+		adversary.AdversaryFeatures = append(adversary.AdversaryFeatures, *feature)
+	}
 
 	if al.OnAdd != nil {
 		al.OnAdd(ctx, adversary)
@@ -338,5 +342,5 @@ func (al *AdversaryList) resetForm() {
 	al.newMajorThreshold = 16
 	al.newMotives = ""
 	al.newTactics = ""
-	al.newAbilities = make([]*models.Ability, 0)
+	al.newFeatures = make([]*models.AdversaryFeature, 0)
 }

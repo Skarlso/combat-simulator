@@ -44,8 +44,9 @@ type Combatant struct {
 	// Spotlight system
 	SpotlightTokens int
 
-	// Abilities
-	Abilities []*Ability
+	// Feature system
+	AdversaryFeatures []AdversaryFeature // For enemies
+	DomainAbilities   []DomainAbility    // For players
 
 	// Resistances
 	Resistances []Resistance
@@ -78,13 +79,14 @@ func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax
 		HPMax:           hpMax,
 		Stress:          0,
 		StressMax:       stressMax,
-		SpotlightTokens: 0,
-		Abilities:       make([]*Ability, 0),
-		Resistances:     make([]Resistance, 0),
-		Conditions:      make([]*ActiveCondition, 0),
-		Experience:      make([]ExperienceSkill, 0),
-		IsDefeated:      false,
-		IsFullyStressed: false,
+		SpotlightTokens:   0,
+		AdversaryFeatures: make([]AdversaryFeature, 0),
+		DomainAbilities:   make([]DomainAbility, 0),
+		Resistances:       make([]Resistance, 0),
+		Conditions:        make([]*ActiveCondition, 0),
+		Experience:        make([]ExperienceSkill, 0),
+		IsDefeated:        false,
+		IsFullyStressed:   false,
 	}
 }
 
@@ -104,19 +106,15 @@ func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, 
 		HPMax:            hpMax,
 		Stress:           0,
 		StressMax:        stressMax,
-		SpotlightTokens:  0,
-		Abilities:        make([]*Ability, 0),
-		Resistances:      make([]Resistance, 0),
-		Conditions:       make([]*ActiveCondition, 0),
-		Experience:       make([]ExperienceSkill, 0),
-		IsDefeated:       false,
-		IsFullyStressed:  false,
+		SpotlightTokens:   0,
+		AdversaryFeatures: make([]AdversaryFeature, 0),
+		DomainAbilities:   make([]DomainAbility, 0),
+		Resistances:       make([]Resistance, 0),
+		Conditions:        make([]*ActiveCondition, 0),
+		Experience:        make([]ExperienceSkill, 0),
+		IsDefeated:        false,
+		IsFullyStressed:   false,
 	}
-}
-
-// AddAbility attaches an ability to this combatant
-func (c *Combatant) AddAbility(ability *Ability) {
-	c.Abilities = append(c.Abilities, ability)
 }
 
 // AddResistance adds damage resistance
@@ -263,4 +261,14 @@ func (c *Combatant) GetAttackBonus() int {
 		return c.ATK
 	}
 	return c.Proficiency
+}
+
+// AddAdversaryFeature attaches a feature to an adversary
+func (c *Combatant) AddAdversaryFeature(feature AdversaryFeature) {
+	c.AdversaryFeatures = append(c.AdversaryFeatures, feature)
+}
+
+// AddDomainAbility attaches a domain ability to a player
+func (c *Combatant) AddDomainAbility(ability DomainAbility) {
+	c.DomainAbilities = append(c.DomainAbilities, ability)
 }

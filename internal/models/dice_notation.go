@@ -120,37 +120,6 @@ func (dn *DiceNotation) String() string {
 	return result
 }
 
-// ConvertToDamageEffect creates a DamageEffect from dice notation
-// Combines all dice into a single effect with the largest die size
-func (dn *DiceNotation) ConvertToDamageEffect(damageType DamageType) DamageEffect {
-	totalDice := 0
-	largestSize := 0
-	flatBonus := 0
-
-	for _, term := range dn.Terms {
-		if term.Count == 0 {
-			// Flat bonus
-			flatBonus += term.Size
-		} else {
-			totalDice += term.Count
-			if term.Size > largestSize {
-				largestSize = term.Size
-			}
-		}
-	}
-
-	if largestSize == 0 {
-		largestSize = 6 // Default to d6 if no dice specified
-	}
-
-	return DamageEffect{
-		DiceCount:  totalDice,
-		DiceSize:   largestSize,
-		FlatBonus:  flatBonus,
-		DamageType: damageType,
-	}
-}
-
 // RollDamage interface for rolling dice
 type DiceRoller interface {
 	RollDamage(diceCount, diceSize, flatBonus int) int
