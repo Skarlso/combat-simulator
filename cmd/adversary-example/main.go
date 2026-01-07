@@ -17,8 +17,8 @@ type UnifiedDecisionMaker struct {
 	enemyStrategy  *strategy.AIDecisionMaker
 }
 
-// ChooseAction selects target based on combatant side
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Combatant {
+// ChooseAction selects action based on combatant side
+func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
 	if actor.Side == models.SidePlayer {
 		return udm.playerStrategy.ChooseAction(state, actor)
 	}

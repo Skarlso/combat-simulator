@@ -2,6 +2,7 @@ package engine
 
 import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
 // CombatEngine orchestrates the entire combat simulation
@@ -33,8 +34,8 @@ func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine
 	}
 }
 
-// ExecuteTurn runs a single combatant's turn - performs a basic attack or activates features
-func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, target *models.Combatant, state *models.CombatState) error {
+// ExecuteTurnWithDecision runs a single combatant's turn based on AI decision
+func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) error {
 	// Process start-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
 
@@ -44,17 +45,15 @@ func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, target *models.Comb
 		return nil
 	}
 
-	// Try to activate a feature/ability first (simple logic: 30% chance)
-	if ce.dice.RollDice(1, 10) <= 3 {
-		if ce.tryActivateFeature(actor, target, state) {
-			// Feature was activated, turn complete
-			ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
-			return nil
-		}
-	}
+	target := decision.Target
 
-	// Execute basic attack if no feature used
-	if target != nil && target.IsAlive() {
+	// Execute feature if AI chose one
+	if decision.DomainAbility != nil {
+		ce.executeAbility(actor, target, decision.DomainAbility, state)
+	} else if decision.AdversaryFeature != nil {
+		ce.executeFeature(actor, target, decision.AdversaryFeature, state)
+	} else if target != nil && target.IsAlive() {
+		// Basic attack
 		ce.executeAttack(actor, target, state)
 	}
 
@@ -64,58 +63,33 @@ func (ce *CombatEngine) ExecuteTurn(actor *models.Combatant, target *models.Comb
 	return nil
 }
 
-// tryActivateFeature attempts to activate a feature or domain ability
-// Returns true if a feature was successfully activated
-func (ce *CombatEngine) tryActivateFeature(actor *models.Combatant, target *models.Combatant, state *models.CombatState) bool {
-	// Try player domain abilities first
-	if actor.Side == models.SidePlayer && len(actor.DomainAbilities) > 0 {
-		for _, ability := range actor.DomainAbilities {
-			// Check if can afford
-			if ability.HopeCost > state.HopePool {
-				continue
-			}
-			if ability.StressCost+actor.Stress > actor.StressMax {
-				continue
-			}
+// executeAbility activates a domain ability (player)
+func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
+	// Pay costs
+	state.SpendHope(ability.HopeCost)
+	actor.AddStress(ability.StressCost)
 
-			// Pay costs
-			state.SpendHope(ability.HopeCost)
-			actor.AddStress(ability.StressCost)
-
-			// Apply effects
-			for _, effect := range ability.Effects {
-				ce.featureResolver.ResolveEffect(effect, actor, target, state)
-			}
-
-			// Record action
-			state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-			return true
-		}
+	// Apply effects
+	for _, effect := range ability.Effects {
+		ce.featureResolver.ResolveEffect(effect, actor, target, state)
 	}
 
-	// Try enemy adversary features
-	if actor.Side == models.SideEnemy && len(actor.AdversaryFeatures) > 0 {
-		for _, feature := range actor.AdversaryFeatures {
-			// Check if can afford
-			if feature.FearCost > state.FearPool {
-				continue
-			}
+	// Record action
+	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+}
 
-			// Pay costs
-			state.SpendFear(feature.FearCost)
+// executeFeature activates an adversary feature (enemy)
+func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
+	// Pay costs
+	state.SpendFear(feature.FearCost)
 
-			// Apply effects
-			for _, effect := range feature.Effects {
-				ce.featureResolver.ResolveEffect(effect, actor, target, state)
-			}
-
-			// Record action
-			state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
-			return true
-		}
+	// Apply effects
+	for _, effect := range feature.Effects {
+		ce.featureResolver.ResolveEffect(effect, actor, target, state)
 	}
 
-	return false
+	// Record action
+	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
 }
 
 // executeAttack handles basic attack action
@@ -234,13 +208,16 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		currentSide = actor.Side
 
 		// AI chooses action
-		action := decisionMaker.ChooseAction(state, actor)
+		decision := decisionMaker.ChooseAction(state, actor)
+		if decision.Target == nil {
+			break // No valid target
+		}
 
 		// Store action history length before action
 		actionsBeforeTurn := len(state.ActionHistory)
 
-		// Execute turn
-		ce.ExecuteTurn(actor, action, state)
+		// Execute turn based on decision
+		ce.ExecuteTurnWithDecision(actor, decision, state)
 
 		// Check if spotlight shifted based on last action
 		spotlightShifted = false
@@ -305,7 +282,7 @@ type CombatOutcome struct {
 	ActionHistory     []models.ActionRecord
 }
 
-// DecisionMaker is an interface for AI/strategy to choose targets
+// DecisionMaker is an interface for AI/strategy to choose actions
 type DecisionMaker interface {
-	ChooseAction(state *models.CombatState, actor *models.Combatant) *models.Combatant
+	ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision
 }
