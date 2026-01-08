@@ -12,7 +12,7 @@ type AdversaryFeatureForm struct {
 	app.Compo
 
 	Features []*models.AdversaryFeature
-	OnChange func()
+	OnChange func([]*models.AdversaryFeature)
 
 	// Form state
 	showForm         bool
@@ -26,6 +26,8 @@ type AdversaryFeatureForm struct {
 	newEffectType    string
 	newMagnitude     int
 	newDuration      string
+	newDCType        string
+	newFixedDC       int
 }
 
 // OnMount initializes default values
@@ -226,6 +228,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(aff.newEffectType == "apply_vulnerable"),
 							app.Option().Value("apply_poison").Text("Apply Poison").Selected(aff.newEffectType == "apply_poison"),
 							app.Option().Value("armor_damage").Text("Damage Armor").Selected(aff.newEffectType == "armor_damage"),
+							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(aff.newEffectType == "grant_armor"),
 						),
 				),
 			app.If(aff.needsDiceFormula(), func() app.UI {
@@ -287,20 +290,53 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							),
 					)
 			}),
+			app.H5().Text("Difficulty Check"),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text("DC Type:"),
+					app.Select().
+						OnChange(func(ctx app.Context, e app.Event) {
+							aff.newDCType = ctx.JSSrc().Get("value").String()
+							ctx.Update()
+						}).
+						Body(
+							app.Option().Value("none").Text("Auto-Succeed").Selected(aff.newDCType == "none"),
+							app.Option().Value("target").Text("Target's Evasion").Selected(aff.newDCType == "target"),
+							app.Option().Value("fixed").Text("Fixed DC").Selected(aff.newDCType == "fixed"),
+						),
+				),
+			app.If(aff.newDCType == "fixed", func() app.UI {
+				return app.Div().
+					Class("form-group").
+					Body(
+						app.Label().Text("Fixed DC:"),
+						app.Input().
+							Type("number").
+							Value(aff.newFixedDC).
+							Min(1).
+							Max(30).
+							OnInput(aff.handleIntInput(&aff.newFixedDC)),
+					)
+			}),
 			app.Div().
 				Class("form-actions").
 				Body(
 					app.Button().
 						Class("btn btn-primary").
+						Type("button").
 						Text("Add Feature").
 						Disabled(aff.newName == "").
 						OnClick(func(ctx app.Context, e app.Event) {
+							e.PreventDefault()
 							aff.addFeature(ctx)
 						}),
 					app.Button().
 						Class("btn btn-secondary").
+						Type("button").
 						Text("Cancel").
 						OnClick(func(ctx app.Context, e app.Event) {
+							e.PreventDefault()
 							aff.showForm = false
 							aff.resetForm()
 							ctx.Update()
@@ -315,7 +351,9 @@ func (aff *AdversaryFeatureForm) needsDiceFormula() bool {
 }
 
 func (aff *AdversaryFeatureForm) needsMagnitude() bool {
-	return aff.newEffectType == "stress_inflict" || aff.newEffectType == "armor_damage"
+	return aff.newEffectType == "stress_inflict" ||
+		aff.newEffectType == "armor_damage" ||
+		aff.newEffectType == "grant_armor"
 }
 
 func (aff *AdversaryFeatureForm) needsDamageType() bool {
@@ -351,6 +389,8 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		effectCategory = models.FeatureEffectApplyPoison
 	case "armor_damage":
 		effectCategory = models.FeatureEffectArmorDamage
+	case "grant_armor":
+		effectCategory = models.FeatureEffectGrantArmor
 	default:
 		effectCategory = models.FeatureEffectDamage
 	}
@@ -373,13 +413,15 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		},
 		FearCost:       aff.newFearCost,
 		SpotlightLimit: aff.newSpotlightLim,
+		DCType:         aff.newDCType,
+		FixedDC:        aff.newFixedDC,
 		Effects:        []models.FeatureEffect{effect},
 	}
 
 	aff.Features = append(aff.Features, feature)
 
 	if aff.OnChange != nil {
-		aff.OnChange()
+		aff.OnChange(aff.Features)
 	}
 
 	aff.showForm = false
@@ -393,7 +435,7 @@ func (aff *AdversaryFeatureForm) removeFeature(ctx app.Context, idx int) {
 		aff.Features = append(aff.Features[:idx], aff.Features[idx+1:]...)
 
 		if aff.OnChange != nil {
-			aff.OnChange()
+			aff.OnChange(aff.Features)
 		}
 
 		ctx.Update()
@@ -412,4 +454,6 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newEffectType = "damage"
 	aff.newMagnitude = 1
 	aff.newDuration = "instant"
+	aff.newDCType = "target"
+	aff.newFixedDC = 12
 }

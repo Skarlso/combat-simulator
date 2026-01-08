@@ -12,7 +12,7 @@ type DomainAbilityForm struct {
 	app.Compo
 
 	Abilities []*models.DomainAbility
-	OnChange  func()
+	OnChange  func([]*models.DomainAbility)
 
 	// Form state
 	showForm        bool
@@ -22,6 +22,8 @@ type DomainAbilityForm struct {
 	newStressCost   int
 	newRefreshType  string
 	newMaxUses      int
+	newDCType       string
+	newFixedDC      int
 	newDiceFormula  string
 	newDamageType   string
 	newEffectType   string
@@ -230,6 +232,35 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							)
 					}),
 				),
+			app.H5().Text("Difficulty Check"),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text("DC Type:"),
+					app.Select().
+						OnChange(func(ctx app.Context, e app.Event) {
+							daf.newDCType = ctx.JSSrc().Get("value").String()
+							ctx.Update()
+						}).
+						Body(
+							app.Option().Value("none").Text("Auto-Succeed").Selected(daf.newDCType == "none"),
+							app.Option().Value("target").Text("Target's Difficulty").Selected(daf.newDCType == "target"),
+							app.Option().Value("fixed").Text("Fixed DC").Selected(daf.newDCType == "fixed"),
+						),
+				),
+			app.If(daf.newDCType == "fixed", func() app.UI {
+				return app.Div().
+					Class("form-group").
+					Body(
+						app.Label().Text("Fixed DC:"),
+						app.Input().
+							Type("number").
+							Value(daf.newFixedDC).
+							Min(1).
+							Max(30).
+							OnInput(daf.handleIntInput(&daf.newFixedDC)),
+					)
+			}),
 			app.H5().Text("Effect"),
 			app.Div().
 				Class("form-group").
@@ -248,6 +279,10 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							app.Option().Value("stress_clear").Text("Clear Stress").Selected(daf.newEffectType == "stress_clear"),
 							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(daf.newEffectType == "apply_vulnerable"),
 							app.Option().Value("apply_poison").Text("Apply Poison").Selected(daf.newEffectType == "apply_poison"),
+							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(daf.newEffectType == "grant_armor"),
+							app.Option().Value("damage_reduction").Text("Damage Reduction (Ward)").Selected(daf.newEffectType == "damage_reduction"),
+							app.Option().Value("token_place").Text("Place Token").Selected(daf.newEffectType == "token_place"),
+							app.Option().Value("token_spend").Text("Spend Token").Selected(daf.newEffectType == "token_spend"),
 						),
 				),
 			app.If(daf.needsDiceFormula(), func() app.UI {
@@ -314,15 +349,19 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 				Body(
 					app.Button().
 						Class("btn btn-primary").
+						Type("button").
 						Text("Add Ability").
 						Disabled(daf.newName == "").
 						OnClick(func(ctx app.Context, e app.Event) {
+							e.PreventDefault()
 							daf.addAbility(ctx)
 						}),
 					app.Button().
 						Class("btn btn-secondary").
+						Type("button").
 						Text("Cancel").
 						OnClick(func(ctx app.Context, e app.Event) {
+							e.PreventDefault()
 							daf.showForm = false
 							daf.resetForm()
 							ctx.Update()
@@ -333,11 +372,18 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 
 // Helper methods for conditional rendering
 func (daf *DomainAbilityForm) needsDiceFormula() bool {
-	return daf.newEffectType == "damage" || daf.newEffectType == "direct_damage" || daf.newEffectType == "heal"
+	return daf.newEffectType == "damage" ||
+		daf.newEffectType == "direct_damage" ||
+		daf.newEffectType == "heal" ||
+		daf.newEffectType == "damage_reduction"
 }
 
 func (daf *DomainAbilityForm) needsMagnitude() bool {
-	return daf.newEffectType == "stress_inflict" || daf.newEffectType == "stress_clear"
+	return daf.newEffectType == "stress_inflict" ||
+		daf.newEffectType == "stress_clear" ||
+		daf.newEffectType == "grant_armor" ||
+		daf.newEffectType == "token_place" ||
+		daf.newEffectType == "token_spend"
 }
 
 func (daf *DomainAbilityForm) needsDamageType() bool {
@@ -375,6 +421,14 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		effectCategory = models.FeatureEffectApplyVulnerable
 	case "apply_poison":
 		effectCategory = models.FeatureEffectApplyPoison
+	case "grant_armor":
+		effectCategory = models.FeatureEffectGrantArmor
+	case "damage_reduction":
+		effectCategory = models.FeatureEffectDamageReduction
+	case "token_place":
+		effectCategory = models.FeatureEffectTokenPlace
+	case "token_spend":
+		effectCategory = models.FeatureEffectTokenSpend
 	default:
 		effectCategory = models.FeatureEffectDamage
 	}
@@ -396,13 +450,15 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		RefreshType: daf.newRefreshType,
 		MaxUses:     daf.newMaxUses,
 		UsesLeft:    daf.newMaxUses,
+		DCType:      daf.newDCType,
+		FixedDC:     daf.newFixedDC,
 		Effects:     []models.FeatureEffect{effect},
 	}
 
 	daf.Abilities = append(daf.Abilities, ability)
 
 	if daf.OnChange != nil {
-		daf.OnChange()
+		daf.OnChange(daf.Abilities)
 	}
 
 	daf.showForm = false
@@ -416,7 +472,7 @@ func (daf *DomainAbilityForm) removeAbility(ctx app.Context, idx int) {
 		daf.Abilities = append(daf.Abilities[:idx], daf.Abilities[idx+1:]...)
 
 		if daf.OnChange != nil {
-			daf.OnChange()
+			daf.OnChange(daf.Abilities)
 		}
 
 		ctx.Update()
@@ -436,4 +492,6 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newEffectType = "damage"
 	daf.newMagnitude = 1
 	daf.newDuration = "instant"
+	daf.newDCType = "target"
+	daf.newFixedDC = 12
 }

@@ -235,8 +235,8 @@ func (cl *CombatantList) renderAddForm() app.UI {
 				),
 			&DomainAbilityForm{
 				Abilities: cl.newDomainAbilities,
-				OnChange: func() {
-					// Domain abilities updated
+				OnChange: func(updated []*models.DomainAbility) {
+					cl.newDomainAbilities = updated
 				},
 			},
 			app.Div().

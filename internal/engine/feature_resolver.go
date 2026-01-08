@@ -75,6 +75,22 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectSummonAllies:
 		return fmt.Errorf("summoning not yet implemented")
 
+	// Defensive abilities
+	case models.FeatureEffectDamageReduction:
+		// Passive - applied when taking damage (not implemented in combat flow yet)
+		return nil
+
+	case models.FeatureEffectGrantArmor:
+		return fr.resolveGrantArmor(effect, target)
+
+	// Token mechanics
+	case models.FeatureEffectTokenPlace:
+		// Tokens are tracked on DomainAbility, not implemented in combat flow yet
+		return nil
+	case models.FeatureEffectTokenSpend:
+		// Tokens are spent via cost checks, not implemented in combat flow yet
+		return nil
+
 	default:
 		return fmt.Errorf("unknown effect category: %s", effect.Category)
 	}
@@ -101,7 +117,7 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 		damageType = models.DamageMagic
 	}
 
-	hpDamage := target.TakeDamage(damage, damageType)
+	hpDamage := target.TakeDamage(damage, damageType, fr.dice)
 
 	// TODO: Add proper logging via RecordAction
 	_ = hpDamage
@@ -234,6 +250,17 @@ func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, targe
 	return nil
 }
 
+// resolveGrantArmor grants armor slots to target
+func (fr *FeatureResolver) resolveGrantArmor(effect models.FeatureEffect, target *models.Combatant) error {
+	if target == nil || !target.IsAlive() {
+		return nil
+	}
+
+	// Grant armor slots (magnitude = number of slots)
+	target.ArmorSlots += effect.Magnitude
+	return nil
+}
+
 // resolveHopeDrain removes Hope from the pool
 func (fr *FeatureResolver) resolveHopeDrain(effect models.FeatureEffect, state *models.CombatState) error {
 	amount := effect.Magnitude
@@ -246,6 +273,69 @@ func (fr *FeatureResolver) resolveFearGenerate(effect models.FeatureEffect, stat
 	amount := effect.Magnitude
 	state.AddFear(amount)
 	return nil
+}
+
+// rollDCCheck rolls to beat a Difficulty Check
+// Returns true if the roll succeeds
+func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType string, fixedDC int, state *models.CombatState) bool {
+	var dc int
+
+	// Determine the DC
+	switch dcType {
+	case "target":
+		if target == nil {
+			return false // No target to roll against
+		}
+		dc = target.GetDefense()
+	case "fixed":
+		dc = fixedDC
+	default:
+		return true // Auto-succeed if no DC specified
+	}
+
+	// Roll based on actor's side
+	if actor.Side == models.SidePlayer {
+		// Player uses duality dice
+		hopeModifier := actor.GetAttackBonus()
+		fearModifier := 0
+
+		// Check for advantage/disadvantage
+		if actor.HasCondition(models.ConditionAdvantage) {
+			hopeModifier += fr.dice.RollD6()
+		}
+		if actor.HasCondition(models.ConditionDisadvantage) {
+			hopeModifier -= fr.dice.RollD6()
+		}
+		if actor.IsFullyStressed {
+			hopeModifier -= 2
+		}
+
+		dualityRoll := fr.dice.RollDuality(hopeModifier, fearModifier)
+
+		// Handle Hope/Fear generation
+		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
+			state.AddHope(1)
+		}
+		if dualityRoll.Result == models.ResultFear || dualityRoll.Result == models.ResultCriticalFear {
+			state.AddFear(1)
+		}
+
+		// Critical success always succeeds
+		if dualityRoll.IsCritical {
+			return true
+		}
+
+		// Check if roll beats DC
+		return dualityRoll.WithSpirit >= dc
+
+	} else {
+		// Enemy uses d20 + ATK
+		roll := fr.dice.RollDice(1, 20)
+		attackBonus := actor.GetAttackBonus()
+		totalRoll := roll + attackBonus
+
+		return totalRoll >= dc
+	}
 }
 
 // CanActivateAdversaryFeature checks if an adversary can use a feature
@@ -294,9 +384,18 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 		return fmt.Errorf("cannot activate feature %s", feature.Name)
 	}
 
-	// Pay costs
+	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
 	if feature.FearCost > 0 {
 		state.SpendFear(feature.FearCost)
+	}
+
+	// Check DC if required
+	if feature.DCType != "" && feature.DCType != "none" {
+		success := fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, state)
+		if !success {
+			// Feature failed - costs already spent
+			return fmt.Errorf("feature %s failed DC check", feature.Name)
+		}
 	}
 
 	// Apply effects
@@ -320,7 +419,7 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 		return fmt.Errorf("cannot activate ability %s", ability.Name)
 	}
 
-	// Pay costs
+	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
 	if ability.HopeCost > 0 {
 		state.SpendHope(ability.HopeCost)
 	}
@@ -331,6 +430,15 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 	// Decrement uses
 	if ability.MaxUses > 0 {
 		ability.UsesLeft--
+	}
+
+	// Check DC if required
+	if ability.DCType != "" && ability.DCType != "none" {
+		success := fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, state)
+		if !success {
+			// Ability failed - costs already spent
+			return fmt.Errorf("ability %s failed DC check", ability.Name)
+		}
 	}
 
 	// Apply effects

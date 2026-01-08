@@ -263,8 +263,8 @@ func (al *AdversaryList) renderAddForm() app.UI {
 				),
 			&AdversaryFeatureForm{
 				Features: al.newFeatures,
-				OnChange: func() {
-					// Features updated
+				OnChange: func(updated []*models.AdversaryFeature) {
+					al.newFeatures = updated
 				},
 			},
 			app.Div().

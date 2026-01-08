@@ -628,3 +628,176 @@ go run cmd/example/main.go
 make serve  # http://localhost:8080
 ```
 
+## Session 7 Summary (2026-01-07 Part 5) - INTELLIGENT AI & STRATEGY TUNING ✅
+
+### Goal: Replace Random Feature Activation with Value-Based Decisions
+
+**Problem:** AI used 30% random chance to activate features, preventing optimal play discovery
+
+**Solution:** Implemented expected value evaluation for features vs basic attacks
+
+### AI Decision Logic Implementation ✅
+
+**Added to `strategy/decision_maker.go`:**
+
+1. **ActionDecision struct** - Bundles target + feature choice (DomainAbility or AdversaryFeature)
+
+2. **evaluateBestAction()** - Compares all features against basic attack
+   - Checks affordability (Hope/Fear/Stress costs)
+   - Calculates expected value for each option
+   - Returns highest value action
+
+3. **evaluateBasicAttack()** - Estimates basic attack value
+   - Average damage from dice formula
+   - Hit chance based on proficiency vs defense
+   - Returns: avgDamage × hitChance
+
+4. **evaluateAbility() / evaluateFeature()** - Calculates feature value
+   - Sums all effect values
+   - Subtracts cost penalties:
+     - Hope: 1.5× penalty (very valuable)
+     - Fear: 1.0× penalty (standard)
+     - Stress: 0.5× penalty (can be cleared)
+
+5. **evaluateEffect()** - Values individual effects
+   - **Damage**: avgDamage + magnitude
+   - **AOE**: damage × enemy count (cap 3)
+   - **Vulnerable**: 5.0 on high HP, 2.0 on low HP
+   - **Poison/Ignite**: 3.0 on high HP, 1.5 on low HP
+   - **Healing**: scales with missing HP (no overheal waste)
+   - **Armor Damage**: 2.0 if target has armor
+
+6. **estimateAverageDamage()** - Parses dice notation
+   - Handles complex formulas: "2d6+1d4+3"
+   - Returns: Σ(count × (size+1)/2) + flat bonuses
+
+**Combat Engine Changes (`combat_engine.go`):**
+- ❌ Removed: `tryActivateFeature()` with 30% random chance
+- ✅ Added: `ExecuteTurnWithDecision()` - uses AI choice directly
+- ✅ Added: `executeAbility()` - applies player domain abilities
+- ✅ Added: `executeFeature()` - applies adversary features
+- Changed: `DecisionMaker` interface now returns `*strategy.ActionDecision`
+
+**Updated Files:**
+- `internal/strategy/decision_maker.go` - 180 lines added (evaluation logic)
+- `internal/engine/combat_engine.go` - Refactored turn execution
+- `internal/simulation/runner.go` - Updated return type
+- `cmd/adversary-example/main.go` - Updated return type
+
+### Strategy Testing Tools ✅
+
+**Created: `cmd/strategy-test/main.go`**
+- Tests 6 strategy configurations head-to-head
+- 500 simulations per strategy
+- Metrics: win rate, avg turns, final Hope/Fear
+- Compares: Greedy, Conservative, Desperate, Random, custom configs
+
+**Created: `cmd/parameter-tuning/main.go`**
+- Tests 4 target selection strategies
+- 3 difficulty scenarios (Easy 2v3, Hard 2v5, Boss 2v1)
+- 200 simulations per test
+- Efficiency scoring: winRate × 100 + (1/avgTurns) × 50
+
+### Strategy Tuning Results ✅
+
+**Key Finding: HighestHP (Attack Strongest First) is OPTIMAL**
+
+| Scenario | HighestHP Win Rate | LowestHP Win Rate | Difference |
+|----------|-------------------|-------------------|------------|
+| Easy 2v3 | 100.0%            | 99.5%             | +0.5%      |
+| Hard 2v5 | 89.0%             | 84.5%             | +4.5% ⭐   |
+| Boss 2v1 | 37.5%             | 35.0%             | +2.5%      |
+
+**Why HighestHP Wins:**
+- Removes high damage threats early (less accumulated damage)
+- Leaves weak enemies for cleanup when resources low
+- Better action economy (start on tough enemies immediately)
+- Spotlight mechanics favor threat removal
+
+**Traditional "Focus Fire" (LowestHP) Weakness:**
+- Weak enemies deal less damage anyway
+- Strong enemies alive longer → more damage taken
+- Resources depleted before facing real threats
+
+### Test Results
+
+**Basic Simulation:**
+```bash
+go run cmd/example/main.go
+# 1000 runs, 100% player victory, 11.3 avg turns
+```
+
+**Feature Usage:**
+```bash
+go run cmd/adversary-example/main.go
+# Acid Burrower used Earth Eruption 6 times (correct - AOE Vulnerable is high value)
+```
+
+**Strategy Comparison:**
+```bash
+go run cmd/strategy-test/main.go
+# Conservative (Threat Priority): 99.6% win rate, 18.2 turns (fastest)
+```
+
+**Parameter Tuning:**
+```bash
+go run cmd/parameter-tuning/main.go
+# HighestHP optimal across all difficulty levels
+```
+
+### Files Created
+
+1. `cmd/strategy-test/main.go` - Strategy head-to-head comparison (237 lines)
+2. `cmd/parameter-tuning/main.go` - Parameter tuning across difficulties (318 lines)
+3. `STRATEGY_TUNING_RESULTS.md` - Comprehensive tuning analysis
+
+### Current Status
+
+- ✅ AI makes intelligent decisions based on expected value
+- ✅ Resource costs naturally limit usage (no artificial restrictions)
+- ✅ Strategy tuning complete: HighestHP is optimal
+- ✅ Monte Carlo discovers optimal play patterns
+- ✅ All packages compile and run
+- ✅ WASM builds successfully
+
+### What Changed
+
+**Before:**
+- 30% random chance to use features
+- No evaluation of feature vs attack value
+- Suboptimal play patterns
+
+**After:**
+- Every turn: AI evaluates all options (features + basic attack)
+- Chooses highest expected value action
+- Resource depletion is natural limiter
+- Optimal strategies discovered through simulation
+
+### Commands
+
+```bash
+# Run strategy comparison (6 strategies, 500 runs each)
+go run cmd/strategy-test/main.go
+
+# Run parameter tuning (3 scenarios, 4 strategies, 200 runs each)
+go run cmd/parameter-tuning/main.go
+
+# Test feature usage with smart AI
+go run cmd/adversary-example/main.go
+
+# Standard simulation
+go run cmd/example/main.go
+
+# Web UI
+make serve  # http://localhost:8080
+```
+
+### Next Steps
+
+- ⬜ Implement dynamic strategy switching (context-aware)
+- ⬜ Expand feature mappings (33/340 = 9.7%)
+- ⬜ Balance boss encounters (37% win rate too low)
+- ⬜ Fine-tune cost penalty multipliers (Hope 1.5×, Stress 0.5×, Fear 1.0×)
+- ⬜ Test with more tier 1-5 adversaries
+- ⬜ Add dynamic summoning system
+

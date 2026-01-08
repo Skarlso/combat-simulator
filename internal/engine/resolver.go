@@ -167,7 +167,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.Threshold = models.DamageThresholdFromAmount(damageRoll, defender)
 
 	// Apply damage to defender (returns actual HP damage dealt)
-	hpDamage := defender.TakeDamage(damageRoll, models.DamagePhysical)
+	hpDamage := defender.TakeDamage(damageRoll, models.DamagePhysical, cr.dice)
 	result.HPDamage = hpDamage
 
 	return result
@@ -180,7 +180,7 @@ func (cr *CombatResolver) ProcessConditionTicks(combatant *models.Combatant, tri
 	for i, condition := range combatant.Conditions {
 		// Apply damage-over-time
 		if condition.DamagePerTick > 0 && trigger == models.TriggerTurnStart {
-			combatant.TakeDamage(condition.DamagePerTick, condition.DamageType)
+			combatant.TakeDamage(condition.DamagePerTick, condition.DamageType, cr.dice)
 		}
 
 		// Check if condition should expire

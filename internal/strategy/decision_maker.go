@@ -240,6 +240,60 @@ func (ai *AIDecisionMaker) evaluateBasicAttack(actor *models.Combatant, target *
 	return avgDamage * hitChance
 }
 
+// estimateSuccessProbability estimates the chance of success against a DC
+func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, target *models.Combatant, dcType string, fixedDC int) float64 {
+	if dcType == "" || dcType == "none" {
+		return 1.0 // Auto-succeed
+	}
+
+	var dc int
+	switch dcType {
+	case "target":
+		if target == nil {
+			return 0.5 // Unknown target, assume 50%
+		}
+		dc = target.GetDefense()
+	case "fixed":
+		dc = fixedDC
+	default:
+		return 1.0 // Unknown DC type, assume success
+	}
+
+	// Estimate success probability based on actor's stats
+	if actor.Side == models.SidePlayer {
+		// Player uses duality dice (2d12 + modifiers)
+		// Average duality roll is about 13 + proficiency
+		avgRoll := 13 + actor.Proficiency
+
+		// Rough probability estimate based on difference
+		diff := avgRoll - dc
+		if diff >= 5 {
+			return 0.85 // Very likely to succeed
+		} else if diff >= 0 {
+			return 0.65 // Moderately likely
+		} else if diff >= -3 {
+			return 0.45 // Somewhat unlikely
+		} else {
+			return 0.25 // Very unlikely
+		}
+	} else {
+		// Enemy uses d20 + ATK
+		// Average roll is 10.5 + proficiency
+		avgRoll := 10 + actor.Proficiency
+
+		diff := avgRoll - dc
+		if diff >= 5 {
+			return 0.80
+		} else if diff >= 0 {
+			return 0.60
+		} else if diff >= -3 {
+			return 0.40
+		} else {
+			return 0.20
+		}
+	}
+}
+
 // evaluateAbility estimates expected value of a domain ability
 func (ai *AIDecisionMaker) evaluateAbility(state *models.CombatState, actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility) float64 {
 	value := 0.0
@@ -248,7 +302,11 @@ func (ai *AIDecisionMaker) evaluateAbility(state *models.CombatState, actor *mod
 		value += ai.evaluateEffect(effect, actor, target, state)
 	}
 
-	// Subtract cost penalty (Hope is valuable)
+	// Factor in success probability based on DC
+	successProb := ai.estimateSuccessProbability(actor, target, ability.DCType, ability.FixedDC)
+	value *= successProb
+
+	// Subtract cost penalty (Hope is valuable) - costs paid regardless of success
 	value -= float64(ability.HopeCost) * 1.5
 	value -= float64(ability.StressCost) * 0.5
 
@@ -263,7 +321,11 @@ func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *mod
 		value += ai.evaluateEffect(effect, actor, target, state)
 	}
 
-	// Subtract fear cost penalty
+	// Factor in success probability based on DC
+	successProb := ai.estimateSuccessProbability(actor, target, feature.DCType, feature.FixedDC)
+	value *= successProb
+
+	// Subtract fear cost penalty - costs paid regardless of success
 	value -= float64(feature.FearCost) * 1.0
 
 	return value
@@ -330,6 +392,22 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 			return 2.0
 		}
 		return 0.0
+
+	case models.FeatureEffectGrantArmor:
+		// Grant armor is valuable when actor is low on armor
+		if actor.ArmorSlots < 2 {
+			return float64(effect.Magnitude) * 2.0
+		}
+		return float64(effect.Magnitude) * 1.0
+
+	case models.FeatureEffectDamageReduction:
+		// Damage reduction is valuable (defensive ability)
+		avgReduction := ai.estimateAverageDamage(effect.DiceFormula)
+		return avgReduction + float64(effect.Magnitude)
+
+	case models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend:
+		// Token mechanics - moderate value (future use)
+		return 2.0
 
 	default:
 		// Unknown effect, give it minimal value

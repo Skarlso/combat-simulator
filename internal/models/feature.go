@@ -22,8 +22,16 @@ const (
 	FeatureEffectStressClear   FeatureEffectCategory = "stress_clear"
 	FeatureEffectHPHeal        FeatureEffectCategory = "hp_heal"
 	FeatureEffectArmorDamage   FeatureEffectCategory = "armor_damage"
+	FeatureEffectGrantArmor    FeatureEffectCategory = "grant_armor"
 	FeatureEffectHopeDrain     FeatureEffectCategory = "hope_drain"
 	FeatureEffectFearGenerate  FeatureEffectCategory = "fear_generate"
+
+	// Defensive
+	FeatureEffectDamageReduction FeatureEffectCategory = "damage_reduction"
+
+	// Token mechanics
+	FeatureEffectTokenPlace FeatureEffectCategory = "token_place"
+	FeatureEffectTokenSpend FeatureEffectCategory = "token_spend"
 
 	// Resistance
 	FeatureEffectDamageResistance    FeatureEffectCategory = "damage_resistance"
@@ -71,6 +79,11 @@ type AdversaryFeature struct {
 	Trigger        FeatureTriggerCondition
 	FearCost       int // Fear required to activate (0 = free)
 	SpotlightLimit int // Max times per GM turn (0 = unlimited)
+
+	// Difficulty Check
+	DCType  string // "none" (auto-succeed), "target" (roll vs target's Evasion), "fixed" (roll vs FixedDC)
+	FixedDC int    // DC value if DCType is "fixed"
+
 	Effects        []FeatureEffect
 }
 
@@ -83,6 +96,17 @@ type DomainAbility struct {
 	RefreshType string // "rest", "long_rest", "scene", "unlimited"
 	MaxUses     int    // Uses before needing refresh (0 = unlimited if RefreshType allows)
 	UsesLeft    int    // Current remaining uses (runtime state)
+
+	// Difficulty Check
+	DCType  string // "none" (auto-succeed), "target" (roll vs target's Difficulty), "fixed" (roll vs FixedDC)
+	FixedDC int    // DC value if DCType is "fixed"
+
+	// Token mechanics (for abilities like Unleash Chaos)
+	UsesTokens     bool   // Whether this ability uses tokens
+	TokenName      string // Name of tokens (e.g., "Chaos", "Ward")
+	TokensHeld     int    // Current tokens held (runtime state)
+	TokensMax      int    // Maximum tokens (0 = unlimited)
+
 	Effects     []FeatureEffect
 }
 

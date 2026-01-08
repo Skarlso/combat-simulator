@@ -129,18 +129,12 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		if result.DualityResult.Result == models.ResultFear || result.DualityResult.Result == models.ResultCriticalFear {
 			spotlightShift = true
 		}
-		// Track Hope/Fear generation
+		// Track Hope/Fear generation (always 1 per roll, even on critical)
 		if result.GeneratedHope {
 			hopeGenerated = 1
-			if result.CriticalResult {
-				hopeGenerated = 2
-			}
 		}
 		if result.GeneratedFear {
 			fearGenerated = 1
-			if result.CriticalResult {
-				fearGenerated = 2
-			}
 		}
 	} else {
 		// Enemy uses d20 - store in HopeDie field for display

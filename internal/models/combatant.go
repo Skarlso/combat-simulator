@@ -127,13 +127,20 @@ func (c *Combatant) AddResistance(damageType DamageType, amount int) {
 
 // TakeDamage applies damage using threshold system
 // Returns actual HP damage dealt
-func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType) int {
+// roller can be nil if no dice rolling is needed
+func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) int {
 	// Apply resistances to raw damage
 	actualDamage := rawDamage
 	for _, resist := range c.Resistances {
 		if resist.Type == damageType {
 			actualDamage -= resist.Amount
 		}
+	}
+
+	// Apply damage reduction from active effects
+	if roller != nil {
+		reduction := c.calculateDamageReduction(roller)
+		actualDamage -= reduction
 	}
 
 	if actualDamage < 0 {
@@ -166,6 +173,49 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType) int {
 	}
 
 	return hpDamage
+}
+
+// calculateDamageReduction checks for active damage reduction effects
+func (c *Combatant) calculateDamageReduction(roller DiceRoller) int {
+	totalReduction := 0
+
+	// Check domain abilities for damage reduction effects
+	for _, ability := range c.DomainAbilities {
+		for _, effect := range ability.Effects {
+			if effect.Category == FeatureEffectDamageReduction {
+				// Add flat magnitude
+				totalReduction += effect.Magnitude
+
+				// Roll dice if formula present
+				if effect.DiceFormula != "" {
+					notation, err := ParseDiceNotation(effect.DiceFormula)
+					if err == nil {
+						totalReduction += notation.Roll(roller)
+					}
+				}
+			}
+		}
+	}
+
+	// Check adversary features for damage reduction effects
+	for _, feature := range c.AdversaryFeatures {
+		for _, effect := range feature.Effects {
+			if effect.Category == FeatureEffectDamageReduction {
+				// Add flat magnitude
+				totalReduction += effect.Magnitude
+
+				// Roll dice if formula present
+				if effect.DiceFormula != "" {
+					notation, err := ParseDiceNotation(effect.DiceFormula)
+					if err == nil {
+						totalReduction += notation.Roll(roller)
+					}
+				}
+			}
+		}
+	}
+
+	return totalReduction
 }
 
 // Heal restores HP
