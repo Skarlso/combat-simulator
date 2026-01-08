@@ -11,10 +11,11 @@ type CombatState struct {
 	FearPool int
 
 	// Turn tracking
-	RoundNumber   int
-	TurnNumber    int
-	CurrentActor  *Combatant
-	ActionHistory []ActionRecord
+	RoundNumber            int
+	TurnNumber             int
+	CurrentActor           *Combatant
+	ActionHistory          []ActionRecord
+	ConsecutivePlayerTurns int // Track consecutive player turns for aggressive Fear usage
 
 	// Configuration
 	SpotlightThreshold int
@@ -54,12 +55,13 @@ func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlight
 	return &CombatState{
 		Players:            players,
 		Enemies:            enemies,
-		HopePool:           hopePool,
-		FearPool:           fearPool,
-		RoundNumber:        0,
-		TurnNumber:         0,
-		SpotlightThreshold: spotlightThreshold,
-		ActionHistory:      make([]ActionRecord, 0),
+		HopePool:               hopePool,
+		FearPool:               fearPool,
+		RoundNumber:            0,
+		TurnNumber:             0,
+		ConsecutivePlayerTurns: 0,
+		SpotlightThreshold:     spotlightThreshold,
+		ActionHistory:          make([]ActionRecord, 0),
 	}
 }
 

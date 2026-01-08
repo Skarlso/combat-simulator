@@ -159,8 +159,8 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 		enemyStrategy:  strategy.NewAIDecisionMaker(sr.rng, sr.config.EnemyStrategy),
 	}
 
-	// Run combat
-	outcome := combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat)
+	// Run combat (pass enemy Fear usage strategy for aggressive spotlight grabs)
+	outcome := combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)
 
 	return outcome
 }

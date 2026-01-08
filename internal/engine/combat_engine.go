@@ -200,7 +200,7 @@ func (ce *CombatEngine) DetermineNextActor(state *models.CombatState, lastActorS
 }
 
 // RunCombat executes full combat until victory/defeat
-func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker DecisionMaker, maxTurns int) *CombatOutcome {
+func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker DecisionMaker, maxTurns int, enemyFearUsage strategy.ResourceUsageStrategy) *CombatOutcome {
 	turnCount := 0
 	roundCount := 0
 
@@ -209,14 +209,36 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 	spotlightShifted := false
 
 	for !state.IsCombatOver() && turnCount < maxTurns {
+		// Check for aggressive Fear usage: if players have gone more than 3 times in a row,
+		// GM can spend 1 Fear to grab spotlight
+		if state.ConsecutivePlayerTurns > 3 &&
+		   enemyFearUsage == strategy.ResourceGreedy &&
+		   state.FearPool >= 1 &&
+		   len(state.GetAliveEnemies()) > 0 {
+			// Force spotlight grab using Fear
+			state.SpendFear(1)
+			spotlightShifted = true
+			state.ConsecutivePlayerTurns = 0
+			// Record this special action with a system actor
+			gmAction := &models.Combatant{Name: "GM"}
+			state.RecordAction(gmAction, models.ActionPass, nil, "",
+				"Spends 1 Fear to grab spotlight (aggressive strategy)",
+				0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+		}
+
 		// Determine next actor based on spotlight
 		actor, _ := ce.DetermineNextActor(state, currentSide, spotlightShifted)
 		if actor == nil {
 			break
 		}
 
-		// Update current side
+		// Update current side and track consecutive player turns
 		currentSide = actor.Side
+		if actor.Side == models.SidePlayer {
+			state.ConsecutivePlayerTurns++
+		} else {
+			state.ConsecutivePlayerTurns = 0
+		}
 
 		// AI chooses action
 		decision := decisionMaker.ChooseAction(state, actor)

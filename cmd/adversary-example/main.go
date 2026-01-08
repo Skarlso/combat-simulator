@@ -126,7 +126,8 @@ func main() {
 
 	// Run single simulation
 	fmt.Println("Running single combat...")
-	outcome := combatEngine.RunCombat(state, decisionMaker, 100)
+	enemyConfig := strategy.DefaultGreedyConfig()
+	outcome := combatEngine.RunCombat(state, decisionMaker, 100, enemyConfig.ResourceUsage)
 
 	// Display results
 	fmt.Printf("\n=== Combat Result ===\n")
