@@ -339,10 +339,6 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 		avgDamage := ai.estimateAverageDamage(effect.DiceFormula)
 		return avgDamage + float64(effect.Magnitude)
 
-	case models.FeatureEffectDamageAmplifier:
-		// Bonus damage on attacks
-		return float64(effect.Magnitude) * 0.8 // Conditional, so worth less
-
 	case models.FeatureEffectAreaDamage:
 		// AOE hits multiple targets
 		avgDamage := ai.estimateAverageDamage(effect.DiceFormula)

@@ -7,26 +7,6 @@ type ActiveCondition struct {
 	RoundsLeft   int // For DurationRounds type
 	DamagePerTick int // For burning, poison, etc.
 	DamageType   DamageType
-	Source       string // Who/what applied this condition
-}
-
-// NewCondition creates a basic condition
-func NewCondition(condType ConditionType, duration DurationType) *ActiveCondition {
-	return &ActiveCondition{
-		Type:     condType,
-		Duration: duration,
-	}
-}
-
-// NewDOTCondition creates a damage-over-time condition (burning, poison)
-func NewDOTCondition(condType ConditionType, damagePerTick int, damageType DamageType, rounds int) *ActiveCondition {
-	return &ActiveCondition{
-		Type:          condType,
-		Duration:      DurationRounds,
-		RoundsLeft:    rounds,
-		DamagePerTick: damagePerTick,
-		DamageType:    damageType,
-	}
 }
 
 // Tick decrements duration for round-based conditions

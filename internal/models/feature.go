@@ -5,10 +5,9 @@ type FeatureEffectCategory string
 
 const (
 	// Damage categories
-	FeatureEffectDamage          FeatureEffectCategory = "damage"
-	FeatureEffectDamageAmplifier FeatureEffectCategory = "damage_amplifier"
-	FeatureEffectDirectDamage    FeatureEffectCategory = "direct_damage"
-	FeatureEffectAreaDamage      FeatureEffectCategory = "area_damage"
+	FeatureEffectDamage       FeatureEffectCategory = "damage"
+	FeatureEffectDirectDamage FeatureEffectCategory = "direct_damage"
+	FeatureEffectAreaDamage   FeatureEffectCategory = "area_damage"
 
 	// Status application
 	FeatureEffectApplyVulnerable FeatureEffectCategory = "apply_vulnerable"

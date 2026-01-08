@@ -106,8 +106,6 @@ func stringToEffectCategory(s string) models.FeatureEffectCategory {
 	switch s {
 	case "FeatureEffectDamage":
 		return models.FeatureEffectDamage
-	case "FeatureEffectDamageAmplifier":
-		return models.FeatureEffectDamageAmplifier
 	case "FeatureEffectDirectDamage":
 		return models.FeatureEffectDirectDamage
 	case "FeatureEffectApplyVulnerable":

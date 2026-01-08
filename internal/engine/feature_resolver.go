@@ -30,8 +30,6 @@ func (fr *FeatureResolver) ResolveEffect(
 	// Damage categories
 	case models.FeatureEffectDamage:
 		return fr.resolveDamage(effect, actor, target, state)
-	case models.FeatureEffectDamageAmplifier:
-		return fr.resolveDamageAmplifier(effect, actor, target, state)
 	case models.FeatureEffectDirectDamage:
 		return fr.resolveDirectDamage(effect, actor, target, state)
 
@@ -125,13 +123,6 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 	// TODO: Add proper logging via RecordAction
 	_ = hpDamage
 
-	return nil
-}
-
-// resolveDamageAmplifier adds bonus damage (typically used as modifier to attacks)
-func (fr *FeatureResolver) resolveDamageAmplifier(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState) error {
-	// This is a passive modifier that should be applied during attack resolution
-	// For now, just log it
 	return nil
 }
 
@@ -519,35 +510,8 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		_ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
 	}
 
-	// Check domain abilities (passive effects)
-	for i := range actor.DomainAbilities {
-		ability := &actor.DomainAbilities[i]
-
-		// Domain abilities don't have a Passive flag, but we can check if they have a trigger
-		// For now, skip abilities with costs (those are player-activated, not automatic)
-		if ability.HopeCost > 0 || ability.StressCost > 0 {
-			continue
-		}
-
-		// Check if ability has effects that should trigger
-		hasPassiveEffect := false
-		for _, effect := range ability.Effects {
-			// Passive effects: damage_amplifier, damage_reduction, resistance, etc.
-			if effect.Category == models.FeatureEffectDamageAmplifier ||
-				effect.Category == models.FeatureEffectDamageReduction ||
-				effect.Category == models.FeatureEffectDamageResistance {
-				hasPassiveEffect = true
-				break
-			}
-		}
-
-		if !hasPassiveEffect {
-			continue
-		}
-
-		// Domain abilities don't have triggers in the current model
-		// This is a design limitation - we'd need to add triggers to DomainAbility
-	}
+	// Note: Domain abilities don't have trigger support in the current model
+	// They would need a Trigger field added to DomainAbility struct to support this
 }
 
 // shouldTrigger checks if a trigger condition is met
@@ -560,9 +524,6 @@ func (fr *FeatureResolver) shouldTrigger(
 ) bool {
 	// Check trigger type match
 	switch trigger.Type {
-	case "always":
-		// Always-on passives (applied during damage/attack calculation, not here)
-		return false
 	case "on_attack":
 		if triggerType != "on_attack" {
 			return false
