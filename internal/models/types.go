@@ -6,10 +6,6 @@ type DamageType int
 const (
 	DamagePhysical DamageType = iota
 	DamageMagic
-	DamageFire
-	DamageFrost
-	DamagePoison
-	DamagePhysicalMagic // Hybrid damage type
 )
 
 func (d DamageType) String() string {
@@ -18,14 +14,6 @@ func (d DamageType) String() string {
 		return "Physical"
 	case DamageMagic:
 		return "Magic"
-	case DamageFire:
-		return "Fire"
-	case DamageFrost:
-		return "Frost"
-	case DamagePoison:
-		return "Poison"
-	case DamagePhysicalMagic:
-		return "Physical/Magic"
 	default:
 		return "Unknown"
 	}
@@ -69,19 +57,12 @@ func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold
 	}
 }
 
-// TriggerType defines when an ability can activate
+// TriggerType defines when condition ticks should be processed
 type TriggerType string
 
 const (
-	TriggerTurnStart     TriggerType = "on_turn_start"
-	TriggerTurnEnd       TriggerType = "on_turn_end"
-	TriggerAttack        TriggerType = "on_attack"
-	TriggerAttackSuccess TriggerType = "on_attack_success"
-	TriggerHit           TriggerType = "on_hit"
-	TriggerDamaged       TriggerType = "on_damaged"
-	TriggerAllyDowned    TriggerType = "on_ally_downed"
-	TriggerEnemyDowned   TriggerType = "on_enemy_downed"
-	TriggerManual        TriggerType = "manual" // Player chooses when to use
+	TriggerTurnStart TriggerType = "on_turn_start"
+	TriggerTurnEnd   TriggerType = "on_turn_end"
 )
 
 // ConditionType represents status effects
@@ -90,7 +71,6 @@ type ConditionType string
 const (
 	ConditionBurning      ConditionType = "burning"
 	ConditionPoisoned     ConditionType = "poisoned"
-	ConditionCloaked      ConditionType = "cloaked"
 	ConditionVulnerable   ConditionType = "vulnerable"
 	ConditionResistant    ConditionType = "resistant"
 	ConditionStunned      ConditionType = "stunned"

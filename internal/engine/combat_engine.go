@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
@@ -71,31 +73,30 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 // executeAbility activates a domain ability (player)
 func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
-	// Pay costs
-	state.SpendHope(ability.HopeCost)
-	actor.AddStress(ability.StressCost)
+	// Use proper activation which handles costs, DC checks, tokens, etc.
+	err := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
 
-	// Apply effects
-	for _, effect := range ability.Effects {
-		ce.featureResolver.ResolveEffect(effect, actor, target, state)
+	result := "Success"
+	if err != nil {
+		result = fmt.Sprintf("Failed: %v", err)
 	}
 
 	// Record action
-	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, err == nil, result, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
 }
 
 // executeFeature activates an adversary feature (enemy)
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
-	// Pay costs
-	state.SpendFear(feature.FearCost)
+	// Use proper activation which handles costs, DC checks, spotlight limits, etc.
+	err := ce.featureResolver.ActivateAdversaryFeature(*feature, actor, target, state)
 
-	// Apply effects
-	for _, effect := range feature.Effects {
-		ce.featureResolver.ResolveEffect(effect, actor, target, state)
+	result := "Success"
+	if err != nil {
+		result = fmt.Sprintf("Failed: %v", err)
 	}
 
 	// Record action
-	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, true, "Success", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, err == nil, result, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
 }
 
 // executeAttack handles basic attack action
