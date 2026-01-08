@@ -28,9 +28,9 @@ type AdversaryList struct {
 	newMinorThreshold  int
 	newMajorThreshold  int
 	newDamageDice      string
-	newMotives  string
-	newTactics  string
-	newFeatures []*models.AdversaryFeature
+	newMotives         string
+	newTactics         string
+	newFeatures        []*models.AdversaryFeature
 }
 
 // OnMount initializes default values
@@ -318,6 +318,9 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	for _, feature := range al.newFeatures {
 		adversary.AdversaryFeatures = append(adversary.AdversaryFeatures, *feature)
 	}
+
+	// Apply passive resistances from features
+	adversary.ApplyPassiveResistances()
 
 	if al.OnAdd != nil {
 		al.OnAdd(ctx, adversary)

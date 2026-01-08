@@ -88,8 +88,9 @@ func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) Dualit
 	// Sum both dice for total
 	result.WithSpirit = hopeTotal + fearTotal
 
-	// Determine winner (Hope vs Fear)
-	if hopeTotal >= fearTotal {
+	// Determine winner (Hope vs Fear) using RAW dice values, NOT modified totals
+	// This determines if the roll generates Hope or Fear tokens
+	if hopeDie >= fearDie {
 		result.Result = models.ResultHope
 	} else {
 		result.Result = models.ResultFear

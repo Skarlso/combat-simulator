@@ -229,6 +229,8 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							app.Option().Value("apply_poison").Text("Apply Poison").Selected(aff.newEffectType == "apply_poison"),
 							app.Option().Value("armor_damage").Text("Damage Armor").Selected(aff.newEffectType == "armor_damage"),
 							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(aff.newEffectType == "grant_armor"),
+							app.Option().Value("resistance").Text("Resistance (50%)").Selected(aff.newEffectType == "resistance"),
+							app.Option().Value("immunity").Text("Immunity (100%)").Selected(aff.newEffectType == "immunity"),
 						),
 				),
 			app.If(aff.needsDiceFormula(), func() app.UI {
@@ -357,7 +359,7 @@ func (aff *AdversaryFeatureForm) needsMagnitude() bool {
 }
 
 func (aff *AdversaryFeatureForm) needsDamageType() bool {
-	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage"
+	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage" || aff.newEffectType == "resistance" || aff.newEffectType == "immunity"
 }
 
 func (aff *AdversaryFeatureForm) needsDuration() bool {
@@ -391,13 +393,25 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		effectCategory = models.FeatureEffectArmorDamage
 	case "grant_armor":
 		effectCategory = models.FeatureEffectGrantArmor
+	case "resistance":
+		effectCategory = models.FeatureEffectDamageResistance
+	case "immunity":
+		effectCategory = models.FeatureEffectDamageResistance // Same category, but magnitude will be different
 	default:
 		effectCategory = models.FeatureEffectDamage
 	}
 
+	// Set magnitude based on effect type
+	magnitude := aff.newMagnitude
+	if aff.newEffectType == "resistance" {
+		magnitude = 50
+	} else if aff.newEffectType == "immunity" {
+		magnitude = 100
+	}
+
 	effect := models.FeatureEffect{
 		Category:    effectCategory,
-		Magnitude:   aff.newMagnitude,
+		Magnitude:   magnitude,
 		DiceFormula: aff.newDiceFormula,
 		Duration:    aff.newDuration,
 		TargetType:  models.FeatureTargetSingle,
@@ -454,6 +468,6 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newEffectType = "damage"
 	aff.newMagnitude = 1
 	aff.newDuration = "instant"
-	aff.newDCType = "target"
+	aff.newDCType = "none"
 	aff.newFixedDC = 12
 }

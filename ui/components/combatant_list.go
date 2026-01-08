@@ -290,6 +290,9 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		combatant.DomainAbilities = append(combatant.DomainAbilities, *ability)
 	}
 
+	// Apply passive resistances from features/abilities
+	combatant.ApplyPassiveResistances()
+
 	if cl.OnAdd != nil {
 		cl.OnAdd(ctx, combatant)
 	}

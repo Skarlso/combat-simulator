@@ -61,8 +61,8 @@ type Combatant struct {
 
 // Resistance reduces incoming damage to specific type
 type Resistance struct {
-	Type   DamageType
-	Amount int // Flat reduction
+	Type     DamageType
+	IsImmune bool // If true, 100% reduction (immunity). If false, 50% reduction (resistance)
 }
 
 // NewCombatant creates a player combatant with basic stats
@@ -117,11 +117,19 @@ func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, 
 	}
 }
 
-// AddResistance adds damage resistance
-func (c *Combatant) AddResistance(damageType DamageType, amount int) {
+// AddResistance adds 50% damage resistance to a damage type
+func (c *Combatant) AddResistance(damageType DamageType) {
 	c.Resistances = append(c.Resistances, Resistance{
-		Type:   damageType,
-		Amount: amount,
+		Type:     damageType,
+		IsImmune: false,
+	})
+}
+
+// AddImmunity adds 100% damage immunity to a damage type
+func (c *Combatant) AddImmunity(damageType DamageType) {
+	c.Resistances = append(c.Resistances, Resistance{
+		Type:     damageType,
+		IsImmune: true,
 	})
 }
 
@@ -129,18 +137,54 @@ func (c *Combatant) AddResistance(damageType DamageType, amount int) {
 // Returns actual HP damage dealt
 // roller can be nil if no dice rolling is needed
 func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) int {
-	// Apply resistances to raw damage
 	actualDamage := rawDamage
-	for _, resist := range c.Resistances {
-		if resist.Type == damageType {
-			actualDamage -= resist.Amount
-		}
-	}
 
-	// Apply damage reduction from active effects
+	// Apply damage reduction from active effects (Ward-style)
 	if roller != nil {
 		reduction := c.calculateDamageReduction(roller)
 		actualDamage -= reduction
+	}
+
+	if actualDamage < 0 {
+		actualDamage = 0
+	}
+
+	// Apply resistance/immunity/vulnerability (after reductions, before armor/threshold)
+	// Immunity = 0% damage, Resistance = 50% damage, Vulnerability = 150% damage
+	// NO STACKING: If you have resistance, you have it. Period.
+	hasResistance := false
+	hasImmunity := false
+	hasVulnerability := false
+
+	// Check permanent resistances/immunities (type-specific)
+	for _, resist := range c.Resistances {
+		if resist.Type == damageType {
+			if resist.IsImmune {
+				hasImmunity = true
+				break // Immunity found, stop checking
+			}
+			hasResistance = true
+			// Don't break - keep checking for immunity
+		}
+	}
+
+	// Check condition-based modifiers (applies to all damage types)
+	if c.HasCondition(ConditionResistant) {
+		hasResistance = true
+	}
+	if c.HasCondition(ConditionVulnerable) {
+		hasVulnerability = true
+	}
+
+	// Apply modifier (priority: Immunity > Resistance > Vulnerability)
+	// If you have both Resistance and Vulnerability, Resistance wins
+	if hasImmunity {
+		return 0
+	}
+	if hasResistance {
+		actualDamage = actualDamage / 2
+	} else if hasVulnerability {
+		actualDamage = int(float64(actualDamage) * 1.5)
 	}
 
 	if actualDamage < 0 {
@@ -321,4 +365,49 @@ func (c *Combatant) AddAdversaryFeature(feature AdversaryFeature) {
 // AddDomainAbility attaches a domain ability to a player
 func (c *Combatant) AddDomainAbility(ability DomainAbility) {
 	c.DomainAbilities = append(c.DomainAbilities, ability)
+}
+
+// ApplyPassiveResistances processes all passive features/abilities and applies resistance effects
+func (c *Combatant) ApplyPassiveResistances() {
+	// Process adversary features
+	for _, feature := range c.AdversaryFeatures {
+		if !feature.Passive {
+			continue
+		}
+		for _, effect := range feature.Effects {
+			if effect.Category == FeatureEffectDamageResistance {
+				damageType := parseDamageType(effect.DamageType)
+				if effect.Magnitude >= 100 {
+					c.AddImmunity(damageType)
+				} else {
+					c.AddResistance(damageType)
+				}
+			}
+		}
+	}
+
+	// Process domain abilities
+	for _, ability := range c.DomainAbilities {
+		if !ability.Passive {
+			continue
+		}
+		for _, effect := range ability.Effects {
+			if effect.Category == FeatureEffectDamageResistance {
+				damageType := parseDamageType(effect.DamageType)
+				if effect.Magnitude >= 100 {
+					c.AddImmunity(damageType)
+				} else {
+					c.AddResistance(damageType)
+				}
+			}
+		}
+	}
+}
+
+// parseDamageType converts string to DamageType
+func parseDamageType(s string) DamageType {
+	if s == "magic" {
+		return DamageMagic
+	}
+	return DamagePhysical
 }

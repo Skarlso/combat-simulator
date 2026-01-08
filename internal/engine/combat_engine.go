@@ -7,6 +7,11 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
+// AdversaryRegistry interface for summoning (same as in feature_resolver.go)
+type AdversaryRegistry interface {
+	CloneTemplate(name string, uniqueID string) (*models.Combatant, error)
+}
+
 // CombatEngine orchestrates the entire combat simulation
 type CombatEngine struct {
 	dice            DiceRoller
@@ -36,6 +41,11 @@ func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine
 	}
 }
 
+// SetAdversaryRegistry sets the registry for summoning support
+func (ce *CombatEngine) SetAdversaryRegistry(registry AdversaryRegistry) {
+	ce.featureResolver.SetAdversaryRegistry(registry)
+}
+
 // ExecuteTurnWithDecision runs a single combatant's turn based on AI decision
 func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) error {
 	// Process start-of-turn conditions
@@ -52,13 +62,30 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 	target := decision.Target
 
+	// Track whether an action was taken (ability activation consumes turn even if it fails)
+	actionTaken := false
+
 	// Execute feature if AI chose one
 	if decision.DomainAbility != nil {
-		ce.executeAbility(actor, target, decision.DomainAbility, state)
+		// Check if can activate BEFORE attempting
+		if ce.featureResolver.CanActivateDomainAbility(*decision.DomainAbility, actor, state) {
+			// Can activate - attempt it (may still fail DC check, but that's their turn)
+			ce.executeAbility(actor, target, decision.DomainAbility, state)
+			actionTaken = true
+		}
+		// If can't activate, fall through to basic attack
 	} else if decision.AdversaryFeature != nil {
-		ce.executeFeature(actor, target, decision.AdversaryFeature, state)
-	} else if target != nil && target.IsAlive() {
-		// Basic attack
+		// Check if can activate BEFORE attempting
+		if ce.featureResolver.CanActivateAdversaryFeature(*decision.AdversaryFeature, actor, state) {
+			// Can activate - attempt it (may still fail DC check, but that's their turn)
+			ce.executeFeature(actor, target, decision.AdversaryFeature, state)
+			actionTaken = true
+		}
+		// If can't activate, fall through to basic attack
+	}
+
+	// Fall back to basic attack if no ability was chosen or couldn't be activated
+	if !actionTaken && target != nil && target.IsAlive() {
 		ce.executeAttack(actor, target, state)
 	}
 
@@ -72,31 +99,77 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 }
 
 // executeAbility activates a domain ability (player)
-func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
+// Returns error if ability failed (costs already paid if applicable)
+func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
 	// Use proper activation which handles costs, DC checks, tokens, etc.
-	err := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
+	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
 
 	result := "Success"
+	spotlightShift := dcResult.SpotlightShift // Start with Fear result spotlight shift
+
 	if err != nil {
 		result = fmt.Sprintf("Failed: %v", err)
+		// Failed DC check shifts spotlight (like a missed attack)
+		spotlightShift = true
 	}
 
-	// Record action
-	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, ability.Name, err == nil, result, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	// Record action with DC check and damage details
+	state.RecordActionWithFeature(
+		actor,
+		models.ActionUseAbility,
+		target,
+		ability.Name,
+		err == nil,
+		result,
+		dcResult.DamageRoll, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
+		dcResult.HopeDie,
+		dcResult.FearDie,
+		dcResult.D20Roll,
+		dcResult.TotalRoll,
+		dcResult.DC,
+		spotlightShift,
+		dcResult.HopeGenerated,
+		dcResult.FearGenerated,
+	)
+
+	return err
 }
 
 // executeFeature activates an adversary feature (enemy)
-func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
+// Returns error if feature failed (costs already paid if applicable)
+func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) error {
 	// Use proper activation which handles costs, DC checks, spotlight limits, etc.
-	err := ce.featureResolver.ActivateAdversaryFeature(*feature, actor, target, state)
+	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(*feature, actor, target, state)
 
 	result := "Success"
+	spotlightShift := dcResult.SpotlightShift // Start with any spotlight shift from roll
+
 	if err != nil {
 		result = fmt.Sprintf("Failed: %v", err)
+		// Failed DC check shifts spotlight (like a missed attack)
+		spotlightShift = true
 	}
 
-	// Record action
-	state.RecordActionWithFeature(actor, models.ActionUseAbility, target, feature.Name, err == nil, result, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	// Record action with DC check and damage details
+	state.RecordActionWithFeature(
+		actor,
+		models.ActionUseAbility,
+		target,
+		feature.Name,
+		err == nil,
+		result,
+		dcResult.DamageRoll, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
+		dcResult.HopeDie,
+		dcResult.FearDie,
+		dcResult.D20Roll,
+		dcResult.TotalRoll,
+		dcResult.DC,
+		spotlightShift,
+		dcResult.HopeGenerated,
+		dcResult.FearGenerated,
+	)
+
+	return err
 }
 
 // executeAttack handles basic attack action

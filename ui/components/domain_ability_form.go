@@ -18,6 +18,7 @@ type DomainAbilityForm struct {
 	showForm        bool
 	newName         string
 	newDescription  string
+	newPassive      bool
 	newHopeCost     int
 	newStressCost   int
 	newRefreshType  string
@@ -177,6 +178,21 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 						}),
 				),
 			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().
+						Body(
+							app.Input().
+								Type("checkbox").
+								Checked(daf.newPassive).
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newPassive = ctx.JSSrc().Get("checked").Bool()
+									ctx.Update()
+								}),
+							app.Text(" Passive (always on)"),
+						),
+				),
+			app.Div().
 				Class("form-row").
 				Body(
 					app.Div().
@@ -330,6 +346,8 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							app.Option().Value("damage_reduction").Text("Damage Reduction (Ward)").Selected(daf.newEffectType == "damage_reduction"),
 							app.Option().Value("token_place").Text("Place Token").Selected(daf.newEffectType == "token_place"),
 							app.Option().Value("token_spend").Text("Spend Token").Selected(daf.newEffectType == "token_spend"),
+							app.Option().Value("resistance").Text("Resistance (50%)").Selected(daf.newEffectType == "resistance"),
+							app.Option().Value("immunity").Text("Immunity (100%)").Selected(daf.newEffectType == "immunity"),
 						),
 				),
 			app.If(daf.needsDiceFormula(), func() app.UI {
@@ -434,7 +452,7 @@ func (daf *DomainAbilityForm) needsMagnitude() bool {
 }
 
 func (daf *DomainAbilityForm) needsDamageType() bool {
-	return daf.newEffectType == "damage" || daf.newEffectType == "direct_damage"
+	return daf.newEffectType == "damage" || daf.newEffectType == "direct_damage" || daf.newEffectType == "resistance" || daf.newEffectType == "immunity"
 }
 
 func (daf *DomainAbilityForm) needsDuration() bool {
@@ -476,13 +494,25 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		effectCategory = models.FeatureEffectTokenPlace
 	case "token_spend":
 		effectCategory = models.FeatureEffectTokenSpend
+	case "resistance":
+		effectCategory = models.FeatureEffectDamageResistance
+	case "immunity":
+		effectCategory = models.FeatureEffectDamageResistance // Same category, but magnitude will be different
 	default:
 		effectCategory = models.FeatureEffectDamage
 	}
 
+	// Set magnitude based on effect type
+	magnitude := daf.newMagnitude
+	if daf.newEffectType == "resistance" {
+		magnitude = 50
+	} else if daf.newEffectType == "immunity" {
+		magnitude = 100
+	}
+
 	effect := models.FeatureEffect{
 		Category:    effectCategory,
-		Magnitude:   daf.newMagnitude,
+		Magnitude:   magnitude,
 		DiceFormula: daf.newDiceFormula,
 		Duration:    daf.newDuration,
 		TargetType:  models.FeatureTargetSingle,
@@ -492,6 +522,7 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 	ability := &models.DomainAbility{
 		Name:        daf.newName,
 		Description: daf.newDescription,
+		Passive:     daf.newPassive,
 		HopeCost:    daf.newHopeCost,
 		StressCost:  daf.newStressCost,
 		RefreshType: daf.newRefreshType,
@@ -534,6 +565,7 @@ func (daf *DomainAbilityForm) removeAbility(ctx app.Context, idx int) {
 func (daf *DomainAbilityForm) resetForm() {
 	daf.newName = ""
 	daf.newDescription = ""
+	daf.newPassive = false
 	daf.newHopeCost = 1
 	daf.newStressCost = 0
 	daf.newRefreshType = "rest"
@@ -543,7 +575,7 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newEffectType = "damage"
 	daf.newMagnitude = 1
 	daf.newDuration = "instant"
-	daf.newDCType = "target"
+	daf.newDCType = "none"
 	daf.newFixedDC = 12
 	daf.newUsesTokens = false
 	daf.newTokenName = ""

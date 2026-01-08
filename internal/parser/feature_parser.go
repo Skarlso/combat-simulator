@@ -88,6 +88,7 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 			DiceFormula: mappingEffect.DiceFormula,
 			Duration:    mappingEffect.Duration,
 			TargetType:  stringToTargetType(mappingEffect.TargetType),
+			SummonType:  mappingEffect.SummonType,
 		}
 
 		// Set damage type if specified

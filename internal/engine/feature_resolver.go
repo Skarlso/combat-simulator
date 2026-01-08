@@ -7,16 +7,40 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
 
+// DCCheckResult contains the details of a DC check roll
+type DCCheckResult struct {
+	Success        bool
+	HopeDie        int // Player's hope die (0 for enemies)
+	FearDie        int // Player's fear die (0 for enemies)
+	D20Roll        int // Enemy's d20 roll (0 for players)
+	TotalRoll      int
+	DC             int
+	SpotlightShift bool // True if roll causes spotlight to shift (Fear result for players)
+	HopeGenerated  int
+	FearGenerated  int
+	// Damage tracking (populated during effect resolution)
+	DamageDealt int                   // HP damage actually dealt to target
+	DamageRoll  int                   // Raw damage before threshold conversion
+	Threshold   models.DamageThreshold // Threshold category of damage
+}
+
 // FeatureResolver handles resolution of adversary features and domain abilities
 type FeatureResolver struct {
-	dice DiceRoller
+	dice     DiceRoller
+	registry AdversaryRegistry // Optional: for summoning support
 }
 
 // NewFeatureResolver creates a feature resolver
 func NewFeatureResolver(rng *rand.Rand) *FeatureResolver {
 	return &FeatureResolver{
-		dice: NewStandardDiceRoller(rng),
+		dice:     NewStandardDiceRoller(rng),
+		registry: nil, // Set via SetAdversaryRegistry if summoning is needed
 	}
+}
+
+// SetAdversaryRegistry sets the registry for summoning support
+func (fr *FeatureResolver) SetAdversaryRegistry(registry AdversaryRegistry) {
+	fr.registry = registry
 }
 
 // ResolveEffect applies a single effect to target(s)
@@ -25,13 +49,14 @@ func (fr *FeatureResolver) ResolveEffect(
 	actor *models.Combatant,
 	target *models.Combatant,
 	state *models.CombatState,
+	result *DCCheckResult, // For tracking damage dealt
 ) error {
 	switch effect.Category {
 	// Damage categories
 	case models.FeatureEffectDamage:
-		return fr.resolveDamage(effect, actor, target, state)
+		return fr.resolveDamage(effect, actor, target, state, result)
 	case models.FeatureEffectDirectDamage:
-		return fr.resolveDirectDamage(effect, actor, target, state)
+		return fr.resolveDirectDamage(effect, actor, target, state, result)
 
 	// Status application
 	case models.FeatureEffectApplyVulnerable:
@@ -71,7 +96,7 @@ func (fr *FeatureResolver) ResolveEffect(
 
 	// Summoning (requires special handling)
 	case models.FeatureEffectSummonAllies:
-		return fmt.Errorf("summoning not yet implemented")
+		return fr.resolveSummon(effect, actor, state)
 
 	// Defensive abilities
 	case models.FeatureEffectDamageReduction:
@@ -93,7 +118,7 @@ func (fr *FeatureResolver) ResolveEffect(
 }
 
 // resolveDamage applies standard damage with dice roll
-func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
@@ -113,21 +138,27 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 		damageType = models.DamageMagic
 	}
 
+	// Store raw damage and threshold info before applying
+	threshold := models.DamageThresholdFromAmount(damage, target)
 	hpDamage := target.TakeDamage(damage, damageType, fr.dice)
+
+	// Track damage in activation result for logging
+	if activationResult != nil {
+		activationResult.DamageRoll = damage
+		activationResult.DamageDealt = hpDamage
+		activationResult.Threshold = threshold
+	}
 
 	// Trigger on_damage_taken features for the target if damage was dealt
 	if hpDamage > 0 {
 		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
 	}
 
-	// TODO: Add proper logging via RecordAction
-	_ = hpDamage
-
 	return nil
 }
 
 // resolveDirectDamage bypasses armor entirely
-func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
@@ -148,12 +179,17 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 		target.IsDefeated = true
 	}
 
+	// Track damage in activation result for logging
+	if activationResult != nil {
+		activationResult.DamageRoll = damage
+		activationResult.DamageDealt = damage // Direct damage = HP damage
+		activationResult.Threshold = models.ThresholdSevere // Arbitrary for direct damage
+	}
+
 	// Trigger on_damage_taken features for the target if damage was dealt
 	if damage > 0 {
 		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
 	}
-
-	// TODO: Add proper logging via RecordAction
 
 	return nil
 }
@@ -275,22 +311,38 @@ func (fr *FeatureResolver) resolveFearGenerate(effect models.FeatureEffect, stat
 }
 
 // rollDCCheck rolls to beat a Difficulty Check
-// Returns true if the roll succeeds
-func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType string, fixedDC int, state *models.CombatState) bool {
+// Returns DCCheckResult with roll details and success/failure
+func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType string, fixedDC int, state *models.CombatState) DCCheckResult {
+	result := DCCheckResult{
+		Success:        true,
+		HopeDie:        0,
+		FearDie:        0,
+		TotalRoll:      0,
+		DC:             0,
+		SpotlightShift: false,
+		HopeGenerated:  0,
+		FearGenerated:  0,
+	}
+
 	var dc int
 
 	// Determine the DC
 	switch dcType {
 	case "target":
 		if target == nil {
-			return false // No target to roll against
+			// No target - auto-succeed for self-targeted abilities
+			return result
 		}
 		dc = target.GetDefense()
 	case "fixed":
 		dc = fixedDC
+	case "none", "":
+		return result // Auto-succeed
 	default:
-		return true // Auto-succeed if no DC specified
+		return result // Auto-succeed if no DC specified
 	}
+
+	result.DC = dc
 
 	// Roll based on actor's side
 	if actor.Side == models.SidePlayer {
@@ -311,21 +363,31 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 
 		dualityRoll := fr.dice.RollDuality(hopeModifier, fearModifier)
 
+		// Store roll details
+		result.HopeDie = dualityRoll.HopeDie
+		result.FearDie = dualityRoll.FearDie
+		result.TotalRoll = dualityRoll.WithSpirit
+
 		// Handle Hope/Fear generation
 		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
 			state.AddHope(1)
+			result.HopeGenerated = 1
 		}
 		if dualityRoll.Result == models.ResultFear || dualityRoll.Result == models.ResultCriticalFear {
 			state.AddFear(1)
+			result.FearGenerated = 1
+			result.SpotlightShift = true // Fear result shifts spotlight
 		}
 
 		// Critical success always succeeds
 		if dualityRoll.IsCritical {
-			return true
+			result.Success = true
+			return result
 		}
 
 		// Check if roll beats DC
-		return dualityRoll.WithSpirit >= dc
+		result.Success = dualityRoll.WithSpirit >= dc
+		return result
 
 	} else {
 		// Enemy uses d20 + ATK
@@ -333,7 +395,10 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 		attackBonus := actor.GetAttackBonus()
 		totalRoll := roll + attackBonus
 
-		return totalRoll >= dc
+		result.D20Roll = roll
+		result.TotalRoll = totalRoll
+		result.Success = totalRoll >= dc
+		return result
 	}
 }
 
@@ -382,14 +447,17 @@ func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility
 }
 
 // ActivateAdversaryFeature triggers an adversary feature
+// Returns error and DC check result (if DC check was performed)
 func (fr *FeatureResolver) ActivateAdversaryFeature(
 	feature models.AdversaryFeature,
 	actor *models.Combatant,
 	target *models.Combatant,
 	state *models.CombatState,
-) error {
+) (error, DCCheckResult) {
+	dcResult := DCCheckResult{Success: true} // Default for features without DC checks
+
 	if !fr.CanActivateAdversaryFeature(feature, actor, state) {
-		return fmt.Errorf("cannot activate feature %s", feature.Name)
+		return fmt.Errorf("cannot activate feature %s", feature.Name), dcResult
 	}
 
 	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
@@ -399,32 +467,35 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 
 	// Check DC if required
 	if feature.DCType != "" && feature.DCType != "none" {
-		success := fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, state)
-		if !success {
+		dcResult = fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, state)
+		if !dcResult.Success {
 			// Feature failed - costs already spent
-			return fmt.Errorf("feature %s failed DC check", feature.Name)
+			return fmt.Errorf("feature %s failed DC check", feature.Name), dcResult
 		}
 	}
 
 	// Apply effects
 	for _, effect := range feature.Effects {
-		if err := fr.ResolveEffect(effect, actor, target, state); err != nil {
-			return err
+		if err := fr.ResolveEffect(effect, actor, target, state, &dcResult); err != nil {
+			return err, dcResult
 		}
 	}
 
-	return nil
+	return nil, dcResult
 }
 
 // ActivateDomainAbility triggers a player ability
+// Returns error and DC check result (if DC check was performed)
 func (fr *FeatureResolver) ActivateDomainAbility(
 	ability *models.DomainAbility,
 	actor *models.Combatant,
 	target *models.Combatant,
 	state *models.CombatState,
-) error {
+) (error, DCCheckResult) {
+	dcResult := DCCheckResult{Success: true} // Default for abilities without DC checks
+
 	if !fr.CanActivateDomainAbility(*ability, actor, state) {
-		return fmt.Errorf("cannot activate ability %s", ability.Name)
+		return fmt.Errorf("cannot activate ability %s", ability.Name), dcResult
 	}
 
 	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
@@ -442,10 +513,10 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 
 	// Check DC if required
 	if ability.DCType != "" && ability.DCType != "none" {
-		success := fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, state)
-		if !success {
+		dcResult = fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, state)
+		if !dcResult.Success {
 			// Ability failed - costs already spent
-			return fmt.Errorf("ability %s failed DC check", ability.Name)
+			return fmt.Errorf("ability %s failed DC check", ability.Name), dcResult
 		}
 	}
 
@@ -453,7 +524,7 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 	for _, effect := range ability.Effects {
 		if effect.Category == models.FeatureEffectTokenSpend {
 			if ability.TokensHeld < effect.Magnitude {
-				return fmt.Errorf("not enough tokens: have %d, need %d", ability.TokensHeld, effect.Magnitude)
+				return fmt.Errorf("not enough tokens: have %d, need %d", ability.TokensHeld, effect.Magnitude), dcResult
 			}
 			ability.TokensHeld -= effect.Magnitude
 		}
@@ -461,8 +532,8 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 
 	// Apply effects
 	for _, effect := range ability.Effects {
-		if err := fr.ResolveEffect(effect, actor, target, state); err != nil {
-			return err
+		if err := fr.ResolveEffect(effect, actor, target, state, &dcResult); err != nil {
+			return err, dcResult
 		}
 	}
 
@@ -477,7 +548,7 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 		}
 	}
 
-	return nil
+	return nil, dcResult
 }
 
 // ProcessTriggeredFeatures checks and activates features based on trigger conditions
@@ -507,7 +578,7 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		}
 
 		// Activate the feature
-		_ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
+		_, _ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
 	}
 
 	// Note: Domain abilities don't have trigger support in the current model
@@ -577,4 +648,54 @@ func (fr *FeatureResolver) evaluateFilter(filter string, actor *models.Combatant
 		// Unknown filter, assume it passes
 		return true
 	}
+}
+
+// resolveSummon handles summoning allies
+func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+	// Check if registry is available
+	if fr.registry == nil {
+		return fmt.Errorf("summoning not available: adversary registry not set")
+	}
+
+	// Check if SummonType is specified
+	if effect.SummonType == "" {
+		return fmt.Errorf("summon effect missing summon_type")
+	}
+
+	// Determine quantity to summon
+	quantity := effect.Magnitude
+	if effect.DiceFormula != "" {
+		notation, err := models.ParseDiceNotation(effect.DiceFormula)
+		if err != nil {
+			return fmt.Errorf("failed to parse summon dice formula: %w", err)
+		}
+		quantity += notation.Roll(fr.dice)
+	}
+
+	if quantity <= 0 {
+		return fmt.Errorf("summon quantity must be positive, got %d", quantity)
+	}
+
+	// Summon the specified number of adversaries
+	for i := 0; i < quantity; i++ {
+		// Generate unique ID for summoned combatant
+		state.SummonCounter++
+		uniqueID := fmt.Sprintf("%s_summoned_%d", effect.SummonType, state.SummonCounter)
+
+		// Clone template from registry
+		summoned, err := fr.registry.CloneTemplate(effect.SummonType, uniqueID)
+		if err != nil {
+			return fmt.Errorf("failed to summon %s: %w", effect.SummonType, err)
+		}
+
+		// Add to combat state
+		state.SummonCombatant(summoned)
+
+		// Record summon event
+		state.RecordAction(actor, models.ActionUseAbility, nil, "",
+			fmt.Sprintf("Summons %s", summoned.Name),
+			0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+	}
+
+	return nil
 }

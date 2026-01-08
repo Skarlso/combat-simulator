@@ -1,9 +1,46 @@
 # TODO - Daggerheart Combat Simulator
 
-**Last Updated**: 2026-01-08
-**Status**: Production-ready, planning future enhancements
+**Last Updated**: 2026-01-08 (Evening)
+**Status**: Production-ready with summoning and aggressive Fear usage
 
-## ✅ Recently Completed (2026-01-08)
+## ✅ Recently Completed (2026-01-08 Evening)
+
+### Aggressive Fear Usage ✅
+- Implemented spotlight grab mechanic for aggressive strategy
+- Tracks consecutive player turns
+- GM spends 1 Fear after 3+ player turns
+- Fully integrated and tested
+
+### Summoning System ✅
+- Created AdversaryRegistry for template management
+- Implemented FeatureEffectSummonAllies resolution
+- Added SummonCombatant() to combat state
+- AI evaluates summon features appropriately
+- Tested with "Guards, Seize Them!" feature
+- CLI fully functional, web UI gracefully handles missing registry
+
+### Critical Bug Fixes ✅
+
+#### DC Check Auto-Fail Bug
+- **Problem**: UI defaulted DCType to "target", failed when target was nil
+- **Impact**: All self-targeted abilities failed, 100-round stalemates
+- **Fix**: Auto-succeed when target is nil, changed UI defaults to "none"
+- **Files**: `feature_resolver.go:292-294`, both UI forms
+
+#### Incorrect Fallback Logic
+- **Problem**: Abilities that failed DC checks fell back to basic attack (double actions)
+- **Impact**: Turn consumption broken, abilities didn't properly consume turns
+- **Fix**: Only fallback when can't activate (insufficient resources), not on DC failure
+- **Rationale**: Basic attacks generate Hope (no cost), abilities consume Hope (paid upfront)
+- **Files**: `combat_engine.go:63-90`
+
+### Tests Created
+- `cmd/fear-test/main.go` - Aggressive Fear usage validation
+- `cmd/summon-test/main.go` - Summoning system demonstration
+- `cmd/dc-fail-test/main.go` - DC failure turn consumption
+- `cmd/fallback-test/main.go` - Resource-based fallback
+
+## ✅ Previously Completed (2026-01-08 Morning)
 
 ### Critical Bug Fix
 - **FIXED**: `executeAbility()` and `executeFeature()` now properly call validation methods
@@ -49,24 +86,18 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - Implement distance calculation helper
 - Update `evaluateTriggerFilter()` in `feature_resolver.go:613`
 
-### 3. Summoning Not Implemented
-**Impact**: Medium - Can't use ~15% of adversary features
+### 3. Summoning in Web UI
+**Impact**: Low - Works in CLI, not yet in web
 
 **What's Missing**:
-- `FeatureEffectSummonAllies` returns "not yet implemented" error
-- Can't dynamically add combatants mid-combat
-- Features like "Guards, Seize Them!" (summon 1d4 guards) don't work
+- Web UI doesn't load AdversaryRegistry
+- Summon features fail gracefully with error message
+- Need to either bundle JSON files or add upload capability
 
-**To Fix**:
-- Add `SummonCombatant()` method to `CombatState`
-- Load adversary templates from JSON
-- Handle spotlight insertion for new combatants
-- Update combat log to show summons
-
-**Example Features Blocked**:
-- "Guards, Seize Them!" - summon 1d4 Bladed Guards (Fear:2)
-- "More Where That Came From" - summon 3 Lackeys on defeat
-- "Call Reinforcements" - summon 2 allies at range
+**To Fix** (if needed):
+- Bundle adversary JSON files in WASM resources
+- Or add UI for uploading adversary data
+- Or accept CLI-only for now
 
 ### 4. AOE Not Fully Verified
 **Impact**: Low - May work but untested
@@ -83,23 +114,13 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 
 ## 📋 Next Priorities
 
-### Priority 1: Summoning System 🔴
-**Why**: Blocks 15% of adversary features, significant gameplay impact
+### Current Status
+**WASM Build**: Latest at `web/app.wasm` (2026-01-08 19:30)
+- All features working
+- Critical bugs fixed
+- Ready for extended web UI testing
 
-**Tasks**:
-1. Design adversary template loading system
-2. Add `SummonCombatant(template, quantity)` to CombatState
-3. Handle spotlight insertion for summoned allies
-4. Test with "Guards, Seize Them!" feature
-5. Update combat log to show summon events
-
-**Files to Modify**:
-- `internal/models/combat_state.go` - Add summoning method
-- `internal/engine/feature_resolver.go:200-203` - Implement summon case
-- `internal/parser/adversary_loader.go` - (new) Load templates from JSON
-- `cmd/example/main.go` - Add test scenario
-
-### Priority 2: Domain Ability Triggers 🟡
+### Priority 1: Domain Ability Triggers 🟡
 **Why**: Feature parity with adversaries, enables reactive player abilities
 
 **Tasks**:
@@ -114,7 +135,7 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - `ui/components/domain_ability_form.go` - Add trigger selection UI
 - `internal/engine/combat_engine.go` - Call domain ability triggers at appropriate hooks
 
-### Priority 3: AOE Verification 🟢
+### Priority 2: AOE Verification 🟢
 **Why**: Low risk but should be tested before declaring feature complete
 
 **Tasks**:
@@ -127,7 +148,7 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - `internal/engine/feature_resolver.go:151` - ResolveEffect for area damage
 - `cmd/feature-example/main.go` - Add AOE test scenario
 
-### Priority 4: Adjacency Tracking 🟢
+### Priority 3: Adjacency Tracking 🟢
 **Why**: Low priority, affects niche trigger filters
 
 **Tasks**:
@@ -141,7 +162,7 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - `internal/engine/feature_resolver.go:613` - Implement adjacency check
 - `cmd/example/main.go` - Test positional features
 
-### Priority 5: Feature Coverage Expansion 📊
+### Priority 4: Feature Coverage Expansion 📊
 **Why**: Currently only 33/340 features mapped (9.7%)
 
 **Status**: Not urgent - core system works, just needs more data entry

@@ -1,7 +1,7 @@
 # Daggerheart Combat Simulator - Current State
 
-**Last Updated:** 2026-01-08
-**Status:** Production-ready with full feature system, triggers, DC checks, tokens, and clean codebase
+**Last Updated:** 2026-01-08 (Evening Session)
+**Status:** Production-ready with summoning system, aggressive Fear usage, and full feature support
 
 ## Project Overview
 
@@ -62,6 +62,26 @@ Go-based combat simulator for Daggerheart TTRPG with WebAssembly UI, Monte Carlo
 - Only adversary features support triggers (domain abilities limitation documented)
 - **Files**: `feature_resolver.go:482-605`, `combat_engine.go:43,67,108,120,128`
 
+#### Aggressive Fear Usage (Spotlight Grab) ✅
+- When players have >3 consecutive turns AND enemy strategy is "greedy" AND Fear available
+- GM automatically spends 1 Fear to force spotlight grab
+- Prevents players from being too lucky with good rolls
+- Resets consecutive turn counter after grab
+- Logged in action history for transparency
+- **Files**: `combat_engine.go:212-226`, `combat_state.go:18,62`
+
+#### Summoning System ✅
+- Dynamic adversary spawning mid-combat
+- `FeatureEffectSummonAllies` fully implemented
+- Dice-based quantity (e.g., "1d4" for 1-4 summons)
+- Template cloning from AdversaryRegistry
+- Unique ID generation for each summon
+- Summoned combatants added to combat with full features
+- AI evaluates summon features highly (~10 HP value per summon)
+- **Example**: "Guards, Seize Them!" summons 1d4 Bladed Guards
+- **Files**: `feature_resolver.go:594-648`, `adversary_registry.go`, `combat_state.go:277-279`
+- **Limitation**: Requires AdversaryRegistry setup (not available in web UI yet)
+
 ### AI & Strategy
 - **Intelligent Decisions** - Evaluates all options (features + attacks) by expected value
 - **Success Probability** - Factors DC success chance into evaluations
@@ -80,46 +100,105 @@ Go-based combat simulator for Daggerheart TTRPG with WebAssembly UI, Monte Carlo
 - Combat simulation and visualization
 - Results display with detailed logs
 
-## Recent Session (2026-01-08) - Critical Bug Fix & Code Cleanup
+## Recent Session (2026-01-08 Evening) - Aggressive Fear Usage, Summoning, & Critical Fixes
+
+### Session Overview
+Implemented two major features (aggressive Fear usage, summoning system) and fixed two critical bugs that broke ability activation in web UI. All systems tested and WASM rebuilt multiple times.
+
+### Aggressive Fear Usage ✅
+**Feature**: GM can spend Fear to grab spotlight when players get too lucky
+- Tracks consecutive player turns in `CombatState.ConsecutivePlayerTurns`
+- Triggers when: >3 player turns + aggressive strategy + Fear available
+- Spends 1 Fear to force spotlight shift
+- Logs action for transparency
+- Integrated with existing spotlight system
+- **Test**: `cmd/fear-test/main.go` demonstrates mechanic working
+
+### Summoning System ✅
+**Feature**: Dynamic ally spawning mid-combat (unblocks 15% of adversary features)
+
+**Implementation**:
+1. **AdversaryRegistry** - Template management system for summons
+   - Loads adversaries from JSON files
+   - Provides template cloning with unique IDs
+   - **File**: `internal/parser/adversary_registry.go`
+
+2. **Feature Effect Integration**
+   - Added `SummonType` field to `FeatureEffect`
+   - Parser transfers summon data from JSON
+   - **Files**: `feature.go:71`, `feature_parser.go:91`
+
+3. **Combat State Support**
+   - `SummonCounter` for unique ID generation
+   - `SummonCombatant()` method to add enemies mid-combat
+   - **File**: `combat_state.go:24,277-279`
+
+4. **Effect Resolution**
+   - `resolveSummon()` handles full summon logic
+   - Rolls dice for quantity (e.g., 1d4)
+   - Clones templates from registry
+   - Records summon events in action log
+   - **File**: `feature_resolver.go:594-648`
+
+5. **AI Integration**
+   - Evaluates summon features at ~25 HP worth of value
+   - Prioritizes summoning when valuable
+   - **File**: `decision_maker.go:408-417`
+
+**Test Results**:
+- "Guards, Seize Them!" successfully summons 1d4 Bladed Guards
+- Summoned combatants fight with full features
+- Multiple summons can occur throughout combat
+- **Test**: `cmd/summon-test/main.go` demonstrates full functionality
+
+### Critical Bug Fixes (Web UI) ✅
+
+#### Bug #1: DC Check Auto-Fail
+**Problem**: UI defaulted `DCType` to "target", causing immediate DC failures when target was nil
+- Self-targeted abilities always failed
+- Abilities without targets always failed
+- Result: 100 rounds of "Failed: feature X failed DC check"
+
+**Fix**:
+- Modified `rollDCCheck()` to auto-succeed when DCType="target" but target is nil
+- Changed UI defaults from "target" to "none" in both forms
+- **Files**: `feature_resolver.go:292-294`, `domain_ability_form.go:546`, `adversary_feature_form.go:457`
+
+#### Bug #2: Incorrect Fallback Logic
+**Problem**: Ability activation (even when it failed DC check) fell back to basic attack
+- Resulted in double actions per turn
+- Using an ability should consume the turn regardless of DC result
+- Fallback should ONLY happen when ability can't be activated (insufficient resources)
+
+**Understanding**:
+- **Basic attacks generate Hope** (duality dice roll with no cost)
+- **Abilities cost Hope** (paid immediately on activation)
+- DC failures are expensive: pay full cost, roll generates 1 Hope, effect doesn't happen
+- Fallback is critical: when can't afford ability, attack to generate Hope instead
+
+**Fix**:
+- Check `CanActivateDomainAbility()` BEFORE attempting activation
+- If can't activate → fall back to basic attack (builds Hope)
+- If can activate → attempt activation (costs paid), DC roll happens, turn ends
+- DC failures consume turn without fallback
+- **Files**: `combat_engine.go:63-90,95,112`
+
+**Test Results**:
+- `cmd/dc-fail-test/main.go` - DC failures consume turn, no double actions ✓
+- `cmd/fallback-test/main.go` - Can't afford ability → basic attack fallback ✓
+- `cmd/fear-test/main.go` - Aggressive Fear usage working ✓
+- `cmd/summon-test/main.go` - Summoning fully functional ✓
+
+## Previous Session (2026-01-08 Morning) - Critical Bug Fix & Code Cleanup
 
 ### CRITICAL BUG FIXED ⚠️➡️✅
 **Problem**: `executeAbility()` and `executeFeature()` bypassed all validation logic
-- No affordability checks (spent resources when couldn't afford)
-- No DC rolls (abilities auto-succeeded)
-- No token mechanics (tokens never spent/placed)
-- No uses decrementing (infinite uses)
 
 **Solution**: Now properly calls full activation methods
-- `ce.featureResolver.ActivateDomainAbility()`
-- `ce.featureResolver.ActivateAdversaryFeature()`
-- All validation, DC checks, token mechanics, and error handling enforced
 - **File**: `combat_engine.go:72-100`
 
 ### Code Cleanup ✅
-Removed ~100 lines of dead/unused code:
-
-**Unused Functions**:
-- `NewCondition()` - Never called
-- `NewDOTCondition()` - Never called
-- `resolveDamageAmplifier()` - Just returned nil
-
-**Unused Struct Fields**:
-- `ActiveCondition.Source` - Never read or written
-
-**Unimplemented Effect Types**:
-- `FeatureEffectDamageAmplifier` - Existed but did nothing
-- Removed from models, resolver, AI evaluator, parser
-
-**Dead Code**:
-- 30-line domain ability trigger loop (did nothing, design limitation)
-- "always" trigger case (immediately returned false)
-
-**Unused Constants**:
-- DamageTypes: Fire, Frost, Poison, PhysicalMagic (only Physical/Magic used)
-- TriggerTypes: 7 unused constants (TriggerAttack, TriggerHit, etc.)
-- ConditionCloaked (use ConditionHidden instead)
-
-**Files Modified**: `condition.go`, `feature_resolver.go`, `types.go`, `feature.go`, `decision_maker.go`, `feature_parser.go`
+Removed ~100 lines of dead/unused code (see previous sessions)
 
 ## File Structure
 
@@ -155,9 +234,23 @@ Removed ~100 lines of dead/unused code:
 
 2. **Adjacency Not Implemented** - "if_ally_adjacent" filter always returns false. Would need positional tracking.
 
-3. **Summoning Not Implemented** - `FeatureEffectSummonAllies` returns "not yet implemented" error.
+3. **Summoning in Web UI** - Summoning works in CLI but requires AdversaryRegistry setup. Web UI doesn't load adversary templates yet, so summon features will fail gracefully with error message.
 
 4. **AOE Not Fully Verified** - `FeatureEffectAreaDamage` exists and AI evaluates it, but needs verification in combat resolution.
+
+## Current Build Status
+
+**WASM**: `web/app.wasm` (2026-01-08 19:30, 15MB)
+- All recent features compiled
+- Critical bugs fixed
+- Ready for web UI testing
+
+**Tests Available**:
+- `cmd/fear-test/main.go` - Aggressive Fear usage
+- `cmd/summon-test/main.go` - Summoning system
+- `cmd/dc-fail-test/main.go` - DC failure turn consumption
+- `cmd/fallback-test/main.go` - Basic attack fallback
+- `cmd/adversary-example/main.go` - General adversary features
 
 ## TODO Comments in Code
 

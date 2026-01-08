@@ -105,7 +105,7 @@ func main() {
 	ability := &player.DomainAbilities[0]
 	if resolver.CanActivateDomainAbility(*ability, player, state) {
 		fmt.Printf("✓ Can activate %s (costs %d Hope)\n", ability.Name, ability.HopeCost)
-		err := resolver.ActivateDomainAbility(ability, player, goblin, state)
+		err, _ := resolver.ActivateDomainAbility(ability, player, goblin, state)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		} else {
@@ -124,7 +124,7 @@ func main() {
 	feature := goblin.AdversaryFeatures[0]
 	if resolver.CanActivateAdversaryFeature(feature, goblin, state) {
 		fmt.Printf("✓ Can activate %s\n", feature.Name)
-		err := resolver.ActivateAdversaryFeature(feature, goblin, player, state)
+		err, _ := resolver.ActivateAdversaryFeature(feature, goblin, player, state)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		} else {
@@ -147,7 +147,7 @@ func main() {
 	feature2 := goblin.AdversaryFeatures[1]
 	if resolver.CanActivateAdversaryFeature(feature2, goblin, state) {
 		fmt.Printf("✓ Can activate %s (costs %d Fear)\n", feature2.Name, feature2.FearCost)
-		err := resolver.ActivateAdversaryFeature(feature2, goblin, player, state)
+		err, _ := resolver.ActivateAdversaryFeature(feature2, goblin, player, state)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		} else {

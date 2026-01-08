@@ -154,13 +154,8 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		damageRoll += maxDiceResult
 	}
 
-	// Apply vulnerability/resistance from conditions
-	if defender.HasCondition(models.ConditionVulnerable) {
-		damageRoll = int(float64(damageRoll) * 1.5)
-	}
-	if defender.HasCondition(models.ConditionResistant) {
-		damageRoll = int(float64(damageRoll) * 0.5)
-	}
+	// Note: Vulnerability/Resistance are now handled in TakeDamage() to prevent stacking
+	// This ensures consistent application regardless of damage source (attack, ability, effect)
 
 	result.DamageRoll = damageRoll
 	result.DamageDice = damageResult.DiceValues

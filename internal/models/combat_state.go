@@ -19,6 +19,9 @@ type CombatState struct {
 
 	// Configuration
 	SpotlightThreshold int
+
+	// Summoning support
+	SummonCounter int // Counter for generating unique summon IDs
 }
 
 // ActionRecord logs what happened during combat
@@ -38,10 +41,11 @@ type ActionRecord struct {
 	HPDamage       int    // Actual HP damage dealt (1/2/3)
 	Threshold      string // "Minor", "Major", "Severe"
 	TargetHPAfter  int    // Target's HP after this action
-	HopeDie        int    // Hope die result (d12)
-	FearDie        int    // Fear die result (d12)
-	TotalRoll      int    // Hope + Fear + modifiers
-	TargetDefense  int    // Defense value to beat
+	HopeDie        int    // Hope die result (d12) - 0 for enemies
+	FearDie        int    // Fear die result (d12) - 0 for enemies
+	D20Roll        int    // Enemy d20 roll - 0 for players
+	TotalRoll      int    // Hope + Fear + modifiers (or d20 + ATK for enemies)
+	TargetDefense  int    // Defense value to beat (or DC for abilities)
 	SpotlightShift bool   // Did spotlight change hands?
 	IsCritical     bool   // Was this a critical success?
 	HopeGenerated  int    // Hope tokens generated this action
@@ -216,7 +220,7 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 }
 
 // RecordActionWithFeature logs an action involving a feature or domain ability
-func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType ActionType, target *Combatant, featureName string, isFeature bool, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType ActionType, target *Combatant, featureName string, isFeature bool, result string, damageRoll int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, d20Roll int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
 	// Detect critical (matching duality dice)
 	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
 
@@ -234,6 +238,7 @@ func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType Acti
 		HPDamage:       hpDamage,
 		HopeDie:        hopeDie,
 		FearDie:        fearDie,
+		D20Roll:        d20Roll,
 		TotalRoll:      totalRoll,
 		TargetDefense:  targetDefense,
 		SpotlightShift: spotlightShift,
@@ -271,4 +276,9 @@ func (cs *CombatState) IncrementTurn() {
 // IncrementRound advances round counter
 func (cs *CombatState) IncrementRound() {
 	cs.RoundNumber++
+}
+
+// SummonCombatant adds a new enemy combatant mid-combat
+func (cs *CombatState) SummonCombatant(summoned *Combatant) {
+	cs.Enemies = append(cs.Enemies, summoned)
 }

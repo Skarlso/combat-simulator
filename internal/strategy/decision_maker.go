@@ -405,6 +405,17 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 		// Token mechanics - moderate value (future use)
 		return 2.0
 
+	case models.FeatureEffectSummonAllies:
+		// Summoning is VERY valuable - adds combatants to your side
+		// Estimate based on summon quantity
+		quantity := float64(effect.Magnitude)
+		if effect.DiceFormula != "" {
+			// Rough estimate: assume average of dice
+			quantity += 2.5 // ~average of 1d4
+		}
+		// Each summoned ally is worth ~10 HP worth of value
+		return quantity * 10.0
+
 	default:
 		// Unknown effect, give it minimal value
 		return 1.0

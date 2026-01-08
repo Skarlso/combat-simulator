@@ -68,6 +68,7 @@ type FeatureEffect struct {
 	Duration    string // "instant", "1_turn", "until_cleared", "permanent", "scene"
 	TargetType  FeatureTargetType
 	DamageType  string // "physical", "magic", empty for non-damage effects
+	SummonType  string // Adversary name to summon (for FeatureEffectSummonAllies)
 }
 
 // AdversaryFeature represents passive or AI-triggered abilities for enemies
@@ -90,6 +91,7 @@ type AdversaryFeature struct {
 type DomainAbility struct {
 	Name        string
 	Description string
+	Passive     bool   // true = always on, false = AI decides when to trigger
 	HopeCost    int    // Hope tokens required
 	StressCost  int    // Stress marks required
 	RefreshType string // "rest", "long_rest", "scene", "unlimited"

@@ -209,14 +209,18 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 	for _, action := range outcome.ActionHistory {
 		// Format dice roll
 		diceRoll := "-"
-		if action.HopeDie > 0 || action.FearDie > 0 {
-			// Check if this is a player (both Hope and Fear) or enemy (only HopeDie used for d20)
+		if action.HopeDie > 0 || action.FearDie > 0 || action.D20Roll > 0 {
+			// Check if this is a player (both Hope and Fear) or enemy (d20)
 			if action.FearDie > 0 {
-				// Player attack - duality dice
+				// Player attack/ability - duality dice
 				diceRoll = fmt.Sprintf("H:%d F:%d = %d (vs %d)",
 					action.HopeDie, action.FearDie, action.TotalRoll, action.TargetDefense)
+			} else if action.D20Roll > 0 {
+				// Enemy attack/ability - d20
+				diceRoll = fmt.Sprintf("d20:%d = %d (vs %d)",
+					action.D20Roll, action.TotalRoll, action.TargetDefense)
 			} else {
-				// Enemy attack - d20
+				// Old format fallback (for backwards compatibility)
 				diceRoll = fmt.Sprintf("d20:%d = %d (vs %d)",
 					action.HopeDie, action.TotalRoll, action.TargetDefense)
 			}
