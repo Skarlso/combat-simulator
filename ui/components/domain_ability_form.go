@@ -29,6 +29,9 @@ type DomainAbilityForm struct {
 	newEffectType   string
 	newMagnitude    int
 	newDuration     string
+	newUsesTokens   bool
+	newTokenName    string
+	newTokensMax    int
 }
 
 // OnMount initializes default values
@@ -261,6 +264,50 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							OnInput(daf.handleIntInput(&daf.newFixedDC)),
 					)
 			}),
+			app.H5().Text("Token Configuration"),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().
+						Body(
+							app.Input().
+								Type("checkbox").
+								Checked(daf.newUsesTokens).
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newUsesTokens = ctx.JSSrc().Get("checked").Bool()
+									ctx.Update()
+								}),
+							app.Text(" This ability uses tokens"),
+						),
+				),
+			app.If(daf.newUsesTokens, func() app.UI {
+				return app.Div().
+					Body(
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Token Name (e.g., 'Chaos', 'Ward'):"),
+								app.Input().
+									Type("text").
+									Value(daf.newTokenName).
+									Placeholder("Chaos").
+									OnInput(func(ctx app.Context, e app.Event) {
+										daf.newTokenName = ctx.JSSrc().Get("value").String()
+									}),
+							),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Max Tokens (0 = unlimited):"),
+								app.Input().
+									Type("number").
+									Value(daf.newTokensMax).
+									Min(0).
+									Max(20).
+									OnInput(daf.handleIntInput(&daf.newTokensMax)),
+							),
+					)
+			}),
 			app.H5().Text("Effect"),
 			app.Div().
 				Class("form-group").
@@ -452,6 +499,10 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		UsesLeft:    daf.newMaxUses,
 		DCType:      daf.newDCType,
 		FixedDC:     daf.newFixedDC,
+		UsesTokens:  daf.newUsesTokens,
+		TokenName:   daf.newTokenName,
+		TokensHeld:  0,
+		TokensMax:   daf.newTokensMax,
 		Effects:     []models.FeatureEffect{effect},
 	}
 
@@ -494,4 +545,7 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newDuration = "instant"
 	daf.newDCType = "target"
 	daf.newFixedDC = 12
+	daf.newUsesTokens = false
+	daf.newTokenName = ""
+	daf.newTokensMax = 5
 }

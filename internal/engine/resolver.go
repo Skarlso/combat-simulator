@@ -6,13 +6,15 @@ import (
 
 // CombatResolver handles attack resolution and damage calculation
 type CombatResolver struct {
-	dice DiceRoller
+	dice            DiceRoller
+	featureResolver *FeatureResolver
 }
 
 // NewCombatResolver creates a combat resolver
-func NewCombatResolver(dice DiceRoller) *CombatResolver {
+func NewCombatResolver(dice DiceRoller, featureResolver *FeatureResolver) *CombatResolver {
 	return &CombatResolver{
-		dice: dice,
+		dice:            dice,
+		featureResolver: featureResolver,
 	}
 }
 
@@ -169,6 +171,11 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	// Apply damage to defender (returns actual HP damage dealt)
 	hpDamage := defender.TakeDamage(damageRoll, models.DamagePhysical, cr.dice)
 	result.HPDamage = hpDamage
+
+	// Trigger on_damage_taken features for the defender if damage was dealt
+	if hpDamage > 0 && cr.featureResolver != nil {
+		cr.featureResolver.ProcessTriggeredFeatures(defender, attacker, state, "on_damage_taken", false)
+	}
 
 	return result
 }

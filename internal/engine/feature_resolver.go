@@ -83,12 +83,10 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectGrantArmor:
 		return fr.resolveGrantArmor(effect, target)
 
-	// Token mechanics
+	// Token mechanics (handled separately in ActivateDomainAbility)
 	case models.FeatureEffectTokenPlace:
-		// Tokens are tracked on DomainAbility, not implemented in combat flow yet
 		return nil
 	case models.FeatureEffectTokenSpend:
-		// Tokens are spent via cost checks, not implemented in combat flow yet
 		return nil
 
 	default:
@@ -118,6 +116,11 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 	}
 
 	hpDamage := target.TakeDamage(damage, damageType, fr.dice)
+
+	// Trigger on_damage_taken features for the target if damage was dealt
+	if hpDamage > 0 {
+		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
+	}
 
 	// TODO: Add proper logging via RecordAction
 	_ = hpDamage
@@ -152,6 +155,11 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 	if target.HP <= 0 {
 		target.HP = 0
 		target.IsDefeated = true
+	}
+
+	// Trigger on_damage_taken features for the target if damage was dealt
+	if damage > 0 {
+		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
 	}
 
 	// TODO: Add proper logging via RecordAction
@@ -370,6 +378,15 @@ func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility
 		return false
 	}
 
+	// Check token availability for token_spend effects
+	for _, effect := range ability.Effects {
+		if effect.Category == models.FeatureEffectTokenSpend {
+			if ability.TokensHeld < effect.Magnitude {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
@@ -441,6 +458,16 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 		}
 	}
 
+	// Handle token spending BEFORE applying effects
+	for _, effect := range ability.Effects {
+		if effect.Category == models.FeatureEffectTokenSpend {
+			if ability.TokensHeld < effect.Magnitude {
+				return fmt.Errorf("not enough tokens: have %d, need %d", ability.TokensHeld, effect.Magnitude)
+			}
+			ability.TokensHeld -= effect.Magnitude
+		}
+	}
+
 	// Apply effects
 	for _, effect := range ability.Effects {
 		if err := fr.ResolveEffect(effect, actor, target, state); err != nil {
@@ -448,5 +475,145 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 		}
 	}
 
+	// Handle token placement AFTER applying effects
+	for _, effect := range ability.Effects {
+		if effect.Category == models.FeatureEffectTokenPlace {
+			ability.TokensHeld += effect.Magnitude
+			// Cap at TokensMax if set
+			if ability.TokensMax > 0 && ability.TokensHeld > ability.TokensMax {
+				ability.TokensHeld = ability.TokensMax
+			}
+		}
+	}
+
 	return nil
+}
+
+// ProcessTriggeredFeatures checks and activates features based on trigger conditions
+func (fr *FeatureResolver) ProcessTriggeredFeatures(
+	actor *models.Combatant,
+	target *models.Combatant,
+	state *models.CombatState,
+	triggerType string,
+	isCritical bool,
+) {
+	// Check adversary features
+	for i := range actor.AdversaryFeatures {
+		feature := &actor.AdversaryFeatures[i]
+
+		// Skip if not passive or trigger doesn't match
+		if !feature.Passive {
+			continue
+		}
+
+		if !fr.shouldTrigger(feature.Trigger, triggerType, isCritical, actor, target) {
+			continue
+		}
+
+		// Try to activate (respects costs and spotlight limits)
+		if !fr.CanActivateAdversaryFeature(*feature, actor, state) {
+			continue
+		}
+
+		// Activate the feature
+		_ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
+	}
+
+	// Check domain abilities (passive effects)
+	for i := range actor.DomainAbilities {
+		ability := &actor.DomainAbilities[i]
+
+		// Domain abilities don't have a Passive flag, but we can check if they have a trigger
+		// For now, skip abilities with costs (those are player-activated, not automatic)
+		if ability.HopeCost > 0 || ability.StressCost > 0 {
+			continue
+		}
+
+		// Check if ability has effects that should trigger
+		hasPassiveEffect := false
+		for _, effect := range ability.Effects {
+			// Passive effects: damage_amplifier, damage_reduction, resistance, etc.
+			if effect.Category == models.FeatureEffectDamageAmplifier ||
+				effect.Category == models.FeatureEffectDamageReduction ||
+				effect.Category == models.FeatureEffectDamageResistance {
+				hasPassiveEffect = true
+				break
+			}
+		}
+
+		if !hasPassiveEffect {
+			continue
+		}
+
+		// Domain abilities don't have triggers in the current model
+		// This is a design limitation - we'd need to add triggers to DomainAbility
+	}
+}
+
+// shouldTrigger checks if a trigger condition is met
+func (fr *FeatureResolver) shouldTrigger(
+	trigger models.FeatureTriggerCondition,
+	triggerType string,
+	isCritical bool,
+	actor *models.Combatant,
+	target *models.Combatant,
+) bool {
+	// Check trigger type match
+	switch trigger.Type {
+	case "always":
+		// Always-on passives (applied during damage/attack calculation, not here)
+		return false
+	case "on_attack":
+		if triggerType != "on_attack" {
+			return false
+		}
+	case "on_hit":
+		if triggerType != "on_hit" {
+			return false
+		}
+	case "on_damage_taken":
+		if triggerType != "on_damage_taken" {
+			return false
+		}
+	case "on_critical":
+		if triggerType != "on_critical" || !isCritical {
+			return false
+		}
+	case "start_turn":
+		if triggerType != "start_turn" {
+			return false
+		}
+	case "end_turn":
+		if triggerType != "end_turn" {
+			return false
+		}
+	default:
+		return false
+	}
+
+	// Check filter conditions
+	if trigger.Filter != "" {
+		return fr.evaluateFilter(trigger.Filter, actor, target)
+	}
+
+	return true
+}
+
+// evaluateFilter checks additional trigger constraints
+func (fr *FeatureResolver) evaluateFilter(filter string, actor *models.Combatant, target *models.Combatant) bool {
+	switch filter {
+	case "if_target_below_50_hp":
+		if target == nil {
+			return false
+		}
+		return (target.HP * 100 / target.HPMax) < 50
+	case "if_hidden":
+		return actor.HasCondition(models.ConditionHidden)
+	case "if_ally_adjacent":
+		// TODO: Implement adjacency tracking in combat state
+		return false
+	default:
+		// Unknown filter, assume it passes
+		return true
+	}
 }

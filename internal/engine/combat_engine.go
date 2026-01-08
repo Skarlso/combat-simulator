@@ -15,8 +15,6 @@ type CombatEngine struct {
 
 // NewCombatEngine creates a combat engine with all components
 func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine {
-	resolver := NewCombatResolver(dice)
-
 	// Extract RNG from DiceRoller if it's a StandardDiceRoller
 	var featureResolver *FeatureResolver
 	if stdDice, ok := dice.(*StandardDiceRoller); ok {
@@ -25,6 +23,8 @@ func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine
 		// Fallback: create new resolver without RNG (will cause issues if needed)
 		featureResolver = &FeatureResolver{dice: dice}
 	}
+
+	resolver := NewCombatResolver(dice, featureResolver)
 
 	return &CombatEngine{
 		dice:            dice,
@@ -38,6 +38,9 @@ func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine
 func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) error {
 	// Process start-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
+
+	// Process start-of-turn triggered features
+	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, "start_turn", false)
 
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
@@ -59,6 +62,9 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 	// Process end-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
+
+	// Process end-of-turn triggered features
+	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, "end_turn", false)
 
 	return nil
 }
@@ -98,6 +104,9 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		return nil
 	}
 
+	// Process on_attack triggered features BEFORE attack resolves
+	ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_attack", false)
+
 	// Use DamageDice notation, default to 1d6 if not set
 	damageDice := actor.DamageDice
 	if damageDice == "" {
@@ -106,10 +115,17 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 
 	result := ce.resolver.ResolveAttack(actor, target, damageDice, state)
 
+	// Process on_critical triggered features if attack was a critical
+	if result.CriticalResult {
+		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_critical", true)
+	}
+
 	resultStr := "Miss"
 	spotlightShift := false
 	if result.Hit {
 		resultStr = "Hit"
+		// Process on_hit triggered features (e.g., spend Hope/Fear/Stress for bonus effects)
+		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_hit", false)
 	} else {
 		// Miss causes spotlight to shift
 		spotlightShift = true
