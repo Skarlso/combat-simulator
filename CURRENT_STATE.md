@@ -1,7 +1,7 @@
 # Daggerheart Combat Simulator - Current State
 
-**Last Updated:** 2026-01-08 (Evening Session)
-**Status:** Production-ready with summoning system, aggressive Fear usage, and full feature support
+**Last Updated:** 2026-01-08 (Late Evening - Resistance System Refactor)
+**Status:** Production-ready with summoning system, aggressive Fear usage, and feature-based resistance system
 
 ## Project Overview
 
@@ -100,7 +100,72 @@ Go-based combat simulator for Daggerheart TTRPG with WebAssembly UI, Monte Carlo
 - Combat simulation and visualization
 - Results display with detailed logs
 
-## Recent Session (2026-01-08 Evening) - Aggressive Fear Usage, Summoning, & Critical Fixes
+## Recent Session (2026-01-08 Late Evening) - Resistance System Refactor
+
+### Session Overview
+Completely revamped resistance/immunity system from base checkboxes to feature-based passive effects. This provides a more flexible, lore-friendly system where features like "Thick Hide" or "Ethereal Form" grant resistances.
+
+### Resistance/Immunity System Refactor ✅
+
+**Old System** (removed):
+- Direct checkboxes on combatant creation forms
+- Physical/Magical resistance and immunity toggles
+- Applied at combatant creation time
+
+**New System** (feature-based):
+- Resistance/Immunity are now feature effect types
+- Added to both `AdversaryFeatureForm` and `DomainAbilityForm`
+- Two new effect types:
+  - **Resistance (50%)** - Automatically sets magnitude to 50
+  - **Immunity (100%)** - Automatically sets magnitude to 100
+- Damage type selection (Physical/Magical) when effect type selected
+- Implicit percentage handling (user doesn't see 50%/100% magnitudes)
+
+**Implementation**:
+1. **UI Changes**:
+   - Removed resistance/immunity checkboxes from both combatant forms
+   - Added "Resistance (50%)" and "Immunity (100%)" to effect type dropdowns
+   - Shows damage type dropdown when resistance/immunity selected
+   - **Files**: `adversary_feature_form.go:232-233`, `domain_ability_form.go:349-350`
+
+2. **Effect Creation**:
+   - Both forms automatically set magnitude (50 or 100)
+   - Uses `FeatureEffectDamageResistance` category
+   - **Files**: `adversary_feature_form.go:396-410`, `domain_ability_form.go:497-511`
+
+3. **Passive Application**:
+   - Added `ApplyPassiveResistances()` method to Combatant
+   - Scans all passive features/abilities for resistance effects
+   - Applies resistances using existing `AddResistance()` / `AddImmunity()` methods
+   - Called automatically when combatant is created
+   - **File**: `combatant.go:370-413`
+
+4. **Helper Function**:
+   - `parseDamageType()` converts string to `DamageType` enum
+   - **File**: `combatant.go:408-413`
+
+**Usage Flow**:
+```
+1. Create passive feature (e.g., "Thick Hide")
+2. Set effect type to "Resistance (50%)"
+3. Select damage type (e.g., "Physical")
+4. Feature automatically grants 50% physical resistance
+5. ApplyPassiveResistances() applies on combatant creation
+```
+
+**Benefits**:
+- More flexible - can have multiple resistance features
+- Lore-friendly - "Ethereal Form" grants resistance, not a checkbox
+- Consistent with other passive effects
+- No stacking issues (existing TakeDamage logic prevents this)
+
+### Related Changes ✅
+- Added `Passive` field to `DomainAbility` struct (missed in earlier session)
+- Added passive checkbox to domain ability UI form
+- Passive abilities now fully supported for players (parity with adversaries)
+- **Files**: `feature.go:94`, `domain_ability_form.go:180-194,511,554`
+
+## Previous Session (2026-01-08 Evening) - Aggressive Fear Usage, Summoning, & Critical Fixes
 
 ### Session Overview
 Implemented two major features (aggressive Fear usage, summoning system) and fixed two critical bugs that broke ability activation in web UI. All systems tested and WASM rebuilt multiple times.
@@ -240,7 +305,9 @@ Removed ~100 lines of dead/unused code (see previous sessions)
 
 ## Current Build Status
 
-**WASM**: `web/app.wasm` (2026-01-08 19:30, 15MB)
+**WASM**: `ui/web/app.wasm` (2026-01-08 22:00)
+- Resistance/immunity system refactored
+- Passive abilities fully supported
 - All recent features compiled
 - Critical bugs fixed
 - Ready for web UI testing

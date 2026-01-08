@@ -1,9 +1,33 @@
 # TODO - Daggerheart Combat Simulator
 
-**Last Updated**: 2026-01-08 (Evening)
-**Status**: Production-ready with summoning and aggressive Fear usage
+**Last Updated**: 2026-01-08 (Late Evening)
+**Status**: Production-ready with summoning, aggressive Fear usage, and feature-based resistance system
 
-## ✅ Recently Completed (2026-01-08 Evening)
+## ✅ Recently Completed (2026-01-08 Late Evening)
+
+### Resistance/Immunity System Refactor ✅
+- **Old System**: Direct checkboxes on combatant forms (Physical/Magical resistance/immunity)
+- **New System**: Feature-based passive effects
+  - Added "Resistance (50%)" and "Immunity (100%)" as effect types
+  - Available in both adversary features and domain abilities
+  - Damage type selection (Physical/Magical) when selected
+  - Automatic magnitude setting (50 or 100)
+  - Implicit percentage handling (user doesn't see magnitudes)
+- **Implementation**:
+  - `ApplyPassiveResistances()` method in Combatant
+  - Called automatically on combatant creation
+  - Scans all passive features/abilities for resistance effects
+  - Uses existing `AddResistance()` / `AddImmunity()` methods
+- **Benefits**: More flexible, lore-friendly, consistent with other passive effects
+- **Files**: `combatant.go:370-413`, `adversary_feature_form.go:232-233,396-410`, `domain_ability_form.go:349-350,497-511`
+
+### Passive Domain Abilities ✅
+- Added `Passive` field to `DomainAbility` struct (missed in earlier session)
+- Added passive checkbox to domain ability UI form
+- Players now have full parity with adversaries for passive abilities
+- **Files**: `feature.go:94`, `domain_ability_form.go:180-194,511,554`
+
+## ✅ Previously Completed (2026-01-08 Evening)
 
 ### Aggressive Fear Usage ✅
 - Implemented spotlight grab mechanic for aggressive strategy
@@ -115,22 +139,31 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 ## 📋 Next Priorities
 
 ### Current Status
-**WASM Build**: Latest at `web/app.wasm` (2026-01-08 19:30)
+**WASM Build**: Latest at `ui/web/app.wasm` (2026-01-08 22:00)
 - All features working
+- Resistance/immunity system refactored
+- Passive abilities fully supported
 - Critical bugs fixed
 - Ready for extended web UI testing
 
 ### Priority 1: Domain Ability Triggers 🟡
 **Why**: Feature parity with adversaries, enables reactive player abilities
 
-**Tasks**:
+**Status**: Passive abilities ✅, Triggers ⬜
+
+**Completed**:
+- ✅ Added `Passive` field to `DomainAbility` struct
+- ✅ Added passive checkbox to UI form
+- ✅ Passive abilities now work (e.g., always-on damage resistance)
+
+**Remaining Tasks**:
 1. Add `Trigger` field to `DomainAbility` struct
 2. Wire trigger processing in feature_resolver
 3. Update UI form to include trigger configuration
 4. Test with sample reactive ability (e.g., "when hit, mark stress on attacker")
 
 **Files to Modify**:
-- `internal/models/feature.go:89` - Add Trigger field
+- `internal/models/feature.go:94` - Add Trigger field (after Passive)
 - `internal/engine/feature_resolver.go:522` - Remove limitation comment, add trigger loop
 - `ui/components/domain_ability_form.go` - Add trigger selection UI
 - `internal/engine/combat_engine.go` - Call domain ability triggers at appropriate hooks
