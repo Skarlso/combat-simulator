@@ -56,7 +56,7 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
-		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
 		return nil
 	}
 
@@ -121,7 +121,7 @@ func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.C
 		ability.Name,
 		err == nil,
 		result,
-		dcResult.DamageRoll, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
+		dcResult.DamageRoll, dcResult.ProcessedDamage, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
 		dcResult.HopeDie,
 		dcResult.FearDie,
 		dcResult.D20Roll,
@@ -158,7 +158,7 @@ func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.C
 		feature.Name,
 		err == nil,
 		result,
-		dcResult.DamageRoll, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
+		dcResult.DamageRoll, dcResult.ProcessedDamage, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
 		dcResult.HopeDie,
 		dcResult.FearDie,
 		dcResult.D20Roll,
@@ -233,7 +233,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	}
 
 	state.RecordAction(actor, models.ActionAttack, target, "", resultStr,
-		result.DamageRoll, result.DamageDice, result.DamageBonus, result.HPDamage, result.Threshold,
+		result.DamageRoll, result.ProcessedDamage, result.DamageDice, result.DamageBonus, result.HPDamage, result.Threshold,
 		hopeDie, fearDie, totalRoll, target.GetDefense(), spotlightShift, hopeGenerated, fearGenerated)
 
 	return nil
@@ -296,7 +296,7 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 			gmAction := &models.Combatant{Name: "GM"}
 			state.RecordAction(gmAction, models.ActionPass, nil, "",
 				"Spends 1 Fear to grab spotlight (aggressive strategy)",
-				0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+				0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
 		}
 
 		// Determine next actor based on spotlight

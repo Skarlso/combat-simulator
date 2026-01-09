@@ -133,10 +133,17 @@ func (c *Combatant) AddImmunity(damageType DamageType) {
 	})
 }
 
+// DamageResult contains the results of damage application
+type DamageResult struct {
+	ProcessedDamage int             // Damage after resistance/immunity/vulnerability
+	HPDamage        int             // Actual HP damage dealt (1/2/3)
+	Threshold       DamageThreshold // Threshold calculated from processed damage
+}
+
 // TakeDamage applies damage using threshold system
-// Returns actual HP damage dealt
+// Returns damage result with processed damage and HP damage
 // roller can be nil if no dice rolling is needed
-func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) int {
+func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
 	actualDamage := rawDamage
 
 	// Apply damage reduction from active effects (Ward-style)
@@ -179,7 +186,7 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	// Apply modifier (priority: Immunity > Resistance > Vulnerability)
 	// If you have both Resistance and Vulnerability, Resistance wins
 	if hasImmunity {
-		return 0
+		return DamageResult{ProcessedDamage: 0, HPDamage: 0, Threshold: ThresholdMinor}
 	}
 	if hasResistance {
 		actualDamage = actualDamage / 2
@@ -191,10 +198,13 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 		actualDamage = 0
 	}
 
+	// Store the processed damage (after all modifiers, before armor/threshold)
+	processedDamage := actualDamage
+
 	// Check armor first
 	if c.ArmorSlots > 0 {
 		c.ArmorSlots--
-		return 0 // Armor absorbed the hit
+		return DamageResult{ProcessedDamage: processedDamage, HPDamage: 0, Threshold: ThresholdMinor} // Armor absorbed the hit
 	}
 
 	// Apply threshold-based HP damage
@@ -216,7 +226,7 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 		c.IsDefeated = true
 	}
 
-	return hpDamage
+	return DamageResult{ProcessedDamage: processedDamage, HPDamage: hpDamage, Threshold: threshold}
 }
 
 // calculateDamageReduction checks for active damage reduction effects

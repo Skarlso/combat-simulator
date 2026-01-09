@@ -20,19 +20,20 @@ func NewCombatResolver(dice DiceRoller, featureResolver *FeatureResolver) *Comba
 
 // AttackResult contains outcome of an attack
 type AttackResult struct {
-	Hit            bool
-	DamageRoll     int   // Raw damage rolled (total)
-	DamageDice     []int // Individual dice values
-	DamageBonus    int   // Flat bonus
-	HPDamage       int   // Actual HP damage (1/2/3 based on threshold)
-	DamageType     models.DamageType
-	Threshold      models.DamageThreshold
-	DualityResult  DualityRollResult // Player attacks only
-	D20Result      D20RollResult     // Enemy attacks only
-	AttackRoll     int               // The final attack roll value
-	GeneratedHope  bool
-	GeneratedFear  bool
-	CriticalResult bool
+	Hit             bool
+	DamageRoll      int   // Raw damage rolled (total)
+	ProcessedDamage int   // Damage after resistance/immunity/vulnerability
+	DamageDice      []int // Individual dice values
+	DamageBonus     int   // Flat bonus
+	HPDamage        int   // Actual HP damage (1/2/3 based on threshold)
+	DamageType      models.DamageType
+	Threshold       models.DamageThreshold
+	DualityResult   DualityRollResult // Player attacks only
+	D20Result       D20RollResult     // Enemy attacks only
+	AttackRoll      int               // The final attack roll value
+	GeneratedHope   bool
+	GeneratedFear   bool
+	CriticalResult  bool
 }
 
 // ResolveAttack handles a basic attack from attacker to defender
@@ -161,14 +162,15 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.DamageDice = damageResult.DiceValues
 	result.DamageBonus = damageResult.FlatBonus
 	result.DamageType = models.DamagePhysical // Default to physical damage
-	result.Threshold = models.DamageThresholdFromAmount(damageRoll, defender)
 
-	// Apply damage to defender (returns actual HP damage dealt)
-	hpDamage := defender.TakeDamage(damageRoll, models.DamagePhysical, cr.dice)
-	result.HPDamage = hpDamage
+	// Apply damage to defender (TakeDamage calculates threshold from processed damage)
+	damageRes := defender.TakeDamage(damageRoll, models.DamagePhysical, cr.dice)
+	result.ProcessedDamage = damageRes.ProcessedDamage
+	result.HPDamage = damageRes.HPDamage
+	result.Threshold = damageRes.Threshold
 
 	// Trigger on_damage_taken features for the defender if damage was dealt
-	if hpDamage > 0 && cr.featureResolver != nil {
+	if damageRes.HPDamage > 0 && cr.featureResolver != nil {
 		cr.featureResolver.ProcessTriggeredFeatures(defender, attacker, state, "on_damage_taken", false)
 	}
 
@@ -182,7 +184,7 @@ func (cr *CombatResolver) ProcessConditionTicks(combatant *models.Combatant, tri
 	for i, condition := range combatant.Conditions {
 		// Apply damage-over-time
 		if condition.DamagePerTick > 0 && trigger == models.TriggerTurnStart {
-			combatant.TakeDamage(condition.DamagePerTick, condition.DamageType, cr.dice)
+			_ = combatant.TakeDamage(condition.DamagePerTick, condition.DamageType, cr.dice)
 		}
 
 		// Check if condition should expire

@@ -19,9 +19,10 @@ type DCCheckResult struct {
 	HopeGenerated  int
 	FearGenerated  int
 	// Damage tracking (populated during effect resolution)
-	DamageDealt int                   // HP damage actually dealt to target
-	DamageRoll  int                   // Raw damage before threshold conversion
-	Threshold   models.DamageThreshold // Threshold category of damage
+	DamageDealt     int                   // HP damage actually dealt to target
+	DamageRoll      int                   // Raw damage before resistance/threshold
+	ProcessedDamage int                   // Damage after resistance/immunity/vulnerability
+	Threshold       models.DamageThreshold // Threshold category of damage
 }
 
 // FeatureResolver handles resolution of adversary features and domain abilities
@@ -138,19 +139,19 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 		damageType = models.DamageMagic
 	}
 
-	// Store raw damage and threshold info before applying
-	threshold := models.DamageThresholdFromAmount(damage, target)
-	hpDamage := target.TakeDamage(damage, damageType, fr.dice)
+	// Apply damage (TakeDamage calculates threshold from processed damage)
+	damageRes := target.TakeDamage(damage, damageType, fr.dice)
 
 	// Track damage in activation result for logging
 	if activationResult != nil {
 		activationResult.DamageRoll = damage
-		activationResult.DamageDealt = hpDamage
-		activationResult.Threshold = threshold
+		activationResult.ProcessedDamage = damageRes.ProcessedDamage
+		activationResult.DamageDealt = damageRes.HPDamage
+		activationResult.Threshold = damageRes.Threshold
 	}
 
 	// Trigger on_damage_taken features for the target if damage was dealt
-	if hpDamage > 0 {
+	if damageRes.HPDamage > 0 {
 		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
 	}
 
@@ -694,7 +695,7 @@ func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *mod
 		// Record summon event
 		state.RecordAction(actor, models.ActionUseAbility, nil, "",
 			fmt.Sprintf("Summons %s", summoned.Name),
-			0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
 	}
 
 	return nil

@@ -246,7 +246,12 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 			} else {
 				diceStr = fmt.Sprintf("%d", action.DamageRoll)
 			}
-			damageText = fmt.Sprintf("%s=%d→%dHP [%s]", diceStr, action.DamageRoll, action.HPDamage, action.Threshold)
+			// Show processed damage (after resistance) if different from raw damage
+			if action.ProcessedDamage > 0 && action.ProcessedDamage != action.DamageRoll {
+				damageText = fmt.Sprintf("%s=%d→%dHP [%s]", diceStr, action.ProcessedDamage, action.HPDamage, action.Threshold)
+			} else {
+				damageText = fmt.Sprintf("%s=%d→%dHP [%s]", diceStr, action.DamageRoll, action.HPDamage, action.Threshold)
+			}
 		}
 
 		// Format result
