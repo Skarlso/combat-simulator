@@ -1,9 +1,51 @@
 # TODO - Daggerheart Combat Simulator
 
 **Last Updated**: 2026-01-10
-**Status**: Production-ready with domain ability triggers and AOE damage
+**Status**: Production-ready with domain ability triggers, AOE damage, armor mechanics, enhanced combat log, and Daggerheart-themed UI
 
 ## ✅ Recently Completed (2026-01-10)
+
+### Combat Log Enhancement ✅
+- **What**: Overhauled combat log UI to display comprehensive battle information
+- **Implementation**:
+  - Added armor/HP tracking fields to `DamageResult` struct (HPBefore, HPAfter, ArmorUsed, ArmorSlotsBefore, ArmorSlotsAfter)
+  - Added armor/HP tracking fields to `ActionRecord` struct (TargetHPBefore, ArmorUsed, ArmorSlotsBefore, ArmorSlotsAfter)
+  - Updated `RecordAction()` and `RecordActionWithFeature()` signatures to accept `*DamageResult` parameter
+  - Added `DamageResult` field to `AttackResult` and `DCCheckResult` structs
+  - Updated all damage resolution functions to populate and pass DamageResult
+  - Enhanced UI rendering to show: "Target: 10 HP → 8 HP (armor: 3→2 slots)"
+  - Widened combat log columns (Result column now 280px) with horizontal scrolling
+  - Added vertical scrolling (max-height: 600px) for long battles
+  - Result column can now wrap text to show full information
+- **Visual Changes**:
+  - Combat log now shows complete damage narrative
+  - Example: "Hit - Guardian: 10 HP → 9 HP (armor: 2→1 slots)" instead of "Hit (HP:9)"
+  - Armor usage clearly visible when slots are consumed
+  - HP changes show exact before/after values with target name
+- **Files**: `combatant.go:137-146`, `combat_state.go:42-48,215-227`, `resolver.go:37,172`, `feature_resolver.go:26,154`, `combat_engine.go:59,133,171,239,301`, `feature_resolver.go:780`, `results_summary.go:257-274`, `app.css:554-558,562,616-620,658`
+
+### Armor System Correction ✅
+- **What**: Fixed armor to work correctly per Daggerheart rules (CRITICAL FIX)
+- **Problem**: Armor was incorrectly absorbing ALL damage (like HP shields)
+- **Correct Behavior**: Armor reduces damage THRESHOLD, not damage amount
+  - Mark ONE slot per damage to reduce severity: Severe→Major→Minor→None
+  - Severe (3 HP) + armor → Major (2 HP)
+  - Major (2 HP) + armor → Minor (1 HP)
+  - Minor (1 HP) + armor → None (0 HP)
+  - Cannot mark multiple slots unless ability explicitly allows (e.g., Iron Will ancestry feature)
+  - **Direct Damage bypasses armor completely** (adversary-only feature)
+- **Implementation**:
+  - Rewrote `TakeDamage()` threshold logic (combatant.go:204-238)
+  - Calculate threshold FIRST, then reduce it if armor available
+  - Removed "Direct Damage" from player UI dropdown (domain_ability_form.go:383-385)
+  - Added "Damage Armor Slots" to player abilities (domain_ability_form.go:387)
+  - Fixed `resolveArmorDamage()` to respect magnitude (feature_resolver.go:341-346)
+  - Direct damage uses separate code path (feature_resolver.go:164-194)
+- **Tests**:
+  - `cmd/armor-threshold-test/main.go` - Verifies Severe/Major/Minor threshold reductions
+  - `cmd/direct-damage-test/main.go` - Verifies direct damage bypasses armor
+- **Files**: `combatant.go:204-238`, `domain_ability_form.go:383-385,387,523-526`, `feature_resolver.go:164-194,341-346`
+
 
 ### Domain Ability Triggers ✅
 - **What**: Players can now have reactive abilities like enemies
@@ -25,6 +67,22 @@
   - Triggers on_damage_taken for each target hit
 - **Test**: `cmd/aoe-test/main.go` - Fireball hits all 3 goblins with single cast
 - **Files**: `feature_resolver.go:61-62,200-254`
+
+### UI Redesign - Daggerheart Theme ✅
+- **What**: Complete visual overhaul with official Daggerheart colors
+- **Colors**:
+  - Hope (#e7c74b): Gold representing player success, light, opportunity
+  - Fear (#24135f): Deep purple representing GM power, danger, darkness
+- **Changes**:
+  - Header/footer with Fear gradients and Hope accent stripe
+  - Hope-themed primary buttons, Fear-themed secondary buttons
+  - Section headings use Fear text with Hope left borders
+  - Stat cards themed by type (Hope for info, Fear for danger)
+  - Combat log highlights (Hope for criticals, Fear for features)
+  - Form focus states use Hope glow
+  - All elements use smooth gradients and transitions
+- **Philosophy**: Duality of Hope/Fear reflected throughout entire interface
+- **File**: `web/static/app.css`
 
 ## ✅ Previously Completed (2026-01-08 Late Evening)
 
@@ -82,6 +140,8 @@
 - **Files**: `combat_engine.go:63-90`
 
 ### Tests Created
+- `cmd/armor-threshold-test/main.go` - Armor threshold reduction (Severe→Major→Minor→None)
+- `cmd/direct-damage-test/main.go` - Direct damage bypasses armor (adversary-only)
 - `cmd/fear-test/main.go` - Aggressive Fear usage validation
 - `cmd/summon-test/main.go` - Summoning system demonstration
 - `cmd/dc-fail-test/main.go` - DC failure turn consumption
@@ -147,15 +207,38 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 ## 📋 Next Priorities
 
 ### Current Status
-**WASM Build**: Latest at `ui/web/app.wasm` (2026-01-10 12:53) ✅
+**WASM Build**: Latest at `web/app.wasm` (2026-01-10 17:50) ✅
 - Domain ability triggers fully working ✅
 - AOE damage implementation complete ✅
-- UI updated with trigger controls and AOE effect type ✅
+- **Armor system corrected (threshold reduction, not damage absorption)** ✅
+- **Direct damage is adversary-only (removed from player UI)** ✅
+- Player armor slot manipulation (grant + damage) ✅
+- UI updated with trigger controls, AOE, and armor damage options ✅
+- **Combat log enhanced with HP/armor tracking and wider layout** ✅
 - All core combat mechanics operational ✅
 - Feature parity achieved (players = adversaries) ✅
 
-### Priority 1: Feature Coverage Expansion 📊
-**Why**: Currently only 33/340 features mapped (9.7%)
+### Priority 1: Feature Library Dropdown (Web UI) 📚
+**Why**: Web UI requires manual feature creation. Pre-mapped features exist but only for CLI.
+
+**Current State**:
+- 33/340 adversary features mapped in `data/feature_mappings.json`
+- ~6k lines of adversary JSON with full stat blocks
+- Parser system works in CLI tests
+- Web UI has blank forms only (no dropdowns)
+
+**To Implement**:
+1. Add feature library dropdown to adversary feature form
+2. Load feature_mappings.json into web UI
+3. Populate form fields when feature selected from dropdown
+4. Still allow manual creation for custom features
+
+**Files to Modify**:
+- `ui/components/adversary_feature_form.go` - Add dropdown, load mappings
+- May need to bundle `feature_mappings.json` in WASM
+
+### Priority 2: Feature Coverage Expansion 📊
+**Why**: Only 33/340 features mapped (9.7%)
 
 **Status**: Not urgent - core system works, just needs more data entry
 
@@ -170,6 +253,16 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - `internal/parser/feature_parser.go` - Handle new patterns if needed
 
 ## 🔮 Future Enhancements
+
+### Druid Shapeshifting 🐺
+**What**: Implement class-specific transformation mechanics
+**Complexity**: High - requires alternate stat blocks and form switching
+**Examples**:
+- Animal forms with different HP/damage/abilities
+- Form-specific features that activate/deactivate
+- Resource costs for transformation
+- Duration tracking and reversion mechanics
+**Note**: Requires class system implementation first
 
 ### Strategic Spotlight Selection
 **Current**: Random GM turn spotlight selection (`combat_engine.go:194`)

@@ -1,6 +1,6 @@
 # Daggerheart Combat Simulator - Current State
 
-**Last Updated:** 2026-01-10 (Domain Ability Triggers & AOE Implementation)
+**Last Updated:** 2026-01-10 (Domain Ability Triggers, AOE, Armor Mechanics)
 **Status:** Production-ready with full feature parity between players and adversaries
 
 ## Project Overview
@@ -100,10 +100,10 @@ Go-based combat simulator for Daggerheart TTRPG with WebAssembly UI, Monte Carlo
 - Combat simulation and visualization
 - Results display with detailed logs
 
-## Recent Session (2026-01-10) - Domain Ability Triggers & AOE
+## Recent Session (2026-01-10) - Domain Ability Triggers, AOE, Armor Mechanics & UI Redesign
 
 ### Session Overview
-Achieved full feature parity between players and adversaries by implementing reactive triggers for domain abilities. Also completed AOE damage system that was partially implemented. Both features fully tested and integrated into web UI.
+Achieved full feature parity between players and adversaries by implementing reactive triggers for domain abilities. Completed AOE damage system that was partially implemented. Added full armor slot mechanics (both grant and damage) for players. Fixed bug in armor damage resolution. Redesigned entire UI with official Daggerheart Hope/Fear color scheme. All features fully tested and integrated into web UI.
 
 ### Domain Ability Triggers ✅
 
@@ -152,6 +152,88 @@ Achieved full feature parity between players and adversaries by implementing rea
 - Enables Fireball, Lightning Strike, etc.
 - AI already evaluated AOE correctly (decision_maker.go:342-349)
 - Now actually works in combat
+
+### Armor System Correction ✅ (CRITICAL FIX)
+
+**Problem**: Armor implementation was fundamentally wrong. Previous code treated armor slots like damage absorption (HP shields), completely negating all damage when used.
+
+**Correct Daggerheart Rules**: Armor reduces damage THRESHOLD, not damage amount
+- Mark ONE slot per damage instance to reduce severity by one level
+- **Severe (3 HP) + armor → Major (2 HP)**
+- **Major (2 HP) + armor → Minor (1 HP)**
+- **Minor (1 HP) + armor → None (0 HP)**
+- Cannot mark multiple slots per damage unless ability explicitly allows (e.g., Iron Will ancestry feature)
+
+**Solution**: Complete rewrite of damage resolution logic
+- Moved armor check AFTER threshold calculation (combatant.go:204-238)
+- Armor now reduces threshold level instead of negating damage
+- Added "Damage Armor Slots" to player abilities (domain_ability_form.go:387)
+- Fixed `resolveArmorDamage()` to respect magnitude (feature_resolver.go:341-346)
+
+**Before (WRONG)**:
+```go
+if c.ArmorSlots > 0 {
+    c.ArmorSlots--
+    return 0 HP damage  // Completely negates damage
+}
+```
+
+**After (CORRECT)**:
+```go
+threshold := CalculateThreshold(damage)  // Severe/Major/Minor
+if c.ArmorSlots > 0 {
+    c.ArmorSlots--
+    threshold = ReduceByOneLevel(threshold)  // Severe→Major→Minor→None
+}
+return ThresholdToHP(threshold)  // 3→2→1→0 HP
+```
+
+**Test**: `cmd/armor-threshold-test/main.go`
+- Test 1: Severe (10 dmg) + armor → Major (2 HP lost) ✓
+- Test 2: Major (7 dmg) + armor → Minor (1 HP lost) ✓
+- Test 3: Minor (3 dmg) + armor → None (0 HP lost) ✓
+- Test 4: Major (7 dmg) no armor → Major (2 HP lost) ✓
+
+**Direct Damage Exception**:
+- Direct damage is **adversary-only** and bypasses armor completely
+- Removed from player ability UI dropdown (domain_ability_form.go:383-385)
+- Uses separate resolution path (feature_resolver.go:164-194)
+- Directly modifies HP without calling TakeDamage()
+- Test: `cmd/direct-damage-test/main.go` verifies bypass behavior
+
+**Impact**:
+- Armor is now MUCH less powerful (correct to Daggerheart rules)
+- Grant armor abilities are still valuable (provide threshold reduction opportunities)
+- Damage armor abilities are tactically important (remove enemy defenses)
+- Direct damage makes certain adversaries more dangerous (armor ineffective)
+- Combat balancing now matches tabletop game
+
+### UI Redesign - Daggerheart Theme ✅
+
+**Problem**: Generic blue/gray color scheme didn't reflect Daggerheart's identity.
+
+**Solution**: Complete CSS redesign with official Daggerheart colors
+- **Hope (#e7c74b)**: Gold accent representing player success, light, opportunity
+- **Fear (#24135f)**: Deep purple representing GM resources, danger, darkness
+
+**Visual Changes**:
+- Header/Footer: Fear-themed gradient with Hope accent stripe
+- Buttons: Hope gradients for primary, Fear gradients for secondary
+- Tabs: Hope accent on active state
+- Forms: Hope focus states on inputs
+- Section Headings: Fear text with Hope left borders
+- Stat Cards: Hope-themed for info, Fear-themed for danger
+- Charts: Hope gradients for player wins, Fear gradients for enemy wins
+- Combat Log: Hope highlights for criticals, Fear highlights for features
+- All gradients with smooth hover effects and shadows
+
+**Theme Philosophy**:
+- Hope represents player agency, success, progress (gold/bright)
+- Fear represents adversary power, danger, challenge (purple/dark)
+- Duality system reflected throughout the interface
+- Professional polish with proper contrast and accessibility
+
+**File**: `web/static/app.css` - Complete rewrite with CSS variables for theming
 
 ## Previous Session (2026-01-08 Late Evening) - Resistance System Refactor
 

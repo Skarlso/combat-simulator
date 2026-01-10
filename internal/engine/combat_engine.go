@@ -56,7 +56,7 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
-		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0, nil)
 		return nil
 	}
 
@@ -130,6 +130,7 @@ func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.C
 		spotlightShift,
 		dcResult.HopeGenerated,
 		dcResult.FearGenerated,
+		dcResult.DamageResult,
 	)
 
 	return err
@@ -167,6 +168,7 @@ func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.C
 		spotlightShift,
 		dcResult.HopeGenerated,
 		dcResult.FearGenerated,
+		dcResult.DamageResult,
 	)
 
 	return err
@@ -234,7 +236,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 
 	state.RecordAction(actor, models.ActionAttack, target, "", resultStr,
 		result.DamageRoll, result.ProcessedDamage, result.DamageDice, result.DamageBonus, result.HPDamage, result.Threshold,
-		hopeDie, fearDie, totalRoll, target.GetDefense(), spotlightShift, hopeGenerated, fearGenerated)
+		hopeDie, fearDie, totalRoll, target.GetDefense(), spotlightShift, hopeGenerated, fearGenerated, result.DamageResult)
 
 	return nil
 }
@@ -296,7 +298,7 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 			gmAction := &models.Combatant{Name: "GM"}
 			state.RecordAction(gmAction, models.ActionPass, nil, "",
 				"Spends 1 Fear to grab spotlight (aggressive strategy)",
-				0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0)
+				0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0, nil)
 		}
 
 		// Determine next actor based on spotlight

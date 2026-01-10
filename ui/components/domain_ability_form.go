@@ -120,6 +120,10 @@ func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, i
 			effectText = fmt.Sprintf("Inflict %d stress", effect.Magnitude)
 		case models.FeatureEffectStressClear:
 			effectText = fmt.Sprintf("Clear %d stress", effect.Magnitude)
+		case models.FeatureEffectArmorDamage:
+			effectText = fmt.Sprintf("Damage %d armor slot(s)", effect.Magnitude)
+		case models.FeatureEffectGrantArmor:
+			effectText = fmt.Sprintf("Grant %d armor slot(s)", effect.Magnitude)
 		default:
 			effectText = string(effect.Category)
 		}
@@ -377,13 +381,13 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 						}).
 						Body(
 							app.Option().Value("damage").Text("Damage").Selected(daf.newEffectType == "damage"),
-							app.Option().Value("direct_damage").Text("Direct Damage").Selected(daf.newEffectType == "direct_damage"),
 							app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(daf.newEffectType == "area_damage"),
 							app.Option().Value("heal").Text("Heal HP").Selected(daf.newEffectType == "heal"),
 							app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(daf.newEffectType == "stress_inflict"),
 							app.Option().Value("stress_clear").Text("Clear Stress").Selected(daf.newEffectType == "stress_clear"),
 							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(daf.newEffectType == "apply_vulnerable"),
 							app.Option().Value("apply_poison").Text("Apply Poison").Selected(daf.newEffectType == "apply_poison"),
+							app.Option().Value("armor_damage").Text("Damage Armor Slots").Selected(daf.newEffectType == "armor_damage"),
 							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(daf.newEffectType == "grant_armor"),
 							app.Option().Value("damage_reduction").Text("Damage Reduction (Ward)").Selected(daf.newEffectType == "damage_reduction"),
 							app.Option().Value("token_place").Text("Place Token").Selected(daf.newEffectType == "token_place"),
@@ -517,6 +521,8 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 	case "damage":
 		effectCategory = models.FeatureEffectDamage
 	case "direct_damage":
+		// NOTE: Direct damage is adversary-only, not available in player UI dropdown
+		// Kept for defensive programming (e.g., JSON imports)
 		effectCategory = models.FeatureEffectDirectDamage
 	case "area_damage":
 		effectCategory = models.FeatureEffectAreaDamage
@@ -530,6 +536,8 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		effectCategory = models.FeatureEffectApplyVulnerable
 	case "apply_poison":
 		effectCategory = models.FeatureEffectApplyPoison
+	case "armor_damage":
+		effectCategory = models.FeatureEffectArmorDamage
 	case "grant_armor":
 		effectCategory = models.FeatureEffectGrantArmor
 	case "damage_reduction":

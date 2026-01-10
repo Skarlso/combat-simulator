@@ -34,6 +34,7 @@ type AttackResult struct {
 	GeneratedHope   bool
 	GeneratedFear   bool
 	CriticalResult  bool
+	DamageResult    *models.DamageResult // Full damage result with armor/HP tracking
 }
 
 // ResolveAttack handles a basic attack from attacker to defender
@@ -168,6 +169,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.ProcessedDamage = damageRes.ProcessedDamage
 	result.HPDamage = damageRes.HPDamage
 	result.Threshold = damageRes.Threshold
+	result.DamageResult = &damageRes // Store full damage result for action logging
 
 	// Trigger on_damage_taken features for the defender if damage was dealt
 	if damageRes.HPDamage > 0 && cr.featureResolver != nil {

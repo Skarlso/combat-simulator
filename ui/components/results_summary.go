@@ -254,10 +254,23 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 			}
 		}
 
-		// Format result
+		// Format result with HP and armor info
 		resultText := action.Result
 		if action.Target != "" && action.TargetHPAfter >= 0 {
-			resultText = fmt.Sprintf("%s (HP:%d)", action.Result, action.TargetHPAfter)
+			// Show HP before/after if we have before info
+			if action.TargetHPBefore > 0 {
+				hpChange := fmt.Sprintf("%s: %d HP → %d HP", action.Target, action.TargetHPBefore, action.TargetHPAfter)
+
+				// Add armor info if armor was used
+				if action.ArmorUsed {
+					hpChange += fmt.Sprintf(" (armor: %d→%d slots)", action.ArmorSlotsBefore, action.ArmorSlotsAfter)
+				}
+
+				resultText = fmt.Sprintf("%s - %s", action.Result, hpChange)
+			} else {
+				// Fallback to old format if no before info
+				resultText = fmt.Sprintf("%s (HP:%d)", action.Result, action.TargetHPAfter)
+			}
 		}
 
 		targetText := action.Target

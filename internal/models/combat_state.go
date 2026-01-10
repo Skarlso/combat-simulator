@@ -39,10 +39,14 @@ type ActionRecord struct {
 	ProcessedDamage int   // Damage after resistance/immunity/vulnerability
 	DamageDice     []int  // Individual dice values
 	DamageBonus    int    // Flat bonus
-	HPDamage       int    // Actual HP damage dealt (1/2/3)
-	Threshold      string // "Minor", "Major", "Severe"
-	TargetHPAfter  int    // Target's HP after this action
-	HopeDie        int    // Hope die result (d12) - 0 for enemies
+	HPDamage         int    // Actual HP damage dealt (1/2/3)
+	Threshold        string // "Minor", "Major", "Severe"
+	TargetHPBefore   int    // Target's HP before this action
+	TargetHPAfter    int    // Target's HP after this action
+	ArmorUsed        bool   // Did target use an armor slot?
+	ArmorSlotsBefore int    // Target's armor slots before
+	ArmorSlotsAfter  int    // Target's armor slots after
+	HopeDie          int    // Hope die result (d12) - 0 for enemies
 	FearDie        int    // Fear die result (d12) - 0 for enemies
 	D20Roll        int    // Enemy d20 roll - 0 for players
 	TotalRoll      int    // Hope + Fear + modifiers (or d20 + ATK for enemies)
@@ -171,7 +175,7 @@ func (cs *CombatState) SpendFear(amount int) bool {
 }
 
 // RecordAction logs an action taken during combat
-func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, abilityName string, result string, damageRoll int, processedDamage int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, target *Combatant, abilityName string, result string, damageRoll int, processedDamage int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int, damageResult *DamageResult) {
 	// Detect critical (matching duality dice)
 	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
 
@@ -212,6 +216,15 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 		record.Target = target.Name
 		record.TargetHPAfter = target.HP
 		record.TargetDefense = target.GetDefense()
+
+		// Populate armor/HP fields from damageResult if available
+		if damageResult != nil {
+			record.TargetHPBefore = damageResult.HPBefore
+			record.TargetHPAfter = damageResult.HPAfter
+			record.ArmorUsed = damageResult.ArmorUsed
+			record.ArmorSlotsBefore = damageResult.ArmorSlotsBefore
+			record.ArmorSlotsAfter = damageResult.ArmorSlotsAfter
+		}
 	}
 
 	if abilityName != "" {
@@ -222,7 +235,7 @@ func (cs *CombatState) RecordAction(actor *Combatant, actionType ActionType, tar
 }
 
 // RecordActionWithFeature logs an action involving a feature or domain ability
-func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType ActionType, target *Combatant, featureName string, isFeature bool, result string, damageRoll int, processedDamage int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, d20Roll int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int) {
+func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType ActionType, target *Combatant, featureName string, isFeature bool, result string, damageRoll int, processedDamage int, damageDice []int, damageBonus int, hpDamage int, threshold DamageThreshold, hopeDie int, fearDie int, d20Roll int, totalRoll int, targetDefense int, spotlightShift bool, hopeGenerated int, fearGenerated int, damageResult *DamageResult) {
 	// Detect critical (matching duality dice)
 	isCritical := hopeDie > 0 && fearDie > 0 && hopeDie == fearDie
 
@@ -266,6 +279,15 @@ func (cs *CombatState) RecordActionWithFeature(actor *Combatant, actionType Acti
 		record.Target = target.Name
 		record.TargetHPAfter = target.HP
 		record.TargetDefense = target.GetDefense()
+
+		// Populate armor/HP fields from damageResult if available
+		if damageResult != nil {
+			record.TargetHPBefore = damageResult.HPBefore
+			record.TargetHPAfter = damageResult.HPAfter
+			record.ArmorUsed = damageResult.ArmorUsed
+			record.ArmorSlotsBefore = damageResult.ArmorSlotsBefore
+			record.ArmorSlotsAfter = damageResult.ArmorSlotsAfter
+		}
 	}
 
 	cs.ActionHistory = append(cs.ActionHistory, record)

@@ -23,6 +23,7 @@ type DCCheckResult struct {
 	DamageRoll      int                   // Raw damage before resistance/threshold
 	ProcessedDamage int                   // Damage after resistance/immunity/vulnerability
 	Threshold       models.DamageThreshold // Threshold category of damage
+	DamageResult    *models.DamageResult   // Full damage result with armor/HP tracking
 }
 
 // FeatureResolver handles resolution of adversary features and domain abilities
@@ -150,6 +151,7 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 		activationResult.ProcessedDamage = damageRes.ProcessedDamage
 		activationResult.DamageDealt = damageRes.HPDamage
 		activationResult.Threshold = damageRes.Threshold
+		activationResult.DamageResult = &damageRes
 	}
 
 	// Trigger on_damage_taken features for the target if damage was dealt
@@ -338,9 +340,12 @@ func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, targe
 		return nil
 	}
 
-	if target.ArmorSlots > 0 {
-		target.ArmorSlots--
+	// Damage armor slots (magnitude = number of slots)
+	damage := effect.Magnitude
+	if damage > target.ArmorSlots {
+		damage = target.ArmorSlots
 	}
+	target.ArmorSlots -= damage
 	return nil
 }
 
@@ -772,7 +777,7 @@ func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *mod
 		// Record summon event
 		state.RecordAction(actor, models.ActionUseAbility, nil, "",
 			fmt.Sprintf("Summons %s", summoned.Name),
-			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0)
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
 	}
 
 	return nil

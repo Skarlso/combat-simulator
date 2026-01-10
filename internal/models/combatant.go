@@ -135,15 +135,24 @@ func (c *Combatant) AddImmunity(damageType DamageType) {
 
 // DamageResult contains the results of damage application
 type DamageResult struct {
-	ProcessedDamage int             // Damage after resistance/immunity/vulnerability
-	HPDamage        int             // Actual HP damage dealt (1/2/3)
-	Threshold       DamageThreshold // Threshold calculated from processed damage
+	ProcessedDamage  int             // Damage after resistance/immunity/vulnerability
+	HPDamage         int             // Actual HP damage dealt (1/2/3)
+	Threshold        DamageThreshold // Threshold calculated from processed damage
+	HPBefore         int             // HP before taking damage
+	HPAfter          int             // HP after taking damage
+	ArmorUsed        bool            // Was an armor slot used?
+	ArmorSlotsBefore int             // Armor slots before
+	ArmorSlotsAfter  int             // Armor slots after
 }
 
 // TakeDamage applies damage using threshold system
 // Returns damage result with processed damage and HP damage
 // roller can be nil if no dice rolling is needed
 func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
+	// Capture state before damage
+	hpBefore := c.HP
+	armorBefore := c.ArmorSlots
+
 	actualDamage := rawDamage
 
 	// Apply damage reduction from active effects (Ward-style)
@@ -186,7 +195,16 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	// Apply modifier (priority: Immunity > Resistance > Vulnerability)
 	// If you have both Resistance and Vulnerability, Resistance wins
 	if hasImmunity {
-		return DamageResult{ProcessedDamage: 0, HPDamage: 0, Threshold: ThresholdMinor}
+		return DamageResult{
+			ProcessedDamage:  0,
+			HPDamage:         0,
+			Threshold:        ThresholdMinor,
+			HPBefore:         hpBefore,
+			HPAfter:          c.HP,
+			ArmorUsed:        false,
+			ArmorSlotsBefore: armorBefore,
+			ArmorSlotsAfter:  c.ArmorSlots,
+		}
 	}
 	if hasResistance {
 		actualDamage = actualDamage / 2
@@ -201,19 +219,38 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	// Store the processed damage (after all modifiers, before armor/threshold)
 	processedDamage := actualDamage
 
-	// Check armor first
+	// Calculate damage threshold FIRST
+	threshold := DamageThresholdFromAmount(actualDamage, c)
+
+	// Check if armor can reduce threshold (only ONE slot per damage instance)
+	armorReducedMinor := false
+	armorUsed := false
 	if c.ArmorSlots > 0 {
 		c.ArmorSlots--
-		return DamageResult{ProcessedDamage: processedDamage, HPDamage: 0, Threshold: ThresholdMinor} // Armor absorbed the hit
+		armorUsed = true
+		// Reduce threshold by one level: Severe→Major→Minor→None (0 HP)
+		switch threshold {
+		case ThresholdSevere:
+			threshold = ThresholdMajor
+		case ThresholdMajor:
+			threshold = ThresholdMinor
+		case ThresholdMinor:
+			// Minor reduced by armor becomes 0 HP damage
+			armorReducedMinor = true
+		}
 	}
 
 	// Apply threshold-based HP damage
-	threshold := DamageThresholdFromAmount(actualDamage, c)
 	hpDamage := 0
-
 	switch threshold {
 	case ThresholdMinor:
-		hpDamage = 1
+		if armorReducedMinor {
+			// Minor + armor = 0 HP damage (fully negated)
+			hpDamage = 0
+		} else {
+			// Either no armor, or armor reduced higher threshold to Minor
+			hpDamage = 1
+		}
 	case ThresholdMajor:
 		hpDamage = 2
 	case ThresholdSevere:
@@ -226,7 +263,16 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 		c.IsDefeated = true
 	}
 
-	return DamageResult{ProcessedDamage: processedDamage, HPDamage: hpDamage, Threshold: threshold}
+	return DamageResult{
+		ProcessedDamage:  processedDamage,
+		HPDamage:         hpDamage,
+		Threshold:        threshold,
+		HPBefore:         hpBefore,
+		HPAfter:          c.HP,
+		ArmorUsed:        armorUsed,
+		ArmorSlotsBefore: armorBefore,
+		ArmorSlotsAfter:  c.ArmorSlots,
+	}
 }
 
 // calculateDamageReduction checks for active damage reduction effects
