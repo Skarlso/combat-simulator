@@ -58,6 +58,8 @@ func (fr *FeatureResolver) ResolveEffect(
 		return fr.resolveDamage(effect, actor, target, state, result)
 	case models.FeatureEffectDirectDamage:
 		return fr.resolveDirectDamage(effect, actor, target, state, result)
+	case models.FeatureEffectAreaDamage:
+		return fr.resolveAreaDamage(effect, actor, state, result)
 
 	// Status application
 	case models.FeatureEffectApplyVulnerable:
@@ -190,6 +192,62 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 	// Trigger on_damage_taken features for the target if damage was dealt
 	if damage > 0 {
 		fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
+	}
+
+	return nil
+}
+
+// resolveAreaDamage applies damage to all enemies of the actor
+func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
+	// Roll damage once for the entire AOE
+	damage := effect.Magnitude
+	if effect.DiceFormula != "" {
+		notation, err := models.ParseDiceNotation(effect.DiceFormula)
+		if err != nil {
+			return fmt.Errorf("invalid dice formula %s: %w", effect.DiceFormula, err)
+		}
+		damage += notation.Roll(fr.dice)
+	}
+
+	// Convert string to DamageType
+	damageType := models.DamagePhysical
+	if effect.DamageType == "magic" {
+		damageType = models.DamageMagic
+	}
+
+	// Get all enemies of the actor
+	enemies := state.GetEnemiesOf(actor)
+	if len(enemies) == 0 {
+		return nil
+	}
+
+	// Track total damage dealt across all targets
+	totalHPDamage := 0
+	totalProcessedDamage := 0
+
+	// Apply damage to each enemy
+	for _, target := range enemies {
+		if !target.IsAlive() {
+			continue
+		}
+
+		// Apply damage
+		damageRes := target.TakeDamage(damage, damageType, fr.dice)
+		totalProcessedDamage += damageRes.ProcessedDamage
+		totalHPDamage += damageRes.HPDamage
+
+		// Trigger on_damage_taken for each target hit
+		if damageRes.HPDamage > 0 {
+			fr.ProcessTriggeredFeatures(target, actor, state, "on_damage_taken", false)
+		}
+	}
+
+	// Track aggregate damage in activation result for logging
+	if activationResult != nil {
+		activationResult.DamageRoll = damage
+		activationResult.ProcessedDamage = totalProcessedDamage
+		activationResult.DamageDealt = totalHPDamage
+		activationResult.Threshold = models.ThresholdMajor // Arbitrary for AOE
 	}
 
 	return nil
@@ -582,8 +640,27 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		_, _ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
 	}
 
-	// Note: Domain abilities don't have trigger support in the current model
-	// They would need a Trigger field added to DomainAbility struct to support this
+	// Check domain abilities
+	for i := range actor.DomainAbilities {
+		ability := &actor.DomainAbilities[i]
+
+		// Skip if not passive or trigger doesn't match
+		if !ability.Passive {
+			continue
+		}
+
+		if !fr.shouldTrigger(ability.Trigger, triggerType, isCritical, actor, target) {
+			continue
+		}
+
+		// Try to activate (respects costs and usage limits)
+		if !fr.CanActivateDomainAbility(*ability, actor, state) {
+			continue
+		}
+
+		// Activate the ability
+		_, _ = fr.ActivateDomainAbility(ability, actor, target, state)
+	}
 }
 
 // shouldTrigger checks if a trigger condition is met

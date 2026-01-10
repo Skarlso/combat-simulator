@@ -92,6 +92,7 @@ type DomainAbility struct {
 	Name        string
 	Description string
 	Passive     bool   // true = always on, false = AI decides when to trigger
+	Trigger     FeatureTriggerCondition
 	HopeCost    int    // Hope tokens required
 	StressCost  int    // Stress marks required
 	RefreshType string // "rest", "long_rest", "scene", "unlimited"

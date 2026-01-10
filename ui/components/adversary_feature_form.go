@@ -224,6 +224,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 						Body(
 							app.Option().Value("damage").Text("Damage").Selected(aff.newEffectType == "damage"),
 							app.Option().Value("direct_damage").Text("Direct Damage").Selected(aff.newEffectType == "direct_damage"),
+							app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(aff.newEffectType == "area_damage"),
 							app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(aff.newEffectType == "stress_inflict"),
 							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(aff.newEffectType == "apply_vulnerable"),
 							app.Option().Value("apply_poison").Text("Apply Poison").Selected(aff.newEffectType == "apply_poison"),
@@ -383,6 +384,8 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		effectCategory = models.FeatureEffectDamage
 	case "direct_damage":
 		effectCategory = models.FeatureEffectDirectDamage
+	case "area_damage":
+		effectCategory = models.FeatureEffectAreaDamage
 	case "stress_inflict":
 		effectCategory = models.FeatureEffectStressInflict
 	case "apply_vulnerable":

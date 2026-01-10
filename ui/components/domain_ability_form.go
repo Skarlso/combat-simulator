@@ -19,6 +19,8 @@ type DomainAbilityForm struct {
 	newName         string
 	newDescription  string
 	newPassive      bool
+	newTriggerType  string
+	newTriggerFilter string
 	newHopeCost     int
 	newStressCost   int
 	newRefreshType  string
@@ -198,6 +200,45 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 					app.Div().
 						Class("form-group").
 						Body(
+							app.Label().Text("Trigger Type:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newTriggerType = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(
+									app.Option().Value("").Text("None (manual activation)").Selected(daf.newTriggerType == ""),
+									app.Option().Value("on_attack").Text("On Attack").Selected(daf.newTriggerType == "on_attack"),
+									app.Option().Value("on_hit").Text("On Hit").Selected(daf.newTriggerType == "on_hit"),
+									app.Option().Value("on_critical").Text("On Critical").Selected(daf.newTriggerType == "on_critical"),
+									app.Option().Value("on_damage_taken").Text("On Damage Taken").Selected(daf.newTriggerType == "on_damage_taken"),
+									app.Option().Value("start_turn").Text("Start of Turn").Selected(daf.newTriggerType == "start_turn"),
+									app.Option().Value("end_turn").Text("End of Turn").Selected(daf.newTriggerType == "end_turn"),
+								),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Trigger Filter (optional):"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newTriggerFilter = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(
+									app.Option().Value("").Text("None").Selected(daf.newTriggerFilter == ""),
+									app.Option().Value("if_target_below_50_hp").Text("If target below 50% HP").Selected(daf.newTriggerFilter == "if_target_below_50_hp"),
+									app.Option().Value("if_hidden").Text("If hidden").Selected(daf.newTriggerFilter == "if_hidden"),
+									app.Option().Value("if_ally_adjacent").Text("If ally adjacent").Selected(daf.newTriggerFilter == "if_ally_adjacent"),
+								),
+						),
+				),
+			app.Div().
+				Class("form-row").
+				Body(
+					app.Div().
+						Class("form-group").
+						Body(
 							app.Label().Text("Hope Cost:"),
 							app.Input().
 								Type("number").
@@ -337,6 +378,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 						Body(
 							app.Option().Value("damage").Text("Damage").Selected(daf.newEffectType == "damage"),
 							app.Option().Value("direct_damage").Text("Direct Damage").Selected(daf.newEffectType == "direct_damage"),
+							app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(daf.newEffectType == "area_damage"),
 							app.Option().Value("heal").Text("Heal HP").Selected(daf.newEffectType == "heal"),
 							app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(daf.newEffectType == "stress_inflict"),
 							app.Option().Value("stress_clear").Text("Clear Stress").Selected(daf.newEffectType == "stress_clear"),
@@ -476,6 +518,8 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		effectCategory = models.FeatureEffectDamage
 	case "direct_damage":
 		effectCategory = models.FeatureEffectDirectDamage
+	case "area_damage":
+		effectCategory = models.FeatureEffectAreaDamage
 	case "heal":
 		effectCategory = models.FeatureEffectHPHeal
 	case "stress_inflict":
@@ -523,6 +567,10 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		Name:        daf.newName,
 		Description: daf.newDescription,
 		Passive:     daf.newPassive,
+		Trigger: models.FeatureTriggerCondition{
+			Type:   daf.newTriggerType,
+			Filter: daf.newTriggerFilter,
+		},
 		HopeCost:    daf.newHopeCost,
 		StressCost:  daf.newStressCost,
 		RefreshType: daf.newRefreshType,
@@ -566,6 +614,8 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newName = ""
 	daf.newDescription = ""
 	daf.newPassive = false
+	daf.newTriggerType = ""
+	daf.newTriggerFilter = ""
 	daf.newHopeCost = 1
 	daf.newStressCost = 0
 	daf.newRefreshType = "rest"

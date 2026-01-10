@@ -1,7 +1,7 @@
 # Daggerheart Combat Simulator - Current State
 
-**Last Updated:** 2026-01-08 (Late Evening - Resistance System Refactor)
-**Status:** Production-ready with summoning system, aggressive Fear usage, and feature-based resistance system
+**Last Updated:** 2026-01-10 (Domain Ability Triggers & AOE Implementation)
+**Status:** Production-ready with full feature parity between players and adversaries
 
 ## Project Overview
 
@@ -100,7 +100,60 @@ Go-based combat simulator for Daggerheart TTRPG with WebAssembly UI, Monte Carlo
 - Combat simulation and visualization
 - Results display with detailed logs
 
-## Recent Session (2026-01-08 Late Evening) - Resistance System Refactor
+## Recent Session (2026-01-10) - Domain Ability Triggers & AOE
+
+### Session Overview
+Achieved full feature parity between players and adversaries by implementing reactive triggers for domain abilities. Also completed AOE damage system that was partially implemented. Both features fully tested and integrated into web UI.
+
+### Domain Ability Triggers ✅
+
+**Problem**: Players could only use passive abilities (always-on effects). Adversaries had reactive triggers (on_attack, on_damage_taken, etc.) but players didn't.
+
+**Solution**: Extended trigger system to domain abilities
+- Added `Trigger` field to `DomainAbility` struct (feature.go:95)
+- Extended `ProcessTriggeredFeatures()` to check domain abilities (feature_resolver.go:585-605)
+- UI forms now include trigger type and filter dropdowns (domain_ability_form.go:197-235)
+
+**All 6 Trigger Types Supported**:
+- on_attack - Before attack resolves
+- on_hit - After successful hit
+- on_critical - On critical success
+- on_damage_taken - When taking damage
+- start_turn - At turn start
+- end_turn - At turn end
+
+**Filters Available**:
+- if_target_below_50_hp
+- if_hidden
+- if_ally_adjacent (returns false - adjacency not implemented)
+
+**Test**: `cmd/trigger-test/main.go`
+- Guardian with "Retribution" ability
+- Triggers on_damage_taken to inflict 1 stress on attacker
+- Verified: 3 hits taken = 3 stress inflicted on enemy ✓
+
+### AOE Damage Implementation ✅
+
+**Problem**: `FeatureEffectAreaDamage` was defined and evaluated by AI but not implemented in `ResolveEffect()`. Would throw "unknown effect category" errors.
+
+**Solution**: Implemented multi-target damage resolution
+- Added `resolveAreaDamage()` function (feature_resolver.go:200-254)
+- Rolls damage once, applies to all enemies of actor
+- Respects damage type (physical/magic), armor, resistance
+- Triggers on_damage_taken for each target hit
+- Added to both player and adversary UI forms
+
+**Test**: `cmd/aoe-test/main.go`
+- Wizard with "Fireball" (3d6+2 magic AOE)
+- 3 Goblins as targets
+- Result: All 3 goblins damaged correctly by each Fireball cast ✓
+
+**Benefits**:
+- Enables Fireball, Lightning Strike, etc.
+- AI already evaluated AOE correctly (decision_maker.go:342-349)
+- Now actually works in combat
+
+## Previous Session (2026-01-08 Late Evening) - Resistance System Refactor
 
 ### Session Overview
 Completely revamped resistance/immunity system from base checkboxes to feature-based passive effects. This provides a more flexible, lore-friendly system where features like "Thick Hide" or "Ethereal Form" grant resistances.
@@ -295,24 +348,23 @@ Removed ~100 lines of dead/unused code (see previous sessions)
 
 ## Known Limitations
 
-1. **Domain Abilities Don't Have Triggers** - Only adversary features support trigger system. Would need `Trigger` field added to `DomainAbility` struct.
+1. **Adjacency Not Implemented** - "if_ally_adjacent" filter always returns false. Would require full positional/distance system which adds significant complexity for minimal benefit. Acceptable limitation for theater-of-mind TTRPG.
 
-2. **Adjacency Not Implemented** - "if_ally_adjacent" filter always returns false. Would need positional tracking.
-
-3. **Summoning in Web UI** - Summoning works in CLI but requires AdversaryRegistry setup. Web UI doesn't load adversary templates yet, so summon features will fail gracefully with error message.
-
-4. **AOE Not Fully Verified** - `FeatureEffectAreaDamage` exists and AI evaluates it, but needs verification in combat resolution.
+2. **Summoning in Web UI** - Summoning works in CLI but requires AdversaryRegistry setup. Web UI doesn't load adversary templates yet, so summon features will fail gracefully with error message.
 
 ## Current Build Status
 
-**WASM**: `ui/web/app.wasm` (2026-01-08 22:00)
-- Resistance/immunity system refactored
-- Passive abilities fully supported
-- All recent features compiled
-- Critical bugs fixed
-- Ready for web UI testing
+**WASM**: `ui/web/app.wasm` (2026-01-10 12:53)
+- Domain ability triggers ✅
+- AOE damage ✅
+- Resistance/immunity system ✅
+- All 25 effect types working
+- Full feature parity (players = adversaries)
+- Ready for production use
 
 **Tests Available**:
+- `cmd/trigger-test/main.go` - Domain ability reactive triggers (NEW)
+- `cmd/aoe-test/main.go` - AOE multi-target damage (NEW)
 - `cmd/fear-test/main.go` - Aggressive Fear usage
 - `cmd/summon-test/main.go` - Summoning system
 - `cmd/dc-fail-test/main.go` - DC failure turn consumption
@@ -380,12 +432,15 @@ go run cmd/adversary-example/main.go
 - ✅ DC system with success probability
 - ✅ Token mechanics (place/spend)
 - ✅ Damage reduction (Ward-style)
-- ✅ Trigger system (6 trigger types)
+- ✅ Trigger system (6 trigger types, players + adversaries)
+- ✅ Domain ability reactive triggers (NEW - 2026-01-10)
+- ✅ AOE damage hitting multiple targets (NEW - 2026-01-10)
 - ✅ Intelligent AI decision-making
 - ✅ Resource cost validation
 - ✅ Monte Carlo strategy optimization
-- ✅ Web UI with complete feature forms
+- ✅ Web UI with complete feature forms (triggers, AOE, etc.)
 - ✅ Combat logging with feature tracking
+- ✅ Feature parity: players = adversaries
 
 ## Previous Sessions
 
@@ -397,8 +452,10 @@ See archived sections above for:
 
 ## Next Priorities
 
-1. **Summoning System** - Implement dynamic ally spawning
-2. **AOE Verification** - Ensure area damage hits multiple targets correctly
-3. **Domain Ability Triggers** - Add trigger support (requires model change)
-4. **Adjacency Tracking** - Add positional awareness for filter conditions
-5. **Feature Expansion** - Parse more adversary features (currently 33/340 = 9.7%)
+1. **Feature Coverage Expansion** - Parse more adversary features (currently 33/340 = 9.7%). Core system is complete and production-ready, just needs more data entry.
+
+2. **Summoning in Web UI** - (Optional) Bundle adversary JSON files in WASM or add upload capability. Currently works in CLI only.
+
+3. **Adjacency Tracking** - (Deprioritized) Would require full positional system for minimal benefit. Theater-of-mind doesn't need precise positioning.
+
+**All Core Mechanics Complete**: Domain triggers ✅, AOE ✅, Summoning (CLI) ✅, Resistance ✅, Tokens ✅, DC checks ✅

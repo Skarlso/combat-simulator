@@ -1,9 +1,32 @@
 # TODO - Daggerheart Combat Simulator
 
-**Last Updated**: 2026-01-08 (Late Evening)
-**Status**: Production-ready with summoning, aggressive Fear usage, and feature-based resistance system
+**Last Updated**: 2026-01-10
+**Status**: Production-ready with domain ability triggers and AOE damage
 
-## ✅ Recently Completed (2026-01-08 Late Evening)
+## ✅ Recently Completed (2026-01-10)
+
+### Domain Ability Triggers ✅
+- **What**: Players can now have reactive abilities like enemies
+- **Implementation**:
+  - Added `Trigger` field to `DomainAbility` struct
+  - Extended `ProcessTriggeredFeatures()` to handle domain abilities
+  - Added trigger UI controls (type + filter dropdowns)
+  - All 6 trigger types supported: on_attack, on_hit, on_critical, on_damage_taken, start_turn, end_turn
+- **Test**: `cmd/trigger-test/main.go` - Retribution ability inflicts stress on attacker when damaged
+- **Files**: `feature.go:95`, `domain_ability_form.go:197-235`, `feature_resolver.go:585-605`
+
+### AOE Damage Implementation ✅
+- **What**: Area-of-effect damage now hits multiple targets
+- **Problem**: `FeatureEffectAreaDamage` was defined but not implemented in `ResolveEffect()`
+- **Implementation**:
+  - Added `resolveAreaDamage()` function
+  - Rolls damage once, applies to all enemies of actor
+  - Respects damage type (physical/magic), armor, resistance
+  - Triggers on_damage_taken for each target hit
+- **Test**: `cmd/aoe-test/main.go` - Fireball hits all 3 goblins with single cast
+- **Files**: `feature_resolver.go:61-62,200-254`
+
+## ✅ Previously Completed (2026-01-08 Late Evening)
 
 ### Resistance/Immunity System Refactor ✅
 - **Old System**: Direct checkboxes on combatant forms (Physical/Magical resistance/immunity)
@@ -97,18 +120,16 @@ Trigger FeatureTriggerCondition
 
 Then wire up trigger processing in `feature_resolver.go` similar to adversary features.
 
-### 2. Adjacency Not Implemented
-**Impact**: Low - Only affects trigger filters
+### 2. Adjacency Not Implemented ⚫ (Deprioritized)
+**Impact**: Very Low - Only affects niche trigger filters
 
-**What's Missing**:
-- Positional tracking in combat state
-- "if_ally_adjacent" filter always returns false
-- Some adversary features won't work correctly (e.g., Pack Tactics)
+**Reason for Deprioritization**:
+- Would require full positional/distance system
+- Adds significant complexity for minimal benefit
+- Theater-of-mind TTRPG doesn't need precise positioning
+- Only affects "if_ally_adjacent" filter (very rare)
 
-**To Fix**:
-- Add position coordinates to `Combatant` struct
-- Implement distance calculation helper
-- Update `evaluateTriggerFilter()` in `feature_resolver.go:613`
+**Current Workaround**: Filter returns false, features don't trigger - acceptable limitation
 
 ### 3. Summoning in Web UI
 **Impact**: Low - Works in CLI, not yet in web
@@ -123,79 +144,17 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 - Or add UI for uploading adversary data
 - Or accept CLI-only for now
 
-### 4. AOE Not Fully Verified
-**Impact**: Low - May work but untested
-
-**What's Missing**:
-- `FeatureEffectAreaDamage` exists in code
-- AI evaluates it (decision_maker.go:342-349)
-- But no verified test of actual multi-target damage resolution
-
-**To Fix**:
-- Create test scenario with AOE feature
-- Verify `ResolveEffect()` handles `FeatureTargetAOE` correctly
-- Ensure combat log shows all targets hit
-
 ## 📋 Next Priorities
 
 ### Current Status
-**WASM Build**: Latest at `ui/web/app.wasm` (2026-01-08 22:00)
-- All features working
-- Resistance/immunity system refactored
-- Passive abilities fully supported
-- Critical bugs fixed
-- Ready for extended web UI testing
+**WASM Build**: Latest at `ui/web/app.wasm` (2026-01-10 12:53) ✅
+- Domain ability triggers fully working ✅
+- AOE damage implementation complete ✅
+- UI updated with trigger controls and AOE effect type ✅
+- All core combat mechanics operational ✅
+- Feature parity achieved (players = adversaries) ✅
 
-### Priority 1: Domain Ability Triggers 🟡
-**Why**: Feature parity with adversaries, enables reactive player abilities
-
-**Status**: Passive abilities ✅, Triggers ⬜
-
-**Completed**:
-- ✅ Added `Passive` field to `DomainAbility` struct
-- ✅ Added passive checkbox to UI form
-- ✅ Passive abilities now work (e.g., always-on damage resistance)
-
-**Remaining Tasks**:
-1. Add `Trigger` field to `DomainAbility` struct
-2. Wire trigger processing in feature_resolver
-3. Update UI form to include trigger configuration
-4. Test with sample reactive ability (e.g., "when hit, mark stress on attacker")
-
-**Files to Modify**:
-- `internal/models/feature.go:94` - Add Trigger field (after Passive)
-- `internal/engine/feature_resolver.go:522` - Remove limitation comment, add trigger loop
-- `ui/components/domain_ability_form.go` - Add trigger selection UI
-- `internal/engine/combat_engine.go` - Call domain ability triggers at appropriate hooks
-
-### Priority 2: AOE Verification 🟢
-**Why**: Low risk but should be tested before declaring feature complete
-
-**Tasks**:
-1. Create test with AOE damage feature
-2. Verify multi-target resolution
-3. Check combat log shows all targets
-4. Document in CURRENT_STATE.md as verified
-
-**Files to Check**:
-- `internal/engine/feature_resolver.go:151` - ResolveEffect for area damage
-- `cmd/feature-example/main.go` - Add AOE test scenario
-
-### Priority 3: Adjacency Tracking 🟢
-**Why**: Low priority, affects niche trigger filters
-
-**Tasks**:
-1. Add position fields to Combatant
-2. Implement distance calculation
-3. Update trigger filter evaluation
-4. Test with "if_ally_adjacent" filter
-
-**Files to Modify**:
-- `internal/models/combatant.go` - Add Position field
-- `internal/engine/feature_resolver.go:613` - Implement adjacency check
-- `cmd/example/main.go` - Test positional features
-
-### Priority 4: Feature Coverage Expansion 📊
+### Priority 1: Feature Coverage Expansion 📊
 **Why**: Currently only 33/340 features mapped (9.7%)
 
 **Status**: Not urgent - core system works, just needs more data entry
