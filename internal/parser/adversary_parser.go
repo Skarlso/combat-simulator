@@ -64,6 +64,18 @@ func NewAdversaryParser(mappingFilePath string) (*AdversaryParser, error) {
 	}, nil
 }
 
+// NewAdversaryParserFromBytes creates a parser from in-memory feature mappings
+func NewAdversaryParserFromBytes(mappingData []byte) (*AdversaryParser, error) {
+	fp, err := NewFeatureParserFromBytes(mappingData)
+	if err != nil {
+		return nil, err
+	}
+
+	return &AdversaryParser{
+		featureParser: fp,
+	}, nil
+}
+
 // LoadAdversariesFromFile loads all adversaries from a JSON file
 func (ap *AdversaryParser) LoadAdversariesFromFile(filePath string) ([]*models.Combatant, error) {
 	data, err := os.ReadFile(filePath)
@@ -71,6 +83,11 @@ func (ap *AdversaryParser) LoadAdversariesFromFile(filePath string) ([]*models.C
 		return nil, fmt.Errorf("failed to read adversary file: %w", err)
 	}
 
+	return ap.LoadAdversariesFromBytes(data)
+}
+
+// LoadAdversariesFromBytes loads all adversaries from in-memory JSON data
+func (ap *AdversaryParser) LoadAdversariesFromBytes(data []byte) ([]*models.Combatant, error) {
 	var advFile AdversaryFile
 	if err := json.Unmarshal(data, &advFile); err != nil {
 		return nil, fmt.Errorf("failed to parse adversary file: %w", err)

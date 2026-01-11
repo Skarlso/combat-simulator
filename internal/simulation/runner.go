@@ -7,6 +7,7 @@ import (
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/engine"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
@@ -36,6 +37,9 @@ type SimulationConfig struct {
 
 	// Random seed (0 = use time)
 	RandomSeed int64
+
+	// Adversary registry for summoning support (optional)
+	AdversaryRegistry *parser.AdversaryRegistry
 }
 
 // DefaultSimulationConfig returns sensible defaults
@@ -152,6 +156,11 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	dice := engine.NewStandardDiceRoller(sr.rng)
 	spotlight := engine.NewHybridSpotlightSelector(sr.rng, sr.config.SpotlightWeightFactor)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
+
+	// Set adversary registry if provided (enables summoning)
+	if sr.config.AdversaryRegistry != nil {
+		combatEngine.SetAdversaryRegistry(sr.config.AdversaryRegistry)
+	}
 
 	// Create decision maker (unified for both sides based on side)
 	decisionMaker := &UnifiedDecisionMaker{

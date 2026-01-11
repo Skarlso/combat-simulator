@@ -40,6 +40,34 @@ func NewAdversaryRegistry(mappingFilePath string, adversaryFiles []string) (*Adv
 	return registry, nil
 }
 
+// NewAdversaryRegistryFromBytes creates a registry from in-memory JSON data
+func NewAdversaryRegistryFromBytes(mappingData []byte, adversaryDataSlices [][]byte) (*AdversaryRegistry, error) {
+	parser, err := NewAdversaryParserFromBytes(mappingData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create adversary parser: %w", err)
+	}
+
+	registry := &AdversaryRegistry{
+		templates: make(map[string]*models.Combatant),
+		parser:    parser,
+	}
+
+	// Load all adversaries from byte slices
+	for i, data := range adversaryDataSlices {
+		combatants, err := parser.LoadAdversariesFromBytes(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load adversaries from data slice %d: %w", i, err)
+		}
+
+		// Index by name
+		for _, c := range combatants {
+			registry.templates[c.Name] = c
+		}
+	}
+
+	return registry, nil
+}
+
 // GetTemplate returns a template adversary by name
 func (ar *AdversaryRegistry) GetTemplate(name string) (*models.Combatant, error) {
 	template, exists := ar.templates[name]

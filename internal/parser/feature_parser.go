@@ -54,6 +54,11 @@ func NewFeatureParser(mappingFilePath string) (*FeatureParser, error) {
 		return nil, fmt.Errorf("failed to read mapping file: %w", err)
 	}
 
+	return NewFeatureParserFromBytes(data)
+}
+
+// NewFeatureParserFromBytes creates a parser from in-memory JSON data
+func NewFeatureParserFromBytes(data []byte) (*FeatureParser, error) {
 	var mappingFile FeatureMappingFile
 	if err := json.Unmarshal(data, &mappingFile); err != nil {
 		return nil, fmt.Errorf("failed to parse mapping file: %w", err)

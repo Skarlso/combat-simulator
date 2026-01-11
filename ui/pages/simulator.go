@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/skarlso/daggerheart-combat-simulator/data"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
 	"github.com/skarlso/daggerheart-combat-simulator/ui/components"
 )
@@ -14,14 +16,15 @@ type SimulatorPage struct {
 	app.Compo
 
 	// State
-	players       []*models.Combatant
-	enemies       []*models.Combatant
-	config        simulation.SimulationConfig
-	result        *simulation.SimulationResult
-	isRunning     bool
-	errorMessage  string
-	currentTab    string
-	initialized   bool
+	players         []*models.Combatant
+	enemies         []*models.Combatant
+	config          simulation.SimulationConfig
+	result          *simulation.SimulationResult
+	isRunning       bool
+	errorMessage    string
+	currentTab      string
+	initialized     bool
+	adversaryRegistry *parser.AdversaryRegistry
 }
 
 // OnNav initializes the page on first navigation
@@ -31,6 +34,17 @@ func (p *SimulatorPage) OnNav(ctx app.Context) {
 		p.config = simulation.DefaultSimulationConfig()
 		p.players = make([]*models.Combatant, 0)
 		p.enemies = make([]*models.Combatant, 0)
+
+		// Initialize adversary registry for summoning support
+		registry, err := data.NewEmbeddedAdversaryRegistry()
+		if err != nil {
+			app.Log("Warning: Failed to initialize adversary registry:", err)
+			app.Log("Summoning features will not work in this session")
+		} else {
+			p.adversaryRegistry = registry
+			app.Log("Adversary registry initialized successfully")
+		}
+
 		p.initialized = true
 	}
 }
@@ -218,6 +232,7 @@ func (p *SimulatorPage) runSimulation(ctx app.Context) {
 		// Configure simulation
 		p.config.PlayerTemplates = p.players
 		p.config.EnemyTemplates = p.enemies
+		p.config.AdversaryRegistry = p.adversaryRegistry
 
 		// Run simulation
 		runner := simulation.NewSimulationRunner(p.config)
