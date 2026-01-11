@@ -19,9 +19,9 @@ type DCCheckResult struct {
 	HopeGenerated  int
 	FearGenerated  int
 	// Damage tracking (populated during effect resolution)
-	DamageDealt     int                   // HP damage actually dealt to target
-	DamageRoll      int                   // Raw damage before resistance/threshold
-	ProcessedDamage int                   // Damage after resistance/immunity/vulnerability
+	DamageDealt     int                    // HP damage actually dealt to target
+	DamageRoll      int                    // Raw damage before resistance/threshold
+	ProcessedDamage int                    // Damage after resistance/immunity/vulnerability
 	Threshold       models.DamageThreshold // Threshold category of damage
 	DamageResult    *models.DamageResult   // Full damage result with armor/HP tracking
 }
@@ -187,7 +187,7 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 	// Track damage in activation result for logging
 	if activationResult != nil {
 		activationResult.DamageRoll = damage
-		activationResult.DamageDealt = damage // Direct damage = HP damage
+		activationResult.DamageDealt = damage               // Direct damage = HP damage
 		activationResult.Threshold = models.ThresholdSevere // Arbitrary for direct damage
 	}
 

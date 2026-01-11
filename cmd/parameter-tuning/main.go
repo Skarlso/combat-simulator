@@ -12,10 +12,10 @@ import (
 
 func main() {
 	fmt.Println("Daggerheart AI Parameter Tuning")
-	fmt.Println("=================================\n")
+	fmt.Println("=================================")
 
 	// Test different cost penalty multipliers
-	fmt.Println("Testing Hope/Fear/Stress cost penalty multipliers...\n")
+	fmt.Println("Testing Hope/Fear/Stress cost penalty multipliers...")
 
 	// Test scenarios with different difficulty levels
 	scenarios := []Scenario{

@@ -287,9 +287,9 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		// Check for aggressive Fear usage: if players have gone more than 3 times in a row,
 		// GM can spend 1 Fear to grab spotlight
 		if state.ConsecutivePlayerTurns > 3 &&
-		   enemyFearUsage == strategy.ResourceGreedy &&
-		   state.FearPool >= 1 &&
-		   len(state.GetAliveEnemies()) > 0 {
+			enemyFearUsage == strategy.ResourceGreedy &&
+			state.FearPool >= 1 &&
+			len(state.GetAliveEnemies()) > 0 {
 			// Force spotlight grab using Fear
 			state.SpendFear(1)
 			spotlightShifted = true
@@ -379,15 +379,15 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 
 // CombatOutcome summarizes combat results
 type CombatOutcome struct {
-	PlayerVictory     bool
-	EnemyVictory      bool
-	Turns             int
-	Rounds            int
-	FinalHopePool     int
-	FinalFearPool     int
-	SurvivingPlayers  []string
-	SurvivingEnemies  []string
-	ActionHistory     []models.ActionRecord
+	PlayerVictory    bool
+	EnemyVictory     bool
+	Turns            int
+	Rounds           int
+	FinalHopePool    int
+	FinalFearPool    int
+	SurvivingPlayers []string
+	SurvivingEnemies []string
+	ActionHistory    []models.ActionRecord
 }
 
 // DecisionMaker is an interface for AI/strategy to choose actions

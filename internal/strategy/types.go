@@ -15,9 +15,9 @@ const (
 type ConditionClearStrategy string
 
 const (
-	ClearImmediately ConditionClearStrategy = "immediate" // Clear harmful conditions ASAP
-	ClearWhenSafe    ConditionClearStrategy = "safe"      // Clear only when not in danger
-	ClearNever       ConditionClearStrategy = "never"     // Ignore conditions, focus offense
+	ClearImmediately   ConditionClearStrategy = "immediate"     // Clear harmful conditions ASAP
+	ClearWhenSafe      ConditionClearStrategy = "safe"          // Clear only when not in danger
+	ClearNever         ConditionClearStrategy = "never"         // Ignore conditions, focus offense
 	ClearProbabilistic ConditionClearStrategy = "probabilistic" // Based on HP percentage
 )
 
@@ -25,9 +25,9 @@ const (
 type TargetSelectionStrategy string
 
 const (
-	TargetLowestHP    TargetSelectionStrategy = "lowest_hp"    // Focus fire weakest
-	TargetHighestHP   TargetSelectionStrategy = "highest_hp"   // Attack strongest
-	TargetRandom      TargetSelectionStrategy = "random"       // Random selection
+	TargetLowestHP      TargetSelectionStrategy = "lowest_hp"      // Focus fire weakest
+	TargetHighestHP     TargetSelectionStrategy = "highest_hp"     // Attack strongest
+	TargetRandom        TargetSelectionStrategy = "random"         // Random selection
 	TargetHighestThreat TargetSelectionStrategy = "highest_threat" // Target most dangerous
 )
 
@@ -35,8 +35,8 @@ const (
 type AbilityUsageStrategy string
 
 const (
-	AbilityAlways    AbilityUsageStrategy = "always"    // Use whenever available
-	AbilitySparingly AbilityUsageStrategy = "sparingly" // Save for critical moments
-	AbilityNever     AbilityUsageStrategy = "never"     // Basic attacks only
+	AbilityAlways     AbilityUsageStrategy = "always"     // Use whenever available
+	AbilitySparingly  AbilityUsageStrategy = "sparingly"  // Save for critical moments
+	AbilityNever      AbilityUsageStrategy = "never"      // Basic attacks only
 	AbilityContextual AbilityUsageStrategy = "contextual" // Situational usage
 )

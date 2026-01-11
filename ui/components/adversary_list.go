@@ -17,20 +17,20 @@ type AdversaryList struct {
 	OnRemove    func(app.Context, int)
 
 	// Form state for adding new adversary
-	showForm           bool
-	newName            string
-	newTier            string
-	newType            string
-	newDifficulty      int
-	newATK             int
-	newHP              int
-	newStress          int
-	newMinorThreshold  int
-	newMajorThreshold  int
-	newDamageDice      string
-	newMotives         string
-	newTactics         string
-	newFeatures        []*models.AdversaryFeature
+	showForm          bool
+	newName           string
+	newTier           string
+	newType           string
+	newDifficulty     int
+	newATK            int
+	newHP             int
+	newStress         int
+	newMinorThreshold int
+	newMajorThreshold int
+	newDamageDice     string
+	newMotives        string
+	newTactics        string
+	newFeatures       []*models.AdversaryFeature
 }
 
 // OnMount initializes default values

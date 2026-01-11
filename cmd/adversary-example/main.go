@@ -27,7 +27,7 @@ func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *
 
 func main() {
 	fmt.Println("Daggerheart Combat Simulator - Adversary Feature Test")
-	fmt.Println("=======================================================\n")
+	fmt.Println("=======================================================")
 
 	// Load adversaries with feature parsing
 	advParser, err := parser.NewAdversaryParser("data/feature_mappings.json")

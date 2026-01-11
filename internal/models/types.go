@@ -23,10 +23,24 @@ func (d DamageType) String() string {
 type DamageThreshold int
 
 const (
-	ThresholdMinor DamageThreshold = iota // 1-3 damage
+	ThresholdMinor  DamageThreshold = iota // 1-3 damage
 	ThresholdMajor                         // 4-6 damage
 	ThresholdSevere                        // 7+ damage
 )
+
+// String returns the string representation of the threshold
+func (dt DamageThreshold) String() string {
+	switch dt {
+	case ThresholdMinor:
+		return "Minor"
+	case ThresholdMajor:
+		return "Major"
+	case ThresholdSevere:
+		return "Severe"
+	default:
+		return "Unknown"
+	}
+}
 
 // DamageThresholdFromAmount determines threshold based on combatant's custom thresholds
 func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold {

@@ -15,19 +15,19 @@ type AdversaryFeatureForm struct {
 	OnChange func([]*models.AdversaryFeature)
 
 	// Form state
-	showForm         bool
-	newName          string
-	newDescription   string
-	newPassive       bool
-	newFearCost      int
-	newSpotlightLim  int
-	newDiceFormula   string
-	newDamageType    string
-	newEffectType    string
-	newMagnitude     int
-	newDuration      string
-	newDCType        string
-	newFixedDC       int
+	showForm        bool
+	newName         string
+	newDescription  string
+	newPassive      bool
+	newFearCost     int
+	newSpotlightLim int
+	newDiceFormula  string
+	newDamageType   string
+	newEffectType   string
+	newMagnitude    int
+	newDuration     string
+	newDCType       string
+	newFixedDC      int
 }
 
 // OnMount initializes default values

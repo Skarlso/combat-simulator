@@ -2,11 +2,11 @@ package models
 
 // ActiveCondition represents a status effect currently on a combatant
 type ActiveCondition struct {
-	Type         ConditionType
-	Duration     DurationType
-	RoundsLeft   int // For DurationRounds type
+	Type          ConditionType
+	Duration      DurationType
+	RoundsLeft    int // For DurationRounds type
 	DamagePerTick int // For burning, poison, etc.
-	DamageType   DamageType
+	DamageType    DamageType
 }
 
 // Tick decrements duration for round-based conditions

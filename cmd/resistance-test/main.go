@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Resistance Test ===\n")
+	fmt.Println("=== Resistance Test ===")
 
 	// Create a player
 	player := models.NewCombatant("player-1", "Player", models.SidePlayer, 1, 11, 1, 5, 6)

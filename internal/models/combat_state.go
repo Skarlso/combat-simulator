@@ -26,19 +26,19 @@ type CombatState struct {
 
 // ActionRecord logs what happened during combat
 type ActionRecord struct {
-	Round          int
-	Turn           int
-	Actor          string
-	ActionType     ActionType
-	Target         string
-	Ability        string
-	FeatureName    string // Name of feature/ability used (if any)
-	IsFeature      bool   // True if a feature was activated
-	Result         string
-	DamageRoll     int    // Raw damage rolled (total)
-	ProcessedDamage int   // Damage after resistance/immunity/vulnerability
-	DamageDice     []int  // Individual dice values
-	DamageBonus    int    // Flat bonus
+	Round            int
+	Turn             int
+	Actor            string
+	ActionType       ActionType
+	Target           string
+	Ability          string
+	FeatureName      string // Name of feature/ability used (if any)
+	IsFeature        bool   // True if a feature was activated
+	Result           string
+	DamageRoll       int    // Raw damage rolled (total)
+	ProcessedDamage  int    // Damage after resistance/immunity/vulnerability
+	DamageDice       []int  // Individual dice values
+	DamageBonus      int    // Flat bonus
 	HPDamage         int    // Actual HP damage dealt (1/2/3)
 	Threshold        string // "Minor", "Major", "Severe"
 	TargetHPBefore   int    // Target's HP before this action
@@ -47,23 +47,23 @@ type ActionRecord struct {
 	ArmorSlotsBefore int    // Target's armor slots before
 	ArmorSlotsAfter  int    // Target's armor slots after
 	HopeDie          int    // Hope die result (d12) - 0 for enemies
-	FearDie        int    // Fear die result (d12) - 0 for enemies
-	D20Roll        int    // Enemy d20 roll - 0 for players
-	TotalRoll      int    // Hope + Fear + modifiers (or d20 + ATK for enemies)
-	TargetDefense  int    // Defense value to beat (or DC for abilities)
-	SpotlightShift bool   // Did spotlight change hands?
-	IsCritical     bool   // Was this a critical success?
-	HopeGenerated  int    // Hope tokens generated this action
-	FearGenerated  int    // Fear tokens generated this action
-	HopePoolAfter  int    // Hope pool after this action
-	FearPoolAfter  int    // Fear pool after this action
+	FearDie          int    // Fear die result (d12) - 0 for enemies
+	D20Roll          int    // Enemy d20 roll - 0 for players
+	TotalRoll        int    // Hope + Fear + modifiers (or d20 + ATK for enemies)
+	TargetDefense    int    // Defense value to beat (or DC for abilities)
+	SpotlightShift   bool   // Did spotlight change hands?
+	IsCritical       bool   // Was this a critical success?
+	HopeGenerated    int    // Hope tokens generated this action
+	FearGenerated    int    // Fear tokens generated this action
+	HopePoolAfter    int    // Hope pool after this action
+	FearPoolAfter    int    // Fear pool after this action
 }
 
 // NewCombatState initializes combat
 func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlightThreshold int) *CombatState {
 	return &CombatState{
-		Players:            players,
-		Enemies:            enemies,
+		Players:                players,
+		Enemies:                enemies,
 		HopePool:               hopePool,
 		FearPool:               fearPool,
 		RoundNumber:            0,

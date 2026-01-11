@@ -16,14 +16,14 @@ type SimulatorPage struct {
 	app.Compo
 
 	// State
-	players         []*models.Combatant
-	enemies         []*models.Combatant
-	config          simulation.SimulationConfig
-	result          *simulation.SimulationResult
-	isRunning       bool
-	errorMessage    string
-	currentTab      string
-	initialized     bool
+	players           []*models.Combatant
+	enemies           []*models.Combatant
+	config            simulation.SimulationConfig
+	result            *simulation.SimulationResult
+	isRunning         bool
+	errorMessage      string
+	currentTab        string
+	initialized       bool
 	adversaryRegistry *parser.AdversaryRegistry
 }
 

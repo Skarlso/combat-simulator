@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Daggerheart Feature System Example ===\n")
+	fmt.Println("=== Daggerheart Feature System Example ===")
 
 	// Initialize RNG
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))

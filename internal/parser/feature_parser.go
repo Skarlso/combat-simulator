@@ -10,35 +10,35 @@ import (
 
 // FeatureMapping represents a mapping from feature name to quantized effects
 type FeatureMapping struct {
-	Category    string                   `json:"category"`
-	FearCost    int                      `json:"fear_cost"`
-	StressCost  int                      `json:"stress_cost"`
-	Passive     bool                     `json:"passive"`
-	Effects     []FeatureMappingEffect   `json:"effects"`
+	Category   string                 `json:"category"`
+	FearCost   int                    `json:"fear_cost"`
+	StressCost int                    `json:"stress_cost"`
+	Passive    bool                   `json:"passive"`
+	Effects    []FeatureMappingEffect `json:"effects"`
 }
 
 // FeatureMappingEffect represents a single effect in the mapping
 type FeatureMappingEffect struct {
-	Category     string `json:"category"`
-	Magnitude    int    `json:"magnitude"`
-	DiceFormula  string `json:"dice_formula"`
-	DamageType   string `json:"damage_type"`
-	Condition    string `json:"condition"`
-	Duration     string `json:"duration"`
-	TargetType   string `json:"target_type"`
-	SummonType   string `json:"summon_type"`
-	Description  string `json:"description"`
+	Category    string `json:"category"`
+	Magnitude   int    `json:"magnitude"`
+	DiceFormula string `json:"dice_formula"`
+	DamageType  string `json:"damage_type"`
+	Condition   string `json:"condition"`
+	Duration    string `json:"duration"`
+	TargetType  string `json:"target_type"`
+	SummonType  string `json:"summon_type"`
+	Description string `json:"description"`
 }
 
 // FeatureMappingFile represents the JSON structure of feature_mappings.json
 type FeatureMappingFile struct {
 	Mappings map[string]FeatureMapping `json:"mappings"`
 	Metadata struct {
-		Version        string  `json:"version"`
-		MappedFeatures int     `json:"mapped_features"`
-		TotalFeatures  int     `json:"total_features"`
-		Coverage       string  `json:"coverage"`
-		LastUpdated    string  `json:"last_updated"`
+		Version        string `json:"version"`
+		MappedFeatures int    `json:"mapped_features"`
+		TotalFeatures  int    `json:"total_features"`
+		Coverage       string `json:"coverage"`
+		LastUpdated    string `json:"last_updated"`
 	} `json:"metadata"`
 }
 

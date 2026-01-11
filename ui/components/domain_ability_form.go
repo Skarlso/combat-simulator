@@ -15,26 +15,26 @@ type DomainAbilityForm struct {
 	OnChange  func([]*models.DomainAbility)
 
 	// Form state
-	showForm        bool
-	newName         string
-	newDescription  string
-	newPassive      bool
-	newTriggerType  string
+	showForm         bool
+	newName          string
+	newDescription   string
+	newPassive       bool
+	newTriggerType   string
 	newTriggerFilter string
-	newHopeCost     int
-	newStressCost   int
-	newRefreshType  string
-	newMaxUses      int
-	newDCType       string
-	newFixedDC      int
-	newDiceFormula  string
-	newDamageType   string
-	newEffectType   string
-	newMagnitude    int
-	newDuration     string
-	newUsesTokens   bool
-	newTokenName    string
-	newTokensMax    int
+	newHopeCost      int
+	newStressCost    int
+	newRefreshType   string
+	newMaxUses       int
+	newDCType        string
+	newFixedDC       int
+	newDiceFormula   string
+	newDamageType    string
+	newEffectType    string
+	newMagnitude     int
+	newDuration      string
+	newUsesTokens    bool
+	newTokenName     string
+	newTokensMax     int
 }
 
 // OnMount initializes default values

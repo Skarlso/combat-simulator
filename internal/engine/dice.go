@@ -27,20 +27,20 @@ type DamageRollResult struct {
 
 // DualityRollResult contains outcome of a duality roll (players only)
 type DualityRollResult struct {
-	HopeDie      int
-	FearDie      int
-	HopeTotal    int
-	FearTotal    int
-	Result       models.DiceResult
-	WithSpirit   int // The actual value to use (highest die + modifiers)
-	IsCritical   bool
+	HopeDie    int
+	FearDie    int
+	HopeTotal  int
+	FearTotal  int
+	Result     models.DiceResult
+	WithSpirit int // The actual value to use (highest die + modifiers)
+	IsCritical bool
 }
 
 // D20RollResult contains outcome of a d20 roll (enemies)
 type D20RollResult struct {
-	D20Roll   int // The d20 roll
-	Modifier  int // Attack modifier
-	Total     int // d20 + modifier
+	D20Roll    int  // The d20 roll
+	Modifier   int  // Attack modifier
+	Total      int  // d20 + modifier
 	IsCritical bool // Natural 20
 }
 

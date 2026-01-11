@@ -18,14 +18,14 @@ type Combatant struct {
 	Proficiency int // Used for damage thresholds
 
 	// Adversary-specific stats
-	IsAdversary     bool
-	Tier            string // "Tier 1", "Tier 2", etc.
-	AdversaryType   string // "Leader", "Bruiser", "Solo", etc.
-	Difficulty      int    // Replaces Evasion for adversaries
-	ATK             int    // Replaces Proficiency for adversaries
-	Motives         string // Free text field
-	Tactics         string // Free text field
-	Experience      []ExperienceSkill
+	IsAdversary   bool
+	Tier          string // "Tier 1", "Tier 2", etc.
+	AdversaryType string // "Leader", "Bruiser", "Solo", etc.
+	Difficulty    int    // Replaces Evasion for adversaries
+	ATK           int    // Replaces Proficiency for adversaries
+	Motives       string // Free text field
+	Tactics       string // Free text field
+	Experience    []ExperienceSkill
 
 	// Custom damage thresholds (for both Players and Adversaries)
 	CustomThresholds []int // e.g., [8, 16] means: <8=Minor, 8-15=Major, 16+=Severe
@@ -68,17 +68,17 @@ type Resistance struct {
 // NewCombatant creates a player combatant with basic stats
 func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax, stressMax int) *Combatant {
 	return &Combatant{
-		ID:              id,
-		Name:            name,
-		Side:            side,
-		IsAdversary:     false,
-		Level:           level,
-		Evasion:         evasion,
-		Proficiency:     proficiency,
-		HP:              hpMax,
-		HPMax:           hpMax,
-		Stress:          0,
-		StressMax:       stressMax,
+		ID:                id,
+		Name:              name,
+		Side:              side,
+		IsAdversary:       false,
+		Level:             level,
+		Evasion:           evasion,
+		Proficiency:       proficiency,
+		HP:                hpMax,
+		HPMax:             hpMax,
+		Stress:            0,
+		StressMax:         stressMax,
 		SpotlightTokens:   0,
 		AdversaryFeatures: make([]AdversaryFeature, 0),
 		DomainAbilities:   make([]DomainAbility, 0),
@@ -93,19 +93,19 @@ func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax
 // NewAdversary creates an adversary combatant
 func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, stressMax int, thresholds []int) *Combatant {
 	return &Combatant{
-		ID:               id,
-		Name:             name,
-		Side:             SideEnemy,
-		IsAdversary:      true,
-		Tier:             tier,
-		AdversaryType:    adversaryType,
-		Difficulty:       difficulty,
-		ATK:              atk,
-		CustomThresholds: thresholds,
-		HP:               hpMax,
-		HPMax:            hpMax,
-		Stress:           0,
-		StressMax:        stressMax,
+		ID:                id,
+		Name:              name,
+		Side:              SideEnemy,
+		IsAdversary:       true,
+		Tier:              tier,
+		AdversaryType:     adversaryType,
+		Difficulty:        difficulty,
+		ATK:               atk,
+		CustomThresholds:  thresholds,
+		HP:                hpMax,
+		HPMax:             hpMax,
+		Stress:            0,
+		StressMax:         stressMax,
 		SpotlightTokens:   0,
 		AdversaryFeatures: make([]AdversaryFeature, 0),
 		DomainAbilities:   make([]DomainAbility, 0),

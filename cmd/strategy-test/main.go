@@ -12,7 +12,7 @@ import (
 
 func main() {
 	fmt.Println("Daggerheart Strategy Comparison")
-	fmt.Println("=================================\n")
+	fmt.Println("=================================")
 
 	// Define test scenarios
 	players := createStandardParty()
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// Display results
-	fmt.Println("\n=== STRATEGY COMPARISON RESULTS ===\n")
+	fmt.Println("\n=== STRATEGY COMPARISON RESULTS ===")
 	fmt.Printf("%-40s | %8s | %8s | %8s | %8s | %8s\n",
 		"Strategy", "Win Rate", "Avg Turns", "Min", "Max", "Avg Hope")
 	fmt.Println("-------------------------------------------------------------------------------------------------------------------")
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	// Find best strategy
-	fmt.Println("\n=== BEST PERFORMERS ===\n")
+	fmt.Println("\n=== BEST PERFORMERS ===")
 
 	bestWinRate := results[0]
 	bestSpeed := results[0]

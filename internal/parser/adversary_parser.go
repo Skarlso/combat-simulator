@@ -19,20 +19,20 @@ type AdversaryJSONFeature struct {
 
 // AdversaryJSON represents an adversary in the JSON file
 type AdversaryJSON struct {
-	Name           string                  `json:"name"`
-	Tier           int                     `json:"tier"`
-	LevelRange     string                  `json:"level_range"`
-	Type           string                  `json:"type"`
-	Description    string                  `json:"description"`
-	MotivesTactics []string                `json:"motives_tactics"`
-	Difficulty     int                     `json:"difficulty"`
+	Name           string   `json:"name"`
+	Tier           int      `json:"tier"`
+	LevelRange     string   `json:"level_range"`
+	Type           string   `json:"type"`
+	Description    string   `json:"description"`
+	MotivesTactics []string `json:"motives_tactics"`
+	Difficulty     int      `json:"difficulty"`
 	Thresholds     struct {
 		Minor int `json:"minor"`
 		Major int `json:"major"`
 	} `json:"thresholds"`
-	HP      int                     `json:"hp"`
-	Stress  int                     `json:"stress"`
-	Attack  struct {
+	HP     int `json:"hp"`
+	Stress int `json:"stress"`
+	Attack struct {
 		Bonus      int    `json:"bonus"`
 		Name       string `json:"name"`
 		Range      string `json:"range"`
@@ -109,28 +109,28 @@ func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
 
 	// Create combatant
 	combatant := &models.Combatant{
-		ID:               id,
-		Name:             adv.Name,
-		Side:             models.SideEnemy,
-		Level:            adv.Tier,
-		HP:               adv.HP,
-		HPMax:            adv.HP,
-		Stress:           0,
-		StressMax:        adv.Stress,
-		Evasion:          adv.Difficulty,
-		Proficiency:      adv.Attack.Bonus,
-		ArmorSlots:       0,
-		DamageDice:       adv.Attack.Damage,
-		Tier:             fmt.Sprintf("Tier %d", adv.Tier),
-		AdversaryType:    adv.Type,
-		Difficulty:       adv.Difficulty,
-		ATK:              adv.Attack.Bonus,
-		Motives:          strings.Join(adv.MotivesTactics, ", "),
-		Tactics:          "",
-		CustomThresholds: []int{adv.Thresholds.Minor, adv.Thresholds.Major},
-		Conditions:       make([]*models.ActiveCondition, 0),
-		Resistances:      make([]models.Resistance, 0),
-		Experience:       make([]models.ExperienceSkill, 0),
+		ID:                id,
+		Name:              adv.Name,
+		Side:              models.SideEnemy,
+		Level:             adv.Tier,
+		HP:                adv.HP,
+		HPMax:             adv.HP,
+		Stress:            0,
+		StressMax:         adv.Stress,
+		Evasion:           adv.Difficulty,
+		Proficiency:       adv.Attack.Bonus,
+		ArmorSlots:        0,
+		DamageDice:        adv.Attack.Damage,
+		Tier:              fmt.Sprintf("Tier %d", adv.Tier),
+		AdversaryType:     adv.Type,
+		Difficulty:        adv.Difficulty,
+		ATK:               adv.Attack.Bonus,
+		Motives:           strings.Join(adv.MotivesTactics, ", "),
+		Tactics:           "",
+		CustomThresholds:  []int{adv.Thresholds.Minor, adv.Thresholds.Major},
+		Conditions:        make([]*models.ActiveCondition, 0),
+		Resistances:       make([]models.Resistance, 0),
+		Experience:        make([]models.ExperienceSkill, 0),
 		AdversaryFeatures: make([]models.AdversaryFeature, 0),
 		DomainAbilities:   make([]models.DomainAbility, 0),
 	}

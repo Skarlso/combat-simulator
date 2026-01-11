@@ -25,7 +25,7 @@ type SimulationConfig struct {
 	InitialFearPool int
 
 	// Spotlight configuration
-	SpotlightThreshold int
+	SpotlightThreshold    int
 	SpotlightWeightFactor float64
 
 	// Strategy configurations
@@ -86,14 +86,14 @@ func (sr *SimulationRunner) Run() (*SimulationResult, error) {
 	}
 
 	result := &SimulationResult{
-		TotalRuns:        sr.config.RunCount,
-		PlayerWins:       0,
-		EnemyWins:        0,
-		CombatOutcomes:   make([]*engine.CombatOutcome, 0, sr.config.RunCount),
-		AverageTurns:     0,
-		AverageRounds:    0,
-		MinTurns:         0,
-		MaxTurns:         0,
+		TotalRuns:      sr.config.RunCount,
+		PlayerWins:     0,
+		EnemyWins:      0,
+		CombatOutcomes: make([]*engine.CombatOutcome, 0, sr.config.RunCount),
+		AverageTurns:   0,
+		AverageRounds:  0,
+		MinTurns:       0,
+		MaxTurns:       0,
 	}
 
 	totalTurns := 0
@@ -180,33 +180,33 @@ func (sr *SimulationRunner) cloneCombatants(templates []*models.Combatant) []*mo
 
 	for i, template := range templates {
 		clone := &models.Combatant{
-			ID:               template.ID,
-			Name:             template.Name,
-			Side:             template.Side,
-			Evasion:          template.Evasion,
-			Proficiency:      template.Proficiency,
-			IsAdversary:      template.IsAdversary,
-			Tier:             template.Tier,
-			AdversaryType:    template.AdversaryType,
-			Difficulty:       template.Difficulty,
-			ATK:              template.ATK,
-			Motives:          template.Motives,
-			Tactics:          template.Tactics,
-			CustomThresholds: append([]int{}, template.CustomThresholds...),
-			HP:               template.HPMax,
-			HPMax:            template.HPMax,
-			Stress:           0,
-			StressMax:        template.StressMax,
-			ArmorSlots:       template.ArmorSlots,
-			DamageDice:       template.DamageDice,
-			SpotlightTokens:  0,
+			ID:                template.ID,
+			Name:              template.Name,
+			Side:              template.Side,
+			Evasion:           template.Evasion,
+			Proficiency:       template.Proficiency,
+			IsAdversary:       template.IsAdversary,
+			Tier:              template.Tier,
+			AdversaryType:     template.AdversaryType,
+			Difficulty:        template.Difficulty,
+			ATK:               template.ATK,
+			Motives:           template.Motives,
+			Tactics:           template.Tactics,
+			CustomThresholds:  append([]int{}, template.CustomThresholds...),
+			HP:                template.HPMax,
+			HPMax:             template.HPMax,
+			Stress:            0,
+			StressMax:         template.StressMax,
+			ArmorSlots:        template.ArmorSlots,
+			DamageDice:        template.DamageDice,
+			SpotlightTokens:   0,
 			AdversaryFeatures: append([]models.AdversaryFeature{}, template.AdversaryFeatures...),
 			DomainAbilities:   append([]models.DomainAbility{}, template.DomainAbilities...),
-			Resistances:      append([]models.Resistance{}, template.Resistances...),
-			Conditions:       make([]*models.ActiveCondition, 0),
-			Experience:       append([]models.ExperienceSkill{}, template.Experience...),
-			IsDefeated:       false,
-			IsFullyStressed:  false,
+			Resistances:       append([]models.Resistance{}, template.Resistances...),
+			Conditions:        make([]*models.ActiveCondition, 0),
+			Experience:        append([]models.ExperienceSkill{}, template.Experience...),
+			IsDefeated:        false,
+			IsFullyStressed:   false,
 		}
 
 		clones[i] = clone

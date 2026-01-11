@@ -84,14 +84,14 @@ type AdversaryFeature struct {
 	DCType  string // "none" (auto-succeed), "target" (roll vs target's Evasion), "fixed" (roll vs FixedDC)
 	FixedDC int    // DC value if DCType is "fixed"
 
-	Effects        []FeatureEffect
+	Effects []FeatureEffect
 }
 
 // DomainAbility represents player-chosen abilities from domain cards
 type DomainAbility struct {
 	Name        string
 	Description string
-	Passive     bool   // true = always on, false = AI decides when to trigger
+	Passive     bool // true = always on, false = AI decides when to trigger
 	Trigger     FeatureTriggerCondition
 	HopeCost    int    // Hope tokens required
 	StressCost  int    // Stress marks required
@@ -104,12 +104,12 @@ type DomainAbility struct {
 	FixedDC int    // DC value if DCType is "fixed"
 
 	// Token mechanics (for abilities like Unleash Chaos)
-	UsesTokens     bool   // Whether this ability uses tokens
-	TokenName      string // Name of tokens (e.g., "Chaos", "Ward")
-	TokensHeld     int    // Current tokens held (runtime state)
-	TokensMax      int    // Maximum tokens (0 = unlimited)
+	UsesTokens bool   // Whether this ability uses tokens
+	TokenName  string // Name of tokens (e.g., "Chaos", "Ward")
+	TokensHeld int    // Current tokens held (runtime state)
+	TokensMax  int    // Maximum tokens (0 = unlimited)
 
-	Effects     []FeatureEffect
+	Effects []FeatureEffect
 }
 
 // SummonData contains information about summoned allies

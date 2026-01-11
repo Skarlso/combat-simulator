@@ -68,7 +68,7 @@ func (rs *ResultsSummary) renderStatistics() app.UI {
 // renderStatCard renders a single statistic card
 func (rs *ResultsSummary) renderStatCard(label, value, variant string) app.UI {
 	return app.Div().
-		Class("stat-card stat-" + variant).
+		Class("stat-card stat-"+variant).
 		Body(
 			app.Div().Class("stat-label").Text(label),
 			app.Div().Class("stat-value").Text(value),
