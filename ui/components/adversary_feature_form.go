@@ -11,23 +11,30 @@ import (
 type AdversaryFeatureForm struct {
 	app.Compo
 
-	Features []*models.AdversaryFeature
-	OnChange func([]*models.AdversaryFeature)
+	Features             []*models.AdversaryFeature
+	OnChange             func([]*models.AdversaryFeature)
+	AvailableAdversaries []*models.Combatant
 
 	// Form state
-	showForm        bool
-	newName         string
-	newDescription  string
-	newPassive      bool
-	newFearCost     int
-	newSpotlightLim int
-	newDiceFormula  string
-	newDamageType   string
-	newEffectType   string
-	newMagnitude    int
-	newDuration     string
-	newDCType       string
-	newFixedDC      int
+	showForm          bool
+	newName           string
+	newDescription    string
+	newPassive        bool
+	newFearCost       int
+	newStressCost     int
+	newCostType       string
+	newSpotlightLim   int
+	newUsageType      string
+	newMaxUses        int
+	newDiceFormula    string
+	newDamageType     string
+	newEffectType     string
+	newMagnitude      int
+	newDuration       string
+	newDCType         string
+	newFixedDC        int
+	newQuantityType   string
+	selectedForSummon map[string]bool
 }
 
 // OnMount initializes default values
@@ -89,11 +96,23 @@ func (aff *AdversaryFeatureForm) renderFeatureItem(feature *models.AdversaryFeat
 	if feature.FearCost > 0 {
 		costText += fmt.Sprintf("%d Fear", feature.FearCost)
 	}
+	if feature.StressCost > 0 {
+		if costText != "" {
+			costText += ", "
+		}
+		costText += fmt.Sprintf("%d Stress", feature.StressCost)
+	}
 	if feature.SpotlightLimit > 0 {
 		if costText != "" {
 			costText += " | "
 		}
 		costText += fmt.Sprintf("Max %d/turn", feature.SpotlightLimit)
+	}
+	if feature.MaxUses > 0 {
+		if costText != "" {
+			costText += " | "
+		}
+		costText += fmt.Sprintf("%d uses (%s)", feature.MaxUses, feature.UsageType)
 	}
 	if costText == "" {
 		costText = "No cost"
@@ -111,6 +130,13 @@ func (aff *AdversaryFeatureForm) renderFeatureItem(feature *models.AdversaryFeat
 			effectText = "Apply poison"
 		case models.FeatureEffectApplyVulnerable:
 			effectText = "Apply vulnerable"
+		case models.FeatureEffectSummonAllies:
+			count := len(effect.SummonPool)
+			if effect.DiceFormula != "" {
+				effectText = fmt.Sprintf("Summon %s from %d templates", effect.DiceFormula, count)
+			} else {
+				effectText = fmt.Sprintf("Summon %d from %d templates", effect.Magnitude, count)
+			}
 		default:
 			effectText = string(effect.Category)
 		}
@@ -191,13 +217,17 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("Fear Cost:"),
-							app.Input().
-								Type("number").
-								Value(aff.newFearCost).
-								Min(0).
-								Max(10).
-								OnInput(aff.handleIntInput(&aff.newFearCost)),
+							app.Label().Text("Cost Type:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newCostType = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(
+									app.Option().Value("free").Text("Free").Selected(aff.newCostType == "free"),
+									app.Option().Value("fear").Text("Fear").Selected(aff.newCostType == "fear"),
+									app.Option().Value("stress").Text("Stress").Selected(aff.newCostType == "stress"),
+								),
 						),
 					app.Div().
 						Class("form-group").
@@ -210,6 +240,65 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 								Max(5).
 								OnInput(aff.handleIntInput(&aff.newSpotlightLim)),
 						),
+				),
+			app.If(aff.newCostType == "fear", func() app.UI {
+				return app.Div().
+					Class("form-group").
+					Body(
+						app.Label().Text("Fear Cost:"),
+						app.Input().
+							Type("number").
+							Value(aff.newFearCost).
+							Min(1).
+							Max(10).
+							OnInput(aff.handleIntInput(&aff.newFearCost)),
+					)
+			}),
+			app.If(aff.newCostType == "stress", func() app.UI {
+				return app.Div().
+					Class("form-group").
+					Body(
+						app.Label().Text("Stress Cost:"),
+						app.Input().
+							Type("number").
+							Value(aff.newStressCost).
+							Min(1).
+							Max(10).
+							OnInput(aff.handleIntInput(&aff.newStressCost)),
+					)
+			}),
+			app.Div().
+				Class("form-row").
+				Body(
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Usage Limit:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newUsageType = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(
+									app.Option().Value("unlimited").Text("Unlimited").Selected(aff.newUsageType == "unlimited"),
+									app.Option().Value("once_per_scene").Text("Once per Scene").Selected(aff.newUsageType == "once_per_scene"),
+									app.Option().Value("once_per_session").Text("Once per Session").Selected(aff.newUsageType == "once_per_session"),
+									app.Option().Value("once_per_rest").Text("Once per Rest").Selected(aff.newUsageType == "once_per_rest"),
+								),
+						),
+					app.If(aff.newUsageType != "unlimited", func() app.UI {
+						return app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Max Uses:"),
+								app.Input().
+									Type("number").
+									Value(aff.newMaxUses).
+									Min(1).
+									Max(10).
+									OnInput(aff.handleIntInput(&aff.newMaxUses)),
+							)
+					}),
 				),
 			app.H5().Text("Effect"),
 			app.Div().
@@ -232,6 +321,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(aff.newEffectType == "grant_armor"),
 							app.Option().Value("resistance").Text("Resistance (50%)").Selected(aff.newEffectType == "resistance"),
 							app.Option().Value("immunity").Text("Immunity (100%)").Selected(aff.newEffectType == "immunity"),
+							app.Option().Value("summon_allies").Text("Summon Allies").Selected(aff.newEffectType == "summon_allies"),
 						),
 				),
 			app.If(aff.needsDiceFormula(), func() app.UI {
@@ -293,6 +383,9 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							),
 					)
 			}),
+			app.If(aff.newEffectType == "summon_allies", func() app.UI {
+				return aff.renderSummonControls()
+			}),
 			app.H5().Text("Difficulty Check"),
 			app.Div().
 				Class("form-group").
@@ -348,9 +441,99 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 		)
 }
 
+// renderSummonControls renders the summon-specific form controls
+func (aff *AdversaryFeatureForm) renderSummonControls() app.UI {
+	return app.Div().
+		Class("summon-controls").
+		Body(
+			app.H5().Text("Summon Configuration"),
+			app.Div().
+				Class("form-row").
+				Body(
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Quantity Type:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newQuantityType = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(
+									app.Option().Value("fixed").Text("Fixed").Selected(aff.newQuantityType == "fixed"),
+									app.Option().Value("dice").Text("Dice Roll").Selected(aff.newQuantityType == "dice"),
+								),
+						),
+					app.If(aff.newQuantityType == "fixed", func() app.UI {
+						return app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Quantity:"),
+								app.Input().
+									Type("number").
+									Value(aff.newMagnitude).
+									Min(1).
+									Max(10).
+									OnInput(aff.handleIntInput(&aff.newMagnitude)),
+							)
+					}),
+					app.If(aff.newQuantityType == "dice", func() app.UI {
+						return app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Dice Formula:"),
+								app.Input().
+									Type("text").
+									Value(aff.newDiceFormula).
+									Placeholder("1d4").
+									OnInput(func(ctx app.Context, e app.Event) {
+										aff.newDiceFormula = ctx.JSSrc().Get("value").String()
+									}),
+							)
+					}),
+				),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text("Summon Pool (select adversaries):"),
+					app.If(len(aff.AvailableAdversaries) == 0, func() app.UI {
+						return app.Div().Class("empty-pool").Text("No adversaries defined yet. Add adversaries first.")
+					}),
+					app.If(len(aff.AvailableAdversaries) > 0, func() app.UI {
+						return aff.renderSummonPoolPicker()
+					}),
+				),
+		)
+}
+
+// renderSummonPoolPicker renders checkboxes for selecting adversaries
+func (aff *AdversaryFeatureForm) renderSummonPoolPicker() app.UI {
+	items := make([]app.UI, len(aff.AvailableAdversaries))
+	for i, adv := range aff.AvailableAdversaries {
+		advID := adv.ID
+		advName := adv.Name
+		items[i] = app.Label().
+			Class("checkbox-label").
+			Body(
+				app.Input().
+					Type("checkbox").
+					Checked(aff.selectedForSummon[advID]).
+					OnChange(func(ctx app.Context, e app.Event) {
+						if aff.selectedForSummon == nil {
+							aff.selectedForSummon = make(map[string]bool)
+						}
+						aff.selectedForSummon[advID] = ctx.JSSrc().Get("checked").Bool()
+						ctx.Update()
+					}),
+				app.Text(" "+advName),
+			)
+	}
+	return app.Div().Class("summon-pool-picker").Body(items...)
+}
+
 // Helper methods for conditional rendering
 func (aff *AdversaryFeatureForm) needsDiceFormula() bool {
-	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage"
+	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage" || aff.newEffectType == "area_damage"
 }
 
 func (aff *AdversaryFeatureForm) needsMagnitude() bool {
@@ -377,7 +560,6 @@ func (aff *AdversaryFeatureForm) handleIntInput(target *int) func(app.Context, a
 
 // addFeature creates and adds a new feature
 func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
-	// Create the effect based on type
 	var effectCategory models.FeatureEffectCategory
 	switch aff.newEffectType {
 	case "damage":
@@ -399,26 +581,60 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 	case "resistance":
 		effectCategory = models.FeatureEffectDamageResistance
 	case "immunity":
-		effectCategory = models.FeatureEffectDamageResistance // Same category, but magnitude will be different
+		effectCategory = models.FeatureEffectDamageResistance
+	case "summon_allies":
+		effectCategory = models.FeatureEffectSummonAllies
 	default:
 		effectCategory = models.FeatureEffectDamage
 	}
 
-	// Set magnitude based on effect type
 	magnitude := aff.newMagnitude
-	if aff.newEffectType == "resistance" {
+	diceFormula := aff.newDiceFormula
+	switch aff.newEffectType {
+	case "resistance":
 		magnitude = 50
-	} else if aff.newEffectType == "immunity" {
+	case "immunity":
 		magnitude = 100
+	case "summon_allies":
+		if aff.newQuantityType == "fixed" {
+			diceFormula = ""
+		} else {
+			magnitude = 0
+		}
 	}
 
 	effect := models.FeatureEffect{
 		Category:    effectCategory,
 		Magnitude:   magnitude,
-		DiceFormula: aff.newDiceFormula,
+		DiceFormula: diceFormula,
 		Duration:    aff.newDuration,
 		TargetType:  models.FeatureTargetSingle,
 		DamageType:  aff.newDamageType,
+	}
+
+	if effectCategory == models.FeatureEffectSummonAllies {
+		effect.SummonPool = make([]*models.Combatant, 0)
+		for _, adv := range aff.AvailableAdversaries {
+			if aff.selectedForSummon[adv.ID] {
+				effect.SummonPool = append(effect.SummonPool, adv)
+			}
+		}
+	}
+
+	fearCost := 0
+	stressCost := 0
+	switch aff.newCostType {
+	case "fear":
+		fearCost = aff.newFearCost
+	case "stress":
+		stressCost = aff.newStressCost
+	}
+
+	maxUses := 0
+	usesLeft := 0
+	if aff.newUsageType != "unlimited" {
+		maxUses = aff.newMaxUses
+		usesLeft = aff.newMaxUses
 	}
 
 	feature := &models.AdversaryFeature{
@@ -428,8 +644,12 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		Trigger: models.FeatureTriggerCondition{
 			Type: "on_attack",
 		},
-		FearCost:       aff.newFearCost,
+		FearCost:       fearCost,
+		StressCost:     stressCost,
 		SpotlightLimit: aff.newSpotlightLim,
+		UsageType:      aff.newUsageType,
+		MaxUses:        maxUses,
+		UsesLeft:       usesLeft,
 		DCType:         aff.newDCType,
 		FixedDC:        aff.newFixedDC,
 		Effects:        []models.FeatureEffect{effect},
@@ -465,7 +685,11 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newDescription = ""
 	aff.newPassive = true
 	aff.newFearCost = 0
+	aff.newStressCost = 0
+	aff.newCostType = "free"
 	aff.newSpotlightLim = 0
+	aff.newUsageType = "unlimited"
+	aff.newMaxUses = 1
 	aff.newDiceFormula = "1d6"
 	aff.newDamageType = "physical"
 	aff.newEffectType = "damage"
@@ -473,4 +697,6 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newDuration = "instant"
 	aff.newDCType = "none"
 	aff.newFixedDC = 12
+	aff.newQuantityType = "fixed"
+	aff.selectedForSummon = make(map[string]bool)
 }

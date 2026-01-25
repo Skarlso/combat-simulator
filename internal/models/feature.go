@@ -67,8 +67,9 @@ type FeatureEffect struct {
 	DiceFormula string // "2d6+3" for variable effects
 	Duration    string // "instant", "1_turn", "until_cleared", "permanent", "scene"
 	TargetType  FeatureTargetType
-	DamageType  string // "physical", "magic", empty for non-damage effects
-	SummonType  string // Adversary name to summon (for FeatureEffectSummonAllies)
+	DamageType  string       // "physical", "magic", empty for non-damage effects
+	SummonType  string       // Adversary name to summon (for FeatureEffectSummonAllies) - registry lookup
+	SummonPool  []*Combatant // Inline summon templates (preferred over registry)
 }
 
 // AdversaryFeature represents passive or AI-triggered abilities for enemies
@@ -77,8 +78,12 @@ type AdversaryFeature struct {
 	Description    string
 	Passive        bool // true = always on, false = AI decides when to trigger
 	Trigger        FeatureTriggerCondition
-	FearCost       int // Fear required to activate (0 = free)
-	SpotlightLimit int // Max times per GM turn (0 = unlimited)
+	FearCost       int    // Fear required to activate (0 = free)
+	StressCost     int    // Stress required to activate (0 = free)
+	SpotlightLimit int    // Max times per GM turn (0 = unlimited)
+	UsageType      string // "unlimited", "once_per_scene", "once_per_session", "once_per_rest"
+	MaxUses        int    // Limit count (0 = unlimited)
+	UsesLeft       int    // Runtime state
 
 	// Difficulty Check
 	DCType  string // "none" (auto-succeed), "target" (roll vs target's Evasion), "fixed" (roll vs FixedDC)

@@ -17,20 +17,21 @@ type AdversaryList struct {
 	OnRemove    func(app.Context, int)
 
 	// Form state for adding new adversary
-	showForm          bool
-	newName           string
-	newTier           string
-	newType           string
-	newDifficulty     int
-	newATK            int
-	newHP             int
-	newStress         int
-	newMinorThreshold int
-	newMajorThreshold int
-	newDamageDice     string
-	newMotives        string
-	newTactics        string
-	newFeatures       []*models.AdversaryFeature
+	showForm           bool
+	newName            string
+	newTier            string
+	newType            string
+	newDifficulty      int
+	newATK             int
+	newHP              int
+	newStress          int
+	newMinorThreshold  int
+	newMajorThreshold  int
+	newDamageDice      string
+	newMotives         string
+	newTactics         string
+	newFeatures        []*models.AdversaryFeature
+	newIsSummonTemplate bool
 }
 
 // OnMount initializes default values
@@ -73,13 +74,17 @@ func (al *AdversaryList) renderList() app.UI {
 	items := make([]app.UI, len(al.Adversaries))
 	for i, adversary := range al.Adversaries {
 		idx := i
+		templateTag := ""
+		if adversary.IsSummonTemplate {
+			templateTag = " [TEMPLATE]"
+		}
 		items[i] = app.Div().
 			Class("adversary-item").
 			Body(
 				app.Div().
 					Class("adversary-info").
 					Body(
-						app.Strong().Text(fmt.Sprintf("%s %s - %s", adversary.Tier, adversary.AdversaryType, adversary.Name)),
+						app.Strong().Text(fmt.Sprintf("%s %s - %s%s", adversary.Tier, adversary.AdversaryType, adversary.Name, templateTag)),
 						app.Br(),
 						app.Span().Text(fmt.Sprintf("Difficulty: %d | Thresholds: %d/%d | HP: %d | Stress: %d | ATK: +%d",
 							adversary.Difficulty,
@@ -261,8 +266,25 @@ func (al *AdversaryList) renderAddForm() app.UI {
 							al.newTactics = text
 						}),
 				),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().
+						Class("checkbox-label").
+						Body(
+							app.Input().
+								Type("checkbox").
+								Checked(al.newIsSummonTemplate).
+								OnChange(func(ctx app.Context, e app.Event) {
+									al.newIsSummonTemplate = ctx.JSSrc().Get("checked").Bool()
+									ctx.Update()
+								}),
+							app.Text(" Summon Template Only (won't fight unless summoned)"),
+						),
+				),
 			&AdversaryFeatureForm{
-				Features: al.newFeatures,
+				Features:             al.newFeatures,
+				AvailableAdversaries: al.Adversaries,
 				OnChange: func(updated []*models.AdversaryFeature) {
 					al.newFeatures = updated
 				},
@@ -313,13 +335,12 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newTactics
+	adversary.IsSummonTemplate = al.newIsSummonTemplate
 
-	// Copy features (need to dereference pointers)
 	for _, feature := range al.newFeatures {
 		adversary.AdversaryFeatures = append(adversary.AdversaryFeatures, *feature)
 	}
 
-	// Apply passive resistances from features
 	adversary.ApplyPassiveResistances()
 
 	if al.OnAdd != nil {
@@ -346,4 +367,5 @@ func (al *AdversaryList) resetForm() {
 	al.newMotives = ""
 	al.newTactics = ""
 	al.newFeatures = make([]*models.AdversaryFeature, 0)
+	al.newIsSummonTemplate = false
 }

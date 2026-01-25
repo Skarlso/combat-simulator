@@ -55,8 +55,9 @@ type Combatant struct {
 	Conditions []*ActiveCondition
 
 	// Combat state flags
-	IsDefeated      bool
-	IsFullyStressed bool
+	IsDefeated        bool
+	IsFullyStressed   bool
+	IsSummonTemplate  bool // If true, this is a template for summoning only - don't add to combat directly
 }
 
 // Resistance reduces incoming damage to specific type
@@ -466,4 +467,49 @@ func parseDamageType(s string) DamageType {
 		return DamageMagic
 	}
 	return DamagePhysical
+}
+
+// CloneCombatant creates a deep copy of a combatant template with a new unique ID
+func CloneCombatant(template *Combatant, uniqueID string) *Combatant {
+	clone := &Combatant{
+		ID:                uniqueID,
+		Name:              template.Name,
+		Side:              template.Side,
+		Level:             template.Level,
+		Evasion:           template.Evasion,
+		Proficiency:       template.Proficiency,
+		IsAdversary:       template.IsAdversary,
+		Tier:              template.Tier,
+		AdversaryType:     template.AdversaryType,
+		Difficulty:        template.Difficulty,
+		ATK:               template.ATK,
+		Motives:           template.Motives,
+		Tactics:           template.Tactics,
+		HP:                template.HPMax,
+		HPMax:             template.HPMax,
+		Stress:            0,
+		StressMax:         template.StressMax,
+		ArmorSlots:        template.ArmorSlots,
+		DamageDice:        template.DamageDice,
+		SpotlightTokens:   0,
+		IsDefeated:        false,
+		IsFullyStressed:   false,
+		AdversaryFeatures: make([]AdversaryFeature, len(template.AdversaryFeatures)),
+		DomainAbilities:   make([]DomainAbility, len(template.DomainAbilities)),
+		Resistances:       make([]Resistance, len(template.Resistances)),
+		Conditions:        make([]*ActiveCondition, 0),
+		Experience:        make([]ExperienceSkill, len(template.Experience)),
+	}
+
+	if len(template.CustomThresholds) > 0 {
+		clone.CustomThresholds = make([]int, len(template.CustomThresholds))
+		copy(clone.CustomThresholds, template.CustomThresholds)
+	}
+
+	copy(clone.AdversaryFeatures, template.AdversaryFeatures)
+	copy(clone.DomainAbilities, template.DomainAbilities)
+	copy(clone.Resistances, template.Resistances)
+	copy(clone.Experience, template.Experience)
+
+	return clone
 }

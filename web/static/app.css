@@ -282,6 +282,62 @@ body {
   margin-top: 1rem;
 }
 
+/* Checkbox styling */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.checkbox-label:hover {
+  background-color: rgba(231, 199, 75, 0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--hope);
+}
+
+/* Summon pool picker */
+.summon-pool-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem;
+  background-color: white;
+}
+
+.summon-controls {
+  margin-top: 1rem;
+  padding: 1rem;
+  background-color: rgba(36, 19, 95, 0.05);
+  border-radius: 4px;
+  border: 1px solid var(--fear-light);
+}
+
+.summon-controls h5 {
+  margin-top: 0;
+  color: var(--fear);
+}
+
+.empty-pool {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 1rem;
+  text-align: center;
+}
+
 /* Combatant list */
 .combatant-list {
   margin-bottom: 2rem;

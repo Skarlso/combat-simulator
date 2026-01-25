@@ -1,9 +1,45 @@
 # TODO - Daggerheart Combat Simulator
 
-**Last Updated**: 2026-01-10
-**Status**: Production-ready with domain ability triggers, AOE damage, armor mechanics, enhanced combat log, and Daggerheart-themed UI
+**Last Updated**: 2026-01-25
+**Status**: Production-ready with web-based summoning, domain ability triggers, AOE damage, armor mechanics, enhanced combat log, and Daggerheart-themed UI
 
-## ✅ Recently Completed (2026-01-10)
+## ✅ Recently Completed (2026-01-25)
+
+### Web-Based Summoning System ✅
+- **What**: Full summoning support in web UI with summon pool picker
+- **Implementation**:
+  - Added `SummonPool []*Combatant` to `FeatureEffect` for inline templates (no registry needed)
+  - Added `StressCost`, `UsageType`, `MaxUses`, `UsesLeft` to `AdversaryFeature`
+  - Added `IsSummonTemplate` flag to `Combatant` - templates don't fight unless summoned
+  - Added `SummonedCounts map[string]int` to `CombatState` for global unique naming (#1, #2, #3...)
+  - Added `CloneCombatant()` helper function for deep copying templates
+  - Updated `resolveSummon()` to check `SummonPool` first, fall back to registry
+  - Added `summonFromPool()` and `summonFromRegistry()` helper methods
+  - Consolidated summon log entries ("Summons 3 allies" instead of 3 separate entries)
+- **UI Changes**:
+  - Cost type dropdown: Fear / Stress / Free
+  - Usage limit dropdown: Unlimited / Once per Scene / Once per Session / Once per Rest
+  - "Summon Allies" effect type with quantity controls (Fixed or Dice)
+  - Summon pool picker with checkboxes for available adversaries
+  - "Summon Template Only" checkbox - marked adversaries show [TEMPLATE] tag
+  - Feature display shows stress costs, usage limits, and summon info
+- **Files**: `feature.go`, `combatant.go`, `combat_state.go`, `feature_resolver.go`, `adversary_feature_form.go`, `adversary_list.go`, `app.css`
+- **Status**: Functional but needs more testing
+
+### Data Fix ✅
+- Fixed `daggerheart_adversaries_tier4.json` line 564: Changed `"bonus": "2d4"` to `"bonus": 5` (Abomination's Chaotic Form uses variable attack)
+
+## 🧪 Needs Testing (Summoning)
+
+- [ ] Multiple summoners summoning same template type (verify unique numbering)
+- [ ] Stress cost activation and limits
+- [ ] Usage restrictions (once_per_scene, once_per_session, once_per_rest)
+- [ ] Mixed summon pools (multiple template types)
+- [ ] Edge cases: empty summon pool, 0 quantity rolls
+- [ ] Template-only adversaries properly excluded from initial combat
+- [ ] Summoned creatures participating correctly in spotlight selection
+
+## ✅ Previously Completed (2026-01-10)
 
 ### Combat Log Enhancement ✅
 - **What**: Overhauled combat log UI to display comprehensive battle information
@@ -191,30 +227,26 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 
 **Current Workaround**: Filter returns false, features don't trigger - acceptable limitation
 
-### 3. Summoning in Web UI
-**Impact**: Low - Works in CLI, not yet in web
-
-**What's Missing**:
-- Web UI doesn't load AdversaryRegistry
-- Summon features fail gracefully with error message
-- Need to either bundle JSON files or add upload capability
-
-**To Fix** (if needed):
-- Bundle adversary JSON files in WASM resources
-- Or add UI for uploading adversary data
-- Or accept CLI-only for now
+### 3. Summoning in Web UI ✅ RESOLVED
+**Status**: Implemented using inline SummonPool (no registry needed)
+- Summon pool picker allows selecting from existing adversaries
+- Templates marked with "Summon Template Only" don't fight unless summoned
+- Global unique naming across combat (#1, #2, #3...)
+- Supports Fear/Stress costs and usage limits
 
 ## 📋 Next Priorities
 
 ### Current Status
-**WASM Build**: Latest at `web/app.wasm` (2026-01-10 17:50) ✅
+**WASM Build**: Latest at `web/app.wasm` (2026-01-25) ✅
+- **Web-based summoning with inline pool picker** ✅ (needs more testing)
+- **Summon template system (IsSummonTemplate flag)** ✅
+- **Stress costs and usage limits for adversary features** ✅
 - Domain ability triggers fully working ✅
 - AOE damage implementation complete ✅
-- **Armor system corrected (threshold reduction, not damage absorption)** ✅
-- **Direct damage is adversary-only (removed from player UI)** ✅
+- Armor system corrected (threshold reduction, not damage absorption) ✅
+- Direct damage is adversary-only (removed from player UI) ✅
 - Player armor slot manipulation (grant + damage) ✅
-- UI updated with trigger controls, AOE, and armor damage options ✅
-- **Combat log enhanced with HP/armor tracking and wider layout** ✅
+- Combat log enhanced with HP/armor tracking and wider layout ✅
 - All core combat mechanics operational ✅
 - Feature parity achieved (players = adversaries) ✅
 
@@ -275,9 +307,19 @@ Then wire up trigger processing in `feature_resolver.go` similar to adversary fe
 
 ### Advanced Trigger Patterns
 **Examples**:
-- Countdown mechanics ("On My Signal" countdown:5)
 - Slow tokens (requires token before acting)
 - Split mechanics (Ooze splitting on damage)
+
+### Countdown/Loop Cost Mechanic 🔄
+**What**: Alternative activation cost that ticks down on conditions
+**Example**: "Blood and Souls - Countdown (Loop 6). Ticks down when PC takes violent action. When triggers, summon 1d4 Minor Demons."
+**Complexity**: Medium - requires tick condition tracking, loop reset logic
+**Implementation Notes**:
+- Add `CountdownMax`, `CountdownCurrent` fields to AdversaryFeature
+- Add `CountdownTrigger` field (e.g., "on_player_attack", "on_damage_dealt")
+- Tick down in trigger processing, activate when reaches 0
+- Loop resets counter to max after activation
+**Deferred**: Implementing simpler summoning first (Fear/Stress/Free + usage limits)
 
 ### Monte Carlo Optimization
 **Current**: 200-500 simulations per strategy test
@@ -320,8 +362,8 @@ UI supports full configuration, ready for expansion.
 - `feature_resolver.go:613` - Implement adjacency tracking
 
 ### Testing Gaps
+- **Web-based summoning needs comprehensive testing** (see "Needs Testing" section above)
 - AOE damage needs verification test
-- Summoning system needs implementation + tests
 - Domain ability triggers need test coverage
 
 ## 📝 Documentation Status

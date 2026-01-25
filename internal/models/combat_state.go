@@ -21,7 +21,8 @@ type CombatState struct {
 	SpotlightThreshold int
 
 	// Summoning support
-	SummonCounter int // Counter for generating unique summon IDs
+	SummonCounter  int            // Counter for generating unique summon IDs
+	SummonedCounts map[string]int // Track how many of each type summoned for naming
 }
 
 // ActionRecord logs what happened during combat
@@ -61,9 +62,15 @@ type ActionRecord struct {
 
 // NewCombatState initializes combat
 func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlightThreshold int) *CombatState {
+	activeEnemies := make([]*Combatant, 0, len(enemies))
+	for _, e := range enemies {
+		if !e.IsSummonTemplate {
+			activeEnemies = append(activeEnemies, e)
+		}
+	}
 	return &CombatState{
 		Players:                players,
-		Enemies:                enemies,
+		Enemies:                activeEnemies,
 		HopePool:               hopePool,
 		FearPool:               fearPool,
 		RoundNumber:            0,
@@ -71,6 +78,7 @@ func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlight
 		ConsecutivePlayerTurns: 0,
 		SpotlightThreshold:     spotlightThreshold,
 		ActionHistory:          make([]ActionRecord, 0),
+		SummonedCounts:         make(map[string]int),
 	}
 }
 

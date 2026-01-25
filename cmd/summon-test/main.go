@@ -24,8 +24,94 @@ func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *
 }
 
 func main() {
-	fmt.Println("Testing Summoning System - Guards, Seize Them!")
-	fmt.Println("================================================")
+	testInlinePoolSummoning()
+	fmt.Println()
+	fmt.Println()
+	testRegistrySummoning()
+}
+
+func testInlinePoolSummoning() {
+	fmt.Println("Testing Inline Pool Summoning (No Registry)")
+	fmt.Println("============================================")
+
+	minionTemplate := models.NewAdversary("minion-template", "Summoned Minion", "Tier 1", "Minion", 10, 1, 3, 3, []int{5, 10})
+	minionTemplate.DamageDice = "1d4"
+
+	summonFeature := models.AdversaryFeature{
+		Name:        "Call Reinforcements",
+		Description: "Summons minions from the void",
+		Passive:     false,
+		FearCost:    1,
+		StressCost:  0,
+		UsageType:   "once_per_scene",
+		MaxUses:     1,
+		UsesLeft:    1,
+		Effects: []models.FeatureEffect{
+			{
+				Category:    models.FeatureEffectSummonAllies,
+				Magnitude:   0,
+				DiceFormula: "1d4",
+				SummonPool:  []*models.Combatant{minionTemplate},
+			},
+		},
+	}
+
+	summoner := models.NewAdversary("summoner", "Void Caller", "Tier 2", "Standard", 14, 3, 10, 6, []int{6, 12})
+	summoner.DamageDice = "1d8"
+	summoner.AdversaryFeatures = append(summoner.AdversaryFeatures, summonFeature)
+
+	players := []*models.Combatant{
+		models.NewCombatant("p1", "Hero", models.SidePlayer, 3, 12, 2, 15, 8),
+	}
+	players[0].DamageDice = "1d6"
+
+	state := models.NewCombatState(players, []*models.Combatant{summoner}, 0, 3, 5)
+
+	rng := rand.New(rand.NewSource(42))
+	featureResolver := engine.NewFeatureResolver(rng)
+
+	fmt.Printf("Initial enemies: %d\n", len(state.GetAliveEnemies()))
+	fmt.Printf("Fear Pool: %d\n", state.FearPool)
+	fmt.Printf("Summoner has %d features\n", len(summoner.AdversaryFeatures))
+
+	feature := summoner.AdversaryFeatures[0]
+	fmt.Printf("Feature: %s (Fear: %d, MaxUses: %d, UsesLeft: %d)\n",
+		feature.Name, feature.FearCost, feature.MaxUses, feature.UsesLeft)
+
+	canActivate := featureResolver.CanActivateAdversaryFeature(feature, summoner, state)
+	fmt.Printf("Can activate: %v\n", canActivate)
+
+	if canActivate {
+		err, result := featureResolver.ActivateAdversaryFeature(feature, summoner, nil, state)
+		if err != nil {
+			fmt.Printf("Activation failed: %v\n", err)
+		} else {
+			fmt.Printf("Activation succeeded (DC check: %v)\n", result.Success)
+			fmt.Printf("Fear Pool after: %d\n", state.FearPool)
+			fmt.Printf("Enemies after summon: %d\n", len(state.GetAliveEnemies()))
+			for i, enemy := range state.GetAliveEnemies() {
+				fmt.Printf("  %d. %s (HP: %d/%d)\n", i+1, enemy.Name, enemy.HP, enemy.HPMax)
+			}
+		}
+	}
+
+	state.FearPool = 3
+	summoner.AdversaryFeatures[0].UsesLeft = 1
+	fmt.Println("\n--- Second summon activation ---")
+	err, _ := featureResolver.ActivateAdversaryFeature(summoner.AdversaryFeatures[0], summoner, nil, state)
+	if err != nil {
+		fmt.Printf("Second activation failed: %v\n", err)
+	} else {
+		fmt.Printf("Enemies after second summon: %d\n", len(state.GetAliveEnemies()))
+		for i, enemy := range state.GetAliveEnemies() {
+			fmt.Printf("  %d. %s (HP: %d/%d)\n", i+1, enemy.Name, enemy.HP, enemy.HPMax)
+		}
+	}
+}
+
+func testRegistrySummoning() {
+	fmt.Println("Testing Registry-Based Summoning - Guards, Seize Them!")
+	fmt.Println("=======================================================")
 
 	// Load adversary registry
 	registry, err := parser.NewAdversaryRegistry(

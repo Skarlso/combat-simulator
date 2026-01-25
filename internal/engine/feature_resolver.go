@@ -468,13 +468,19 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 
 // CanActivateAdversaryFeature checks if an adversary can use a feature
 func (fr *FeatureResolver) CanActivateAdversaryFeature(feature models.AdversaryFeature, actor *models.Combatant, state *models.CombatState) bool {
-	// Check Fear cost
 	if feature.FearCost > 0 && state.FearPool < feature.FearCost {
 		return false
 	}
 
-	// Check spotlight limit
+	if feature.StressCost > 0 && (actor.Stress+feature.StressCost) > actor.StressMax {
+		return false
+	}
+
 	if feature.SpotlightLimit > 0 && actor.SpotlightTokens >= feature.SpotlightLimit {
+		return false
+	}
+
+	if feature.MaxUses > 0 && feature.UsesLeft <= 0 {
 		return false
 	}
 
@@ -524,9 +530,14 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 		return fmt.Errorf("cannot activate feature %s", feature.Name), dcResult
 	}
 
-	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
 	if feature.FearCost > 0 {
 		state.SpendFear(feature.FearCost)
+	}
+	if feature.StressCost > 0 {
+		actor.AddStress(feature.StressCost)
+	}
+	if feature.MaxUses > 0 {
+		feature.UsesLeft--
 	}
 
 	// Check DC if required
@@ -735,17 +746,6 @@ func (fr *FeatureResolver) evaluateFilter(filter string, actor *models.Combatant
 
 // resolveSummon handles summoning allies
 func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
-	// Check if registry is available
-	if fr.registry == nil {
-		return fmt.Errorf("summoning not available: adversary registry not set")
-	}
-
-	// Check if SummonType is specified
-	if effect.SummonType == "" {
-		return fmt.Errorf("summon effect missing summon_type")
-	}
-
-	// Determine quantity to summon
 	quantity := effect.Magnitude
 	if effect.DiceFormula != "" {
 		notation, err := models.ParseDiceNotation(effect.DiceFormula)
@@ -759,26 +759,71 @@ func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *mod
 		return fmt.Errorf("summon quantity must be positive, got %d", quantity)
 	}
 
-	// Summon the specified number of adversaries
-	for i := 0; i < quantity; i++ {
-		// Generate unique ID for summoned combatant
-		state.SummonCounter++
-		uniqueID := fmt.Sprintf("%s_summoned_%d", effect.SummonType, state.SummonCounter)
-
-		// Clone template from registry
-		summoned, err := fr.registry.CloneTemplate(effect.SummonType, uniqueID)
-		if err != nil {
-			return fmt.Errorf("failed to summon %s: %w", effect.SummonType, err)
-		}
-
-		// Add to combat state
-		state.SummonCombatant(summoned)
-
-		// Record summon event
-		state.RecordAction(actor, models.ActionUseAbility, nil, "",
-			fmt.Sprintf("Summons %s", summoned.Name),
-			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
+	if len(effect.SummonPool) > 0 {
+		return fr.summonFromPool(effect.SummonPool, quantity, actor, state)
 	}
 
+	if effect.SummonType != "" && fr.registry != nil {
+		return fr.summonFromRegistry(effect.SummonType, quantity, actor, state)
+	}
+
+	return fmt.Errorf("summon effect requires either SummonPool or SummonType with registry")
+}
+
+// summonFromPool summons from inline templates
+func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int, actor *models.Combatant, state *models.CombatState) error {
+	var summoned []*models.Combatant
+	for i := 0; i < quantity; i++ {
+		template := pool[fr.dice.RollDice(1, len(pool))-1]
+		state.SummonCounter++
+		state.SummonedCounts[template.Name]++
+		numberedName := fmt.Sprintf("%s #%d", template.Name, state.SummonedCounts[template.Name])
+		uniqueID := fmt.Sprintf("%s_summoned_%d", template.Name, state.SummonCounter)
+
+		clone := models.CloneCombatant(template, uniqueID)
+		clone.Name = numberedName
+		state.SummonCombatant(clone)
+		summoned = append(summoned, clone)
+	}
+
+	if len(summoned) == 1 {
+		state.RecordAction(actor, models.ActionUseAbility, nil, "",
+			fmt.Sprintf("Summons %s", summoned[0].Name),
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
+	} else {
+		state.RecordAction(actor, models.ActionUseAbility, nil, "",
+			fmt.Sprintf("Summons %d allies", len(summoned)),
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
+	}
+	return nil
+}
+
+// summonFromRegistry summons from adversary registry
+func (fr *FeatureResolver) summonFromRegistry(summonType string, quantity int, actor *models.Combatant, state *models.CombatState) error {
+	var summoned []*models.Combatant
+	for i := 0; i < quantity; i++ {
+		state.SummonCounter++
+		state.SummonedCounts[summonType]++
+		uniqueID := fmt.Sprintf("%s_summoned_%d", summonType, state.SummonCounter)
+
+		clone, err := fr.registry.CloneTemplate(summonType, uniqueID)
+		if err != nil {
+			return fmt.Errorf("failed to summon %s: %w", summonType, err)
+		}
+
+		clone.Name = fmt.Sprintf("%s #%d", summonType, state.SummonedCounts[summonType])
+		state.SummonCombatant(clone)
+		summoned = append(summoned, clone)
+	}
+
+	if len(summoned) == 1 {
+		state.RecordAction(actor, models.ActionUseAbility, nil, "",
+			fmt.Sprintf("Summons %s", summoned[0].Name),
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
+	} else {
+		state.RecordAction(actor, models.ActionUseAbility, nil, "",
+			fmt.Sprintf("Summons %d %s", len(summoned), summonType),
+			0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, false, 0, 0, nil)
+	}
 	return nil
 }
