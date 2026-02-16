@@ -54,10 +54,21 @@ const (
 	FeatureTargetAllies FeatureTargetType = "allies"
 )
 
-// FeatureTriggerCondition defines when a feature activates
+type FeatureTriggerType string
+
+const (
+	TriggerOnAttack      FeatureTriggerType = "on_attack"
+	TriggerOnHit         FeatureTriggerType = "on_hit"
+	TriggerOnDamageTaken FeatureTriggerType = "on_damage_taken"
+	TriggerOnCritical    FeatureTriggerType = "on_critical"
+	TriggerStartTurn     FeatureTriggerType = "start_turn"
+	TriggerEndTurn       FeatureTriggerType = "end_turn"
+	TriggerAlways        FeatureTriggerType = "always"
+)
+
 type FeatureTriggerCondition struct {
-	Type   string // "on_attack", "on_hit", "on_damage_taken", "on_critical", "start_turn", "end_turn", "always"
-	Filter string // Additional constraints: "if_target_below_50_hp", "if_hidden", "if_ally_adjacent"
+	Type   FeatureTriggerType
+	Filter string
 }
 
 // FeatureEffect is the shared resolution system for both adversary features and player abilities

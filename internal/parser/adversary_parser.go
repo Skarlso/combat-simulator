@@ -112,6 +112,7 @@ func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
 		ID:                id,
 		Name:              adv.Name,
 		Side:              models.SideEnemy,
+		IsAdversary:       true,
 		Level:             adv.Tier,
 		HP:                adv.HP,
 		HPMax:             adv.HP,

@@ -174,7 +174,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newDifficulty).
 								Min(1).
 								Max(25).
-								OnInput(al.handleIntInput(&al.newDifficulty)),
+								OnInput(handleIntInput(&al.newDifficulty)),
 						),
 					app.Div().
 						Class("form-group").
@@ -185,7 +185,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newATK).
 								Min(0).
 								Max(10).
-								OnInput(al.handleIntInput(&al.newATK)),
+								OnInput(handleIntInput(&al.newATK)),
 						),
 				),
 			app.Div().
@@ -200,7 +200,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newHP).
 								Min(1).
 								Max(100).
-								OnInput(al.handleIntInput(&al.newHP)),
+								OnInput(handleIntInput(&al.newHP)),
 						),
 					app.Div().
 						Class("form-group").
@@ -211,7 +211,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newStress).
 								Min(1).
 								Max(20).
-								OnInput(al.handleIntInput(&al.newStress)),
+								OnInput(handleIntInput(&al.newStress)),
 						),
 				),
 			app.Div().
@@ -226,7 +226,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newMinorThreshold).
 								Min(1).
 								Max(30).
-								OnInput(al.handleIntInput(&al.newMinorThreshold)),
+								OnInput(handleIntInput(&al.newMinorThreshold)),
 						),
 					app.Div().
 						Class("form-group").
@@ -237,7 +237,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Value(al.newMajorThreshold).
 								Min(1).
 								Max(50).
-								OnInput(al.handleIntInput(&al.newMajorThreshold)),
+								OnInput(handleIntInput(&al.newMajorThreshold)),
 						),
 				),
 			app.Div().
@@ -311,13 +311,6 @@ func (al *AdversaryList) renderAddForm() app.UI {
 		)
 }
 
-// handleIntInput creates an input handler for integer fields
-func (al *AdversaryList) handleIntInput(target *int) func(app.Context, app.Event) {
-	return func(ctx app.Context, e app.Event) {
-		value := ctx.JSSrc().Get("valueAsNumber").Int()
-		*target = value
-	}
-}
 
 // addAdversary creates a new adversary and adds it to the list
 func (al *AdversaryList) addAdversary(ctx app.Context) {

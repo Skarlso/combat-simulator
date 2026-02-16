@@ -10,17 +10,6 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
-type UnifiedDecisionMaker struct {
-	playerStrategy *strategy.AIDecisionMaker
-	enemyStrategy  *strategy.AIDecisionMaker
-}
-
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
-	if actor.Side == models.SidePlayer {
-		return udm.playerStrategy.ChooseAction(state, actor)
-	}
-	return udm.enemyStrategy.ChooseAction(state, actor)
-}
 
 func main() {
 	fmt.Println("Testing Fallback to Basic Attack")
@@ -85,13 +74,7 @@ func main() {
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
 
 	// Greedy strategy - will try to use abilities
-	playerStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultGreedyConfig())
-	enemyStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultGreedyConfig())
-
-	decisionMaker := &UnifiedDecisionMaker{
-		playerStrategy: playerStrategy,
-		enemyStrategy:  enemyStrategy,
-	}
+	decisionMaker := strategy.NewUnifiedDecisionMaker(rng, strategy.DefaultGreedyConfig(), strategy.DefaultGreedyConfig())
 
 	// Run a few turns
 	outcome := combatEngine.RunCombat(state, decisionMaker, 10, strategy.ResourceGreedy)

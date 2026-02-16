@@ -238,7 +238,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 								Value(aff.newSpotlightLim).
 								Min(0).
 								Max(5).
-								OnInput(aff.handleIntInput(&aff.newSpotlightLim)),
+								OnInput(handleIntInput(&aff.newSpotlightLim)),
 						),
 				),
 			app.If(aff.newCostType == "fear", func() app.UI {
@@ -251,7 +251,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							Value(aff.newFearCost).
 							Min(1).
 							Max(10).
-							OnInput(aff.handleIntInput(&aff.newFearCost)),
+							OnInput(handleIntInput(&aff.newFearCost)),
 					)
 			}),
 			app.If(aff.newCostType == "stress", func() app.UI {
@@ -264,7 +264,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							Value(aff.newStressCost).
 							Min(1).
 							Max(10).
-							OnInput(aff.handleIntInput(&aff.newStressCost)),
+							OnInput(handleIntInput(&aff.newStressCost)),
 					)
 			}),
 			app.Div().
@@ -296,7 +296,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 									Value(aff.newMaxUses).
 									Min(1).
 									Max(10).
-									OnInput(aff.handleIntInput(&aff.newMaxUses)),
+									OnInput(handleIntInput(&aff.newMaxUses)),
 							)
 					}),
 				),
@@ -348,10 +348,10 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							Value(aff.newMagnitude).
 							Min(1).
 							Max(10).
-							OnInput(aff.handleIntInput(&aff.newMagnitude)),
+							OnInput(handleIntInput(&aff.newMagnitude)),
 					)
 			}),
-			app.If(aff.needsDamageType(), func() app.UI {
+			app.If(needsDamageType(aff.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -366,7 +366,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							),
 					)
 			}),
-			app.If(aff.needsDuration(), func() app.UI {
+			app.If(needsDuration(aff.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -412,7 +412,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							Value(aff.newFixedDC).
 							Min(1).
 							Max(30).
-							OnInput(aff.handleIntInput(&aff.newFixedDC)),
+							OnInput(handleIntInput(&aff.newFixedDC)),
 					)
 			}),
 			app.Div().
@@ -474,7 +474,7 @@ func (aff *AdversaryFeatureForm) renderSummonControls() app.UI {
 									Value(aff.newMagnitude).
 									Min(1).
 									Max(10).
-									OnInput(aff.handleIntInput(&aff.newMagnitude)),
+									OnInput(handleIntInput(&aff.newMagnitude)),
 							)
 					}),
 					app.If(aff.newQuantityType == "dice", func() app.UI {
@@ -542,51 +542,10 @@ func (aff *AdversaryFeatureForm) needsMagnitude() bool {
 		aff.newEffectType == "grant_armor"
 }
 
-func (aff *AdversaryFeatureForm) needsDamageType() bool {
-	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage" || aff.newEffectType == "resistance" || aff.newEffectType == "immunity"
-}
-
-func (aff *AdversaryFeatureForm) needsDuration() bool {
-	return aff.newEffectType == "apply_vulnerable" || aff.newEffectType == "apply_poison"
-}
-
-// handleIntInput creates an input handler for integer fields
-func (aff *AdversaryFeatureForm) handleIntInput(target *int) func(app.Context, app.Event) {
-	return func(ctx app.Context, e app.Event) {
-		value := ctx.JSSrc().Get("valueAsNumber").Int()
-		*target = value
-	}
-}
 
 // addFeature creates and adds a new feature
 func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
-	var effectCategory models.FeatureEffectCategory
-	switch aff.newEffectType {
-	case "damage":
-		effectCategory = models.FeatureEffectDamage
-	case "direct_damage":
-		effectCategory = models.FeatureEffectDirectDamage
-	case "area_damage":
-		effectCategory = models.FeatureEffectAreaDamage
-	case "stress_inflict":
-		effectCategory = models.FeatureEffectStressInflict
-	case "apply_vulnerable":
-		effectCategory = models.FeatureEffectApplyVulnerable
-	case "apply_poison":
-		effectCategory = models.FeatureEffectApplyPoison
-	case "armor_damage":
-		effectCategory = models.FeatureEffectArmorDamage
-	case "grant_armor":
-		effectCategory = models.FeatureEffectGrantArmor
-	case "resistance":
-		effectCategory = models.FeatureEffectDamageResistance
-	case "immunity":
-		effectCategory = models.FeatureEffectDamageResistance
-	case "summon_allies":
-		effectCategory = models.FeatureEffectSummonAllies
-	default:
-		effectCategory = models.FeatureEffectDamage
-	}
+	effectCategory := resolveEffectCategory(aff.newEffectType)
 
 	magnitude := aff.newMagnitude
 	diceFormula := aff.newDiceFormula
@@ -642,7 +601,7 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		Description: aff.newDescription,
 		Passive:     aff.newPassive,
 		Trigger: models.FeatureTriggerCondition{
-			Type: "on_attack",
+			Type: models.TriggerOnAttack,
 		},
 		FearCost:       fearCost,
 		StressCost:     stressCost,

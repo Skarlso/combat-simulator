@@ -162,11 +162,7 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 		combatEngine.SetAdversaryRegistry(sr.config.AdversaryRegistry)
 	}
 
-	// Create decision maker (unified for both sides based on side)
-	decisionMaker := &UnifiedDecisionMaker{
-		playerStrategy: strategy.NewAIDecisionMaker(sr.rng, sr.config.PlayerStrategy),
-		enemyStrategy:  strategy.NewAIDecisionMaker(sr.rng, sr.config.EnemyStrategy),
-	}
+	decisionMaker := strategy.NewUnifiedDecisionMaker(sr.rng, sr.config.PlayerStrategy, sr.config.EnemyStrategy)
 
 	// Run combat (pass enemy Fear usage strategy for aggressive spotlight grabs)
 	outcome := combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)
@@ -174,59 +170,12 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	return outcome
 }
 
-// cloneCombatants creates deep copies of combatant templates
 func (sr *SimulationRunner) cloneCombatants(templates []*models.Combatant) []*models.Combatant {
 	clones := make([]*models.Combatant, len(templates))
-
 	for i, template := range templates {
-		clone := &models.Combatant{
-			ID:                template.ID,
-			Name:              template.Name,
-			Side:              template.Side,
-			Evasion:           template.Evasion,
-			Proficiency:       template.Proficiency,
-			IsAdversary:       template.IsAdversary,
-			Tier:              template.Tier,
-			AdversaryType:     template.AdversaryType,
-			Difficulty:        template.Difficulty,
-			ATK:               template.ATK,
-			Motives:           template.Motives,
-			Tactics:           template.Tactics,
-			CustomThresholds:  append([]int{}, template.CustomThresholds...),
-			HP:                template.HPMax,
-			HPMax:             template.HPMax,
-			Stress:            0,
-			StressMax:         template.StressMax,
-			ArmorSlots:        template.ArmorSlots,
-			DamageDice:        template.DamageDice,
-			SpotlightTokens:   0,
-			AdversaryFeatures: append([]models.AdversaryFeature{}, template.AdversaryFeatures...),
-			DomainAbilities:   append([]models.DomainAbility{}, template.DomainAbilities...),
-			Resistances:       append([]models.Resistance{}, template.Resistances...),
-			Conditions:        make([]*models.ActiveCondition, 0),
-			Experience:        append([]models.ExperienceSkill{}, template.Experience...),
-			IsDefeated:        false,
-			IsFullyStressed:   false,
-		}
-
-		clones[i] = clone
+		clones[i] = models.CloneCombatant(template, template.ID)
 	}
-
 	return clones
-}
-
-// UnifiedDecisionMaker routes decisions based on combatant side
-type UnifiedDecisionMaker struct {
-	playerStrategy *strategy.AIDecisionMaker
-	enemyStrategy  *strategy.AIDecisionMaker
-}
-
-// ChooseAction selects action based on combatant side
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
-	if actor.Side == models.SidePlayer {
-		return udm.playerStrategy.ChooseAction(state, actor)
-	}
-	return udm.enemyStrategy.ChooseAction(state, actor)
 }
 
 // SimulationResult aggregates outcomes from multiple runs

@@ -173,7 +173,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 
 	// Trigger on_damage_taken features for the defender if damage was dealt
 	if damageRes.HPDamage > 0 && cr.featureResolver != nil {
-		cr.featureResolver.ProcessTriggeredFeatures(defender, attacker, state, "on_damage_taken", false)
+		cr.featureResolver.ProcessTriggeredFeatures(defender, attacker, state, models.TriggerOnDamageTaken, false)
 	}
 
 	return result

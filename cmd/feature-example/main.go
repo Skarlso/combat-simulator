@@ -53,7 +53,7 @@ func main() {
 		Description: "Attacks apply poison to the target",
 		Passive:     true,
 		Trigger: models.FeatureTriggerCondition{
-			Type: "on_attack",
+			Type: models.TriggerOnAttack,
 		},
 		FearCost:       0,
 		SpotlightLimit: 0,
@@ -78,7 +78,7 @@ func main() {
 		Description: "Sacrifices life force to deal direct damage",
 		Passive:     false,
 		Trigger: models.FeatureTriggerCondition{
-			Type: "on_attack",
+			Type: models.TriggerOnAttack,
 		},
 		FearCost:       2,
 		SpotlightLimit: 1,

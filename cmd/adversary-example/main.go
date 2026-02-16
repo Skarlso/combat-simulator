@@ -11,19 +11,6 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
-// UnifiedDecisionMaker routes decisions based on combatant side
-type UnifiedDecisionMaker struct {
-	playerStrategy *strategy.AIDecisionMaker
-	enemyStrategy  *strategy.AIDecisionMaker
-}
-
-// ChooseAction selects action based on combatant side
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
-	if actor.Side == models.SidePlayer {
-		return udm.playerStrategy.ChooseAction(state, actor)
-	}
-	return udm.enemyStrategy.ChooseAction(state, actor)
-}
 
 func main() {
 	fmt.Println("Daggerheart Combat Simulator - Adversary Feature Test")
@@ -77,34 +64,7 @@ func main() {
 
 	players := []*models.Combatant{player1, player2}
 
-	// Clone enemy for combat
-	enemyClone := &models.Combatant{
-		ID:                enemy.ID + "_clone",
-		Name:              enemy.Name,
-		Side:              enemy.Side,
-		Level:             enemy.Level,
-		HP:                enemy.HPMax,
-		HPMax:             enemy.HPMax,
-		Stress:            0,
-		StressMax:         enemy.StressMax,
-		Evasion:           enemy.Evasion,
-		Proficiency:       enemy.Proficiency,
-		ArmorSlots:        enemy.ArmorSlots,
-		DamageDice:        enemy.DamageDice,
-		Tier:              enemy.Tier,
-		AdversaryType:     enemy.AdversaryType,
-		Difficulty:        enemy.Difficulty,
-		ATK:               enemy.ATK,
-		Motives:           enemy.Motives,
-		Tactics:           enemy.Tactics,
-		CustomThresholds:  append([]int{}, enemy.CustomThresholds...),
-		Conditions:        make([]*models.ActiveCondition, 0),
-		Resistances:       append([]models.Resistance{}, enemy.Resistances...),
-		Experience:        append([]models.ExperienceSkill{}, enemy.Experience...),
-		AdversaryFeatures: append([]models.AdversaryFeature{}, enemy.AdversaryFeatures...),
-		DomainAbilities:   make([]models.DomainAbility, 0),
-	}
-
+	enemyClone := models.CloneCombatant(enemy, enemy.ID+"_clone")
 	enemies := []*models.Combatant{enemyClone}
 
 	// Run simulation
@@ -113,14 +73,7 @@ func main() {
 	spotlight := engine.NewHybridSpotlightSelector(rng, 0.5)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
 
-	playerStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultDesperateConfig())
-	enemyStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultGreedyConfig())
-
-	// Create unified decision maker
-	decisionMaker := &UnifiedDecisionMaker{
-		playerStrategy: playerStrategy,
-		enemyStrategy:  enemyStrategy,
-	}
+	decisionMaker := strategy.NewUnifiedDecisionMaker(rng, strategy.DefaultDesperateConfig(), strategy.DefaultGreedyConfig())
 
 	state := models.NewCombatState(players, enemies, 3, 2, 5)
 

@@ -107,62 +107,49 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 	return feature
 }
 
-// stringToEffectCategory converts string to FeatureEffectCategory
-func stringToEffectCategory(s string) models.FeatureEffectCategory {
-	switch s {
-	case "FeatureEffectDamage":
-		return models.FeatureEffectDamage
-	case "FeatureEffectDirectDamage":
-		return models.FeatureEffectDirectDamage
-	case "FeatureEffectApplyVulnerable":
-		return models.FeatureEffectApplyVulnerable
-	case "FeatureEffectApplyPoison":
-		return models.FeatureEffectApplyPoison
-	case "FeatureEffectApplyIgnite":
-		return models.FeatureEffectApplyIgnite
-	case "FeatureEffectApplyTaunt":
-		return models.FeatureEffectApplyTaunt
-	case "FeatureEffectApplyHidden":
-		return models.FeatureEffectApplyHidden
-	case "FeatureEffectStressInflict":
-		return models.FeatureEffectStressInflict
-	case "FeatureEffectStressClear":
-		return models.FeatureEffectStressClear
-	case "FeatureEffectHPHeal":
-		return models.FeatureEffectHPHeal
-	case "FeatureEffectArmorDamage":
-		return models.FeatureEffectArmorDamage
-	case "FeatureEffectHopeDrain":
-		return models.FeatureEffectHopeDrain
-	case "FeatureEffectFearGenerate":
-		return models.FeatureEffectFearGenerate
-	case "FeatureEffectDamageResistance":
-		return models.FeatureEffectDamageResistance
-	case "FeatureEffectDamageVulnerability":
-		return models.FeatureEffectDamageVulnerability
-	case "FeatureEffectSpotlightModifier":
-		return models.FeatureEffectSpotlightModifier
-	case "FeatureEffectAllySpotlight":
-		return models.FeatureEffectAllySpotlight
-	case "FeatureEffectSummonAllies":
-		return models.FeatureEffectSummonAllies
-	default:
-		return models.FeatureEffectDamage // Default fallback
-	}
+var effectCategoryMap = map[string]models.FeatureEffectCategory{
+	"FeatureEffectDamage":              models.FeatureEffectDamage,
+	"FeatureEffectDirectDamage":        models.FeatureEffectDirectDamage,
+	"FeatureEffectApplyVulnerable":     models.FeatureEffectApplyVulnerable,
+	"FeatureEffectApplyPoison":         models.FeatureEffectApplyPoison,
+	"FeatureEffectApplyIgnite":         models.FeatureEffectApplyIgnite,
+	"FeatureEffectApplyTaunt":          models.FeatureEffectApplyTaunt,
+	"FeatureEffectApplyHidden":         models.FeatureEffectApplyHidden,
+	"FeatureEffectStressInflict":       models.FeatureEffectStressInflict,
+	"FeatureEffectStressClear":         models.FeatureEffectStressClear,
+	"FeatureEffectHPHeal":              models.FeatureEffectHPHeal,
+	"FeatureEffectArmorDamage":         models.FeatureEffectArmorDamage,
+	"FeatureEffectHopeDrain":           models.FeatureEffectHopeDrain,
+	"FeatureEffectFearGenerate":        models.FeatureEffectFearGenerate,
+	"FeatureEffectDamageResistance":    models.FeatureEffectDamageResistance,
+	"FeatureEffectDamageVulnerability": models.FeatureEffectDamageVulnerability,
+	"FeatureEffectSpotlightModifier":   models.FeatureEffectSpotlightModifier,
+	"FeatureEffectAllySpotlight":       models.FeatureEffectAllySpotlight,
+	"FeatureEffectSummonAllies":        models.FeatureEffectSummonAllies,
+	"FeatureEffectTokenPlace":          models.FeatureEffectTokenPlace,
+	"FeatureEffectTokenSpend":          models.FeatureEffectTokenSpend,
+	"FeatureEffectAreaDamage":          models.FeatureEffectAreaDamage,
+	"FeatureEffectGrantArmor":          models.FeatureEffectGrantArmor,
+	"FeatureEffectDamageReduction":     models.FeatureEffectDamageReduction,
 }
 
-// stringToTargetType converts string to FeatureTargetType
-func stringToTargetType(s string) models.FeatureTargetType {
-	switch s {
-	case "self":
-		return models.FeatureTargetSelf
-	case "single":
-		return models.FeatureTargetSingle
-	case "aoe":
-		return models.FeatureTargetAOE
-	case "allies":
-		return models.FeatureTargetAllies
-	default:
-		return models.FeatureTargetSingle
+func stringToEffectCategory(s string) models.FeatureEffectCategory {
+	if cat, ok := effectCategoryMap[s]; ok {
+		return cat
 	}
+	return models.FeatureEffectDamage
+}
+
+var targetTypeMap = map[string]models.FeatureTargetType{
+	"self":   models.FeatureTargetSelf,
+	"single": models.FeatureTargetSingle,
+	"aoe":    models.FeatureTargetAOE,
+	"allies": models.FeatureTargetAllies,
+}
+
+func stringToTargetType(s string) models.FeatureTargetType {
+	if tt, ok := targetTypeMap[s]; ok {
+		return tt
+	}
+	return models.FeatureTargetSingle
 }

@@ -52,11 +52,11 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
 
 	// Process start-of-turn triggered features
-	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, "start_turn", false)
+	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerStartTurn, false)
 
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
-		state.RecordAction(actor, models.ActionPass, nil, "", "Stunned", 0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0, nil)
+		state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionPass, Result: "Stunned", SpotlightShift: true})
 		return nil
 	}
 
@@ -93,84 +93,52 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
 
 	// Process end-of-turn triggered features
-	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, "end_turn", false)
+	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerEndTurn, false)
 
 	return nil
 }
 
-// executeAbility activates a domain ability (player)
-// Returns error if ability failed (costs already paid if applicable)
-func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
-	// Use proper activation which handles costs, DC checks, tokens, etc.
-	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
-
+func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name string, err error, dcResult DCCheckResult, state *models.CombatState) {
 	result := "Success"
-	spotlightShift := dcResult.SpotlightShift // Start with Fear result spotlight shift
+	spotlightShift := dcResult.SpotlightShift
 
 	if err != nil {
 		result = fmt.Sprintf("Failed: %v", err)
-		// Failed DC check shifts spotlight (like a missed attack)
 		spotlightShift = true
 	}
 
-	// Record action with DC check and damage details
-	state.RecordActionWithFeature(
-		actor,
-		models.ActionUseAbility,
-		target,
-		ability.Name,
-		err == nil,
-		result,
-		dcResult.DamageRoll, dcResult.ProcessedDamage, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
-		dcResult.HopeDie,
-		dcResult.FearDie,
-		dcResult.D20Roll,
-		dcResult.TotalRoll,
-		dcResult.DC,
-		spotlightShift,
-		dcResult.HopeGenerated,
-		dcResult.FearGenerated,
-		dcResult.DamageResult,
-	)
+	state.RecordAction(models.ActionParams{
+		Actor:           actor,
+		ActionType:      models.ActionUseAbility,
+		Target:          target,
+		FeatureName:     name,
+		IsFeature:       err == nil,
+		Result:          result,
+		DamageRoll:      dcResult.DamageRoll,
+		ProcessedDamage: dcResult.ProcessedDamage,
+		HPDamage:        dcResult.DamageDealt,
+		Threshold:       dcResult.Threshold,
+		HopeDie:         dcResult.HopeDie,
+		FearDie:         dcResult.FearDie,
+		D20Roll:         dcResult.D20Roll,
+		TotalRoll:       dcResult.TotalRoll,
+		TargetDefense:   dcResult.DC,
+		SpotlightShift:  spotlightShift,
+		HopeGenerated:   dcResult.HopeGenerated,
+		FearGenerated:   dcResult.FearGenerated,
+		DamageResult:    dcResult.DamageResult,
+	})
+}
 
+func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
+	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
+	ce.recordActivation(actor, target, ability.Name, err, dcResult, state)
 	return err
 }
 
-// executeFeature activates an adversary feature (enemy)
-// Returns error if feature failed (costs already paid if applicable)
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) error {
-	// Use proper activation which handles costs, DC checks, spotlight limits, etc.
 	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(*feature, actor, target, state)
-
-	result := "Success"
-	spotlightShift := dcResult.SpotlightShift // Start with any spotlight shift from roll
-
-	if err != nil {
-		result = fmt.Sprintf("Failed: %v", err)
-		// Failed DC check shifts spotlight (like a missed attack)
-		spotlightShift = true
-	}
-
-	// Record action with DC check and damage details
-	state.RecordActionWithFeature(
-		actor,
-		models.ActionUseAbility,
-		target,
-		feature.Name,
-		err == nil,
-		result,
-		dcResult.DamageRoll, dcResult.ProcessedDamage, nil, 0, dcResult.DamageDealt, dcResult.Threshold,
-		dcResult.HopeDie,
-		dcResult.FearDie,
-		dcResult.D20Roll,
-		dcResult.TotalRoll,
-		dcResult.DC,
-		spotlightShift,
-		dcResult.HopeGenerated,
-		dcResult.FearGenerated,
-		dcResult.DamageResult,
-	)
-
+	ce.recordActivation(actor, target, feature.Name, err, dcResult, state)
 	return err
 }
 
@@ -181,7 +149,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	}
 
 	// Process on_attack triggered features BEFORE attack resolves
-	ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_attack", false)
+	ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnAttack, false)
 
 	// Use DamageDice notation, default to 1d6 if not set
 	damageDice := actor.DamageDice
@@ -193,7 +161,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 
 	// Process on_critical triggered features if attack was a critical
 	if result.CriticalResult {
-		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_critical", true)
+		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnCritical, true)
 	}
 
 	resultStr := "Miss"
@@ -201,7 +169,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	if result.Hit {
 		resultStr = "Hit"
 		// Process on_hit triggered features (e.g., spend Hope/Fear/Stress for bonus effects)
-		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, "on_hit", false)
+		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnHit, false)
 	} else {
 		// Miss causes spotlight to shift
 		spotlightShift = true
@@ -234,9 +202,26 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		fearDie = 0 // Enemies don't use fear die
 	}
 
-	state.RecordAction(actor, models.ActionAttack, target, "", resultStr,
-		result.DamageRoll, result.ProcessedDamage, result.DamageDice, result.DamageBonus, result.HPDamage, result.Threshold,
-		hopeDie, fearDie, totalRoll, target.GetDefense(), spotlightShift, hopeGenerated, fearGenerated, result.DamageResult)
+	state.RecordAction(models.ActionParams{
+		Actor:           actor,
+		ActionType:      models.ActionAttack,
+		Target:          target,
+		Result:          resultStr,
+		DamageRoll:      result.DamageRoll,
+		ProcessedDamage: result.ProcessedDamage,
+		DamageDice:      result.DamageDice,
+		DamageBonus:     result.DamageBonus,
+		HPDamage:        result.HPDamage,
+		Threshold:       result.Threshold,
+		HopeDie:         hopeDie,
+		FearDie:         fearDie,
+		TotalRoll:       totalRoll,
+		TargetDefense:   target.GetDefense(),
+		SpotlightShift:  spotlightShift,
+		HopeGenerated:   hopeGenerated,
+		FearGenerated:   fearGenerated,
+		DamageResult:    result.DamageResult,
+	})
 
 	return nil
 }
@@ -296,9 +281,12 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 			state.ConsecutivePlayerTurns = 0
 			// Record this special action with a system actor
 			gmAction := &models.Combatant{Name: "GM"}
-			state.RecordAction(gmAction, models.ActionPass, nil, "",
-				"Spends 1 Fear to grab spotlight (aggressive strategy)",
-				0, 0, nil, 0, 0, models.ThresholdMinor, 0, 0, 0, 0, true, 0, 0, nil)
+			state.RecordAction(models.ActionParams{
+				Actor:          gmAction,
+				ActionType:     models.ActionPass,
+				Result:         "Spends 1 Fear to grab spotlight (aggressive strategy)",
+				SpotlightShift: true,
+			})
 		}
 
 		// Determine next actor based on spotlight

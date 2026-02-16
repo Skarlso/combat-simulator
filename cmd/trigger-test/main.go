@@ -10,17 +10,6 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
-type UnifiedDecisionMaker struct {
-	playerStrategy *strategy.AIDecisionMaker
-	enemyStrategy  *strategy.AIDecisionMaker
-}
-
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
-	if actor.Side == models.SidePlayer {
-		return udm.playerStrategy.ChooseAction(state, actor)
-	}
-	return udm.enemyStrategy.ChooseAction(state, actor)
-}
 
 func main() {
 	fmt.Println("=== Domain Ability Trigger Test ===")
@@ -47,7 +36,7 @@ func main() {
 					Description: "When you take damage, mark stress on your attacker",
 					Passive:     true,
 					Trigger: models.FeatureTriggerCondition{
-						Type:   "on_damage_taken",
+						Type:   models.TriggerOnDamageTaken,
 						Filter: "",
 					},
 					HopeCost:    0, // Reactive abilities should be free
@@ -93,13 +82,7 @@ func main() {
 	spotlight := engine.NewHybridSpotlightSelector(rng, 0.5)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
 
-	playerStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultDesperateConfig())
-	enemyStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultConservativeConfig())
-
-	decisionMaker := &UnifiedDecisionMaker{
-		playerStrategy: playerStrategy,
-		enemyStrategy:  enemyStrategy,
-	}
+	decisionMaker := strategy.NewUnifiedDecisionMaker(rng, strategy.DefaultDesperateConfig(), strategy.DefaultConservativeConfig())
 
 	fmt.Println("Initial State:")
 	fmt.Printf("  %s: %d/%d HP, %d/%d Stress\n", players[0].Name, players[0].HP, players[0].HPMax, players[0].Stress, players[0].StressMax)

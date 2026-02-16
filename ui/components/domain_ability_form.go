@@ -249,7 +249,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 								Value(daf.newHopeCost).
 								Min(0).
 								Max(10).
-								OnInput(daf.handleIntInput(&daf.newHopeCost)),
+								OnInput(handleIntInput(&daf.newHopeCost)),
 						),
 					app.Div().
 						Class("form-group").
@@ -260,7 +260,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 								Value(daf.newStressCost).
 								Min(0).
 								Max(5).
-								OnInput(daf.handleIntInput(&daf.newStressCost)),
+								OnInput(handleIntInput(&daf.newStressCost)),
 						),
 				),
 			app.Div().
@@ -292,7 +292,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 									Value(daf.newMaxUses).
 									Min(0).
 									Max(10).
-									OnInput(daf.handleIntInput(&daf.newMaxUses)),
+									OnInput(handleIntInput(&daf.newMaxUses)),
 							)
 					}),
 				),
@@ -322,7 +322,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							Value(daf.newFixedDC).
 							Min(1).
 							Max(30).
-							OnInput(daf.handleIntInput(&daf.newFixedDC)),
+							OnInput(handleIntInput(&daf.newFixedDC)),
 					)
 			}),
 			app.H5().Text("Token Configuration"),
@@ -365,7 +365,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 									Value(daf.newTokensMax).
 									Min(0).
 									Max(20).
-									OnInput(daf.handleIntInput(&daf.newTokensMax)),
+									OnInput(handleIntInput(&daf.newTokensMax)),
 							),
 					)
 			}),
@@ -420,10 +420,10 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							Value(daf.newMagnitude).
 							Min(1).
 							Max(10).
-							OnInput(daf.handleIntInput(&daf.newMagnitude)),
+							OnInput(handleIntInput(&daf.newMagnitude)),
 					)
 			}),
-			app.If(daf.needsDamageType(), func() app.UI {
+			app.If(needsDamageType(daf.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -438,7 +438,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							),
 					)
 			}),
-			app.If(daf.needsDuration(), func() app.UI {
+			app.If(needsDuration(daf.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -497,62 +497,10 @@ func (daf *DomainAbilityForm) needsMagnitude() bool {
 		daf.newEffectType == "token_spend"
 }
 
-func (daf *DomainAbilityForm) needsDamageType() bool {
-	return daf.newEffectType == "damage" || daf.newEffectType == "direct_damage" || daf.newEffectType == "resistance" || daf.newEffectType == "immunity"
-}
-
-func (daf *DomainAbilityForm) needsDuration() bool {
-	return daf.newEffectType == "apply_vulnerable" || daf.newEffectType == "apply_poison"
-}
-
-// handleIntInput creates an input handler for integer fields
-func (daf *DomainAbilityForm) handleIntInput(target *int) func(app.Context, app.Event) {
-	return func(ctx app.Context, e app.Event) {
-		value := ctx.JSSrc().Get("valueAsNumber").Int()
-		*target = value
-	}
-}
 
 // addAbility creates and adds a new ability
 func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
-	// Create the effect based on type
-	var effectCategory models.FeatureEffectCategory
-	switch daf.newEffectType {
-	case "damage":
-		effectCategory = models.FeatureEffectDamage
-	case "direct_damage":
-		// NOTE: Direct damage is adversary-only, not available in player UI dropdown
-		// Kept for defensive programming (e.g., JSON imports)
-		effectCategory = models.FeatureEffectDirectDamage
-	case "area_damage":
-		effectCategory = models.FeatureEffectAreaDamage
-	case "heal":
-		effectCategory = models.FeatureEffectHPHeal
-	case "stress_inflict":
-		effectCategory = models.FeatureEffectStressInflict
-	case "stress_clear":
-		effectCategory = models.FeatureEffectStressClear
-	case "apply_vulnerable":
-		effectCategory = models.FeatureEffectApplyVulnerable
-	case "apply_poison":
-		effectCategory = models.FeatureEffectApplyPoison
-	case "armor_damage":
-		effectCategory = models.FeatureEffectArmorDamage
-	case "grant_armor":
-		effectCategory = models.FeatureEffectGrantArmor
-	case "damage_reduction":
-		effectCategory = models.FeatureEffectDamageReduction
-	case "token_place":
-		effectCategory = models.FeatureEffectTokenPlace
-	case "token_spend":
-		effectCategory = models.FeatureEffectTokenSpend
-	case "resistance":
-		effectCategory = models.FeatureEffectDamageResistance
-	case "immunity":
-		effectCategory = models.FeatureEffectDamageResistance // Same category, but magnitude will be different
-	default:
-		effectCategory = models.FeatureEffectDamage
-	}
+	effectCategory := resolveEffectCategory(daf.newEffectType)
 
 	// Set magnitude based on effect type
 	magnitude := daf.newMagnitude
@@ -576,7 +524,7 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		Description: daf.newDescription,
 		Passive:     daf.newPassive,
 		Trigger: models.FeatureTriggerCondition{
-			Type:   daf.newTriggerType,
+			Type:   models.FeatureTriggerType(daf.newTriggerType),
 			Filter: daf.newTriggerFilter,
 		},
 		HopeCost:    daf.newHopeCost,

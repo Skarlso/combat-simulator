@@ -10,17 +10,6 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
-type UnifiedDecisionMaker struct {
-	playerStrategy *strategy.AIDecisionMaker
-	enemyStrategy  *strategy.AIDecisionMaker
-}
-
-func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *strategy.ActionDecision {
-	if actor.Side == models.SidePlayer {
-		return udm.playerStrategy.ChooseAction(state, actor)
-	}
-	return udm.enemyStrategy.ChooseAction(state, actor)
-}
 
 func main() {
 	fmt.Println("Testing Aggressive Fear Usage Mechanic")
@@ -80,13 +69,7 @@ func main() {
 	spotlight := engine.NewHybridSpotlightSelector(rng, 0.5)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
 
-	playerStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultDesperateConfig())
-	enemyStrategy := strategy.NewAIDecisionMaker(rng, strategy.DefaultGreedyConfig()) // Aggressive
-
-	decisionMaker := &UnifiedDecisionMaker{
-		playerStrategy: playerStrategy,
-		enemyStrategy:  enemyStrategy,
-	}
+	decisionMaker := strategy.NewUnifiedDecisionMaker(rng, strategy.DefaultDesperateConfig(), strategy.DefaultGreedyConfig())
 
 	// Run combat with aggressive Fear usage
 	fmt.Println("\n=== Running Combat ===")

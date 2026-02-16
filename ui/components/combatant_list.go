@@ -129,7 +129,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newLevel).
 								Min(1).
 								Max(10).
-								OnInput(cl.handleIntInput(&cl.newLevel)),
+								OnInput(handleIntInput(&cl.newLevel)),
 						),
 					app.Div().
 						Class("form-group").
@@ -140,7 +140,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newHP).
 								Min(1).
 								Max(50).
-								OnInput(cl.handleIntInput(&cl.newHP)),
+								OnInput(handleIntInput(&cl.newHP)),
 						),
 					app.Div().
 						Class("form-group").
@@ -151,7 +151,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newEvasion).
 								Min(1).
 								Max(20).
-								OnInput(cl.handleIntInput(&cl.newEvasion)),
+								OnInput(handleIntInput(&cl.newEvasion)),
 						),
 				),
 			app.Div().
@@ -166,7 +166,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newProficiency).
 								Min(0).
 								Max(5).
-								OnInput(cl.handleIntInput(&cl.newProficiency)),
+								OnInput(handleIntInput(&cl.newProficiency)),
 						),
 				),
 			app.Div().
@@ -181,7 +181,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newStress).
 								Min(1).
 								Max(10).
-								OnInput(cl.handleIntInput(&cl.newStress)),
+								OnInput(handleIntInput(&cl.newStress)),
 						),
 					app.Div().
 						Class("form-group").
@@ -192,7 +192,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newArmor).
 								Min(0).
 								Max(5).
-								OnInput(cl.handleIntInput(&cl.newArmor)),
+								OnInput(handleIntInput(&cl.newArmor)),
 						),
 				),
 			app.Div().
@@ -219,7 +219,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newMinorThreshold).
 								Min(1).
 								Max(20).
-								OnInput(cl.handleIntInput(&cl.newMinorThreshold)),
+								OnInput(handleIntInput(&cl.newMinorThreshold)),
 						),
 					app.Div().
 						Class("form-group").
@@ -230,7 +230,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								Value(cl.newMajorThreshold).
 								Min(1).
 								Max(30).
-								OnInput(cl.handleIntInput(&cl.newMajorThreshold)),
+								OnInput(handleIntInput(&cl.newMajorThreshold)),
 						),
 				),
 			&DomainAbilityForm{
@@ -261,13 +261,6 @@ func (cl *CombatantList) renderAddForm() app.UI {
 		)
 }
 
-// handleIntInput creates an input handler for integer fields
-func (cl *CombatantList) handleIntInput(target *int) func(app.Context, app.Event) {
-	return func(ctx app.Context, e app.Event) {
-		value := ctx.JSSrc().Get("valueAsNumber").Int()
-		*target = value
-	}
-}
 
 // addCombatant creates a new combatant and adds it to the list
 func (cl *CombatantList) addCombatant(ctx app.Context) {

@@ -466,9 +466,21 @@ func (ai *AIDecisionMaker) canAffordFeature(state *models.CombatState, feature *
 	return feature.FearCost <= state.FearPool
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
+type UnifiedDecisionMaker struct {
+	playerStrategy *AIDecisionMaker
+	enemyStrategy  *AIDecisionMaker
+}
+
+func NewUnifiedDecisionMaker(rng *rand.Rand, playerConfig, enemyConfig StrategyConfig) *UnifiedDecisionMaker {
+	return &UnifiedDecisionMaker{
+		playerStrategy: NewAIDecisionMaker(rng, playerConfig),
+		enemyStrategy:  NewAIDecisionMaker(rng, enemyConfig),
 	}
-	return b
+}
+
+func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {
+	if actor.Side == models.SidePlayer {
+		return udm.playerStrategy.ChooseAction(state, actor)
+	}
+	return udm.enemyStrategy.ChooseAction(state, actor)
 }
