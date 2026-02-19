@@ -70,23 +70,25 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		}
 	}
 
-	// Default to 1d6 if no dice found
 	if diceCount == 0 {
 		diceCount = 1
 		diceSize = 6
 	}
 
-	// Players use duality dice, enemies use d20
+	if !attacker.IsAdversary && attacker.Proficiency > 0 {
+		diceCount = attacker.Proficiency
+	}
+
 	if attacker.Side == models.SidePlayer {
-		// Player attack - use duality dice
 		hopeModifier := attacker.GetAttackBonus()
 		fearModifier := 0
 
-		// Check for advantage/disadvantage from conditions
-		if attacker.HasCondition(models.ConditionAdvantage) {
+		hasAdv := attacker.HasCondition(models.ConditionAdvantage) || defender.HasCondition(models.ConditionVulnerable)
+		hasDisadv := attacker.HasCondition(models.ConditionDisadvantage) || defender.HasCondition(models.ConditionHidden)
+
+		if hasAdv && !hasDisadv {
 			hopeModifier += cr.dice.RollD6()
-		}
-		if attacker.HasCondition(models.ConditionDisadvantage) {
+		} else if hasDisadv && !hasAdv {
 			hopeModifier -= cr.dice.RollD6()
 		}
 		if attacker.IsFullyStressed {
@@ -126,8 +128,14 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 			result.Hit = true
 		}
 	} else {
-		// Enemy attack - use d20
 		attackModifier := attacker.GetAttackBonus()
+		hasAdv := defender.HasCondition(models.ConditionVulnerable)
+		hasDisadv := defender.HasCondition(models.ConditionHidden)
+		if hasAdv && !hasDisadv {
+			attackModifier += cr.dice.RollD6()
+		} else if hasDisadv && !hasAdv {
+			attackModifier -= cr.dice.RollD6()
+		}
 		d20Roll := cr.dice.RollD20Attack(attackModifier)
 		result.D20Result = d20Roll
 		result.AttackRoll = d20Roll.Total

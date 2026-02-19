@@ -1,5 +1,10 @@
 package models
 
+type GMTurnState struct {
+	Active         bool
+	SpotlightedIDs map[string]int
+}
+
 // CombatState tracks the current state of an encounter
 type CombatState struct {
 	// Participants
@@ -15,14 +20,17 @@ type CombatState struct {
 	TurnNumber             int
 	CurrentActor           *Combatant
 	ActionHistory          []ActionRecord
-	ConsecutivePlayerTurns int // Track consecutive player turns for aggressive Fear usage
+	ConsecutivePlayerTurns int
+
+	// GM turn state
+	GMTurn GMTurnState
 
 	// Configuration
 	SpotlightThreshold int
 
 	// Summoning support
-	SummonCounter  int            // Counter for generating unique summon IDs
-	SummonedCounts map[string]int // Track how many of each type summoned for naming
+	SummonCounter  int
+	SummonedCounts map[string]int
 }
 
 // ActionRecord logs what happened during combat
@@ -154,9 +162,16 @@ func (cs *CombatState) IsCombatOver() bool {
 	return cs.IsPlayerVictory() || cs.IsEnemyVictory()
 }
 
-// AddHope adds to Hope pool
+const (
+	MaxHopePool = 6
+	MaxFearPool = 12
+)
+
 func (cs *CombatState) AddHope(amount int) {
 	cs.HopePool += amount
+	if cs.HopePool > MaxHopePool {
+		cs.HopePool = MaxHopePool
+	}
 }
 
 // SpendHope deducts from Hope pool
@@ -168,9 +183,11 @@ func (cs *CombatState) SpendHope(amount int) bool {
 	return false
 }
 
-// AddFear adds to Fear pool
 func (cs *CombatState) AddFear(amount int) {
 	cs.FearPool += amount
+	if cs.FearPool > MaxFearPool {
+		cs.FearPool = MaxFearPool
+	}
 }
 
 // SpendFear deducts from Fear pool
@@ -264,6 +281,32 @@ func (cs *CombatState) IncrementTurn() {
 // IncrementRound advances round counter
 func (cs *CombatState) IncrementRound() {
 	cs.RoundNumber++
+}
+
+func (cs *CombatState) BeginGMTurn() {
+	cs.GMTurn = GMTurnState{
+		Active:         true,
+		SpotlightedIDs: make(map[string]int),
+	}
+}
+
+func (cs *CombatState) EndGMTurn() {
+	cs.GMTurn.Active = false
+	cs.GMTurn.SpotlightedIDs = nil
+}
+
+func (cs *CombatState) RecordAdversarySpotlight(id string) {
+	if cs.GMTurn.SpotlightedIDs == nil {
+		cs.GMTurn.SpotlightedIDs = make(map[string]int)
+	}
+	cs.GMTurn.SpotlightedIDs[id]++
+}
+
+func (cs *CombatState) AdversarySpotlightCount(id string) int {
+	if cs.GMTurn.SpotlightedIDs == nil {
+		return 0
+	}
+	return cs.GMTurn.SpotlightedIDs[id]
 }
 
 // SummonCombatant adds a new enemy combatant mid-combat

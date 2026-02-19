@@ -46,7 +46,7 @@ type SimulationConfig struct {
 func DefaultSimulationConfig() SimulationConfig {
 	return SimulationConfig{
 		RunCount:              100,
-		InitialHopePool:       5,
+		InitialHopePool:       2,
 		InitialFearPool:       5,
 		SpotlightThreshold:    3,
 		SpotlightWeightFactor: 0.2,

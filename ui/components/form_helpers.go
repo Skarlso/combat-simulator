@@ -37,6 +37,29 @@ func resolveEffectCategory(effectType string) models.FeatureEffectCategory {
 	return models.FeatureEffectDamage
 }
 
+func reverseEffectCategory(cat models.FeatureEffectCategory) string {
+	for key, val := range uiEffectCategoryMap {
+		if val == cat {
+			return key
+		}
+	}
+	return "damage"
+}
+
+func renderAccordionHeader(label string, open bool, toggle func(app.Context, app.Event)) app.UI {
+	indicatorClass := "accordion-indicator"
+	if open {
+		indicatorClass += " open"
+	}
+	return app.Div().
+		Class("accordion-header").
+		OnClick(toggle).
+		Body(
+			app.H5().Text(label),
+			app.Span().Class(indicatorClass).Text("\u25B6"),
+		)
+}
+
 func needsDamageType(effectType string) bool {
 	return effectType == "damage" || effectType == "direct_damage" || effectType == "resistance" || effectType == "immunity"
 }

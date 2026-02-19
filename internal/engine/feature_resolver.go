@@ -159,11 +159,14 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 		hopeModifier := actor.GetAttackBonus()
 		fearModifier := 0
 
-		// Check for advantage/disadvantage
-		if actor.HasCondition(models.ConditionAdvantage) {
+		hasAdv := actor.HasCondition(models.ConditionAdvantage) ||
+			(target != nil && target.HasCondition(models.ConditionVulnerable))
+		hasDisadv := actor.HasCondition(models.ConditionDisadvantage) ||
+			(target != nil && target.HasCondition(models.ConditionHidden))
+
+		if hasAdv && !hasDisadv {
 			hopeModifier += fr.dice.RollD6()
-		}
-		if actor.HasCondition(models.ConditionDisadvantage) {
+		} else if hasDisadv && !hasAdv {
 			hopeModifier -= fr.dice.RollD6()
 		}
 		if actor.IsFullyStressed {
@@ -182,26 +185,34 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 			state.AddHope(1)
 			result.HopeGenerated = 1
 		}
-		if dualityRoll.Result == models.ResultFear || dualityRoll.Result == models.ResultCriticalFear {
+		if dualityRoll.Result == models.ResultFear {
 			state.AddFear(1)
 			result.FearGenerated = 1
 			result.SpotlightShift = true // Fear result shifts spotlight
 		}
 
-		// Critical success always succeeds
 		if dualityRoll.IsCritical {
 			result.Success = true
+			actor.ClearStress(1)
 			return result
 		}
 
-		// Check if roll beats DC
 		result.Success = dualityRoll.WithSpirit >= dc
+		if !result.Success {
+			result.SpotlightShift = true
+		}
 		return result
 
 	} else {
-		// Enemy uses d20 + ATK
 		roll := fr.dice.RollDice(1, 20)
 		attackBonus := actor.GetAttackBonus()
+		hasAdvEnemy := target != nil && target.HasCondition(models.ConditionVulnerable)
+		hasDisadvEnemy := target != nil && target.HasCondition(models.ConditionHidden)
+		if hasAdvEnemy && !hasDisadvEnemy {
+			attackBonus += fr.dice.RollD6()
+		} else if hasDisadvEnemy && !hasAdvEnemy {
+			attackBonus -= fr.dice.RollD6()
+		}
 		totalRoll := roll + attackBonus
 
 		result.D20Roll = roll
@@ -218,10 +229,6 @@ func (fr *FeatureResolver) CanActivateAdversaryFeature(feature models.AdversaryF
 	}
 
 	if feature.StressCost > 0 && (actor.Stress+feature.StressCost) > actor.StressMax {
-		return false
-	}
-
-	if feature.SpotlightLimit > 0 && actor.SpotlightTokens >= feature.SpotlightLimit {
 		return false
 	}
 

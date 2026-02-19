@@ -186,7 +186,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	if actor.Side == models.SidePlayer {
 		hopeDie = result.DualityResult.HopeDie
 		fearDie = result.DualityResult.FearDie
-		if result.DualityResult.Result == models.ResultFear || result.DualityResult.Result == models.ResultCriticalFear {
+		if result.DualityResult.Result == models.ResultFear {
 			spotlightShift = true
 		}
 		// Track Hope/Fear generation (always 1 per roll, even on critical)
@@ -226,117 +226,181 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	return nil
 }
 
-// DetermineNextActor chooses who acts next based on Daggerheart spotlight rules
-// Returns (next actor, should shift spotlight)
-func (ce *CombatEngine) DetermineNextActor(state *models.CombatState, lastActorSide models.Side, spotlightShifted bool) (*models.Combatant, bool) {
-	var candidates []*models.Combatant
-
-	// If spotlight shifted, switch sides
-	if spotlightShifted {
-		if lastActorSide == models.SidePlayer {
-			candidates = state.GetAliveEnemies()
-		} else {
-			candidates = state.GetAlivePlayers()
-		}
-	} else {
-		// No shift - same side keeps spotlight
-		if lastActorSide == models.SidePlayer {
-			candidates = state.GetAlivePlayers()
-		} else {
-			candidates = state.GetAliveEnemies()
-		}
+func (ce *CombatEngine) chooseNextPlayer(state *models.CombatState) *models.Combatant {
+	players := state.GetAlivePlayers()
+	if len(players) == 0 {
+		return nil
 	}
-
-	if len(candidates) == 0 {
-		return nil, false
-	}
-
-	// For now, pick randomly from candidates
-	// TODO: Add strategic selection
-	next := candidates[ce.dice.RollDice(1, len(candidates))-1]
-	state.CurrentActor = next
-
-	return next, spotlightShifted
+	return ce.spotlight.ChooseNext(players, state.SpotlightThreshold)
 }
 
-// RunCombat executes full combat until victory/defeat
+func (ce *CombatEngine) chooseGMAdversary(state *models.CombatState) *models.Combatant {
+	eligible := ce.getEligibleAdversaries(state)
+	if len(eligible) == 0 {
+		return nil
+	}
+	return ce.spotlight.ChooseNext(eligible, 0)
+}
+
+func (ce *CombatEngine) getEligibleAdversaries(state *models.CombatState) []*models.Combatant {
+	alive := state.GetAliveEnemies()
+	eligible := make([]*models.Combatant, 0, len(alive))
+	for _, e := range alive {
+		if state.AdversarySpotlightCount(e.ID) < e.MaxSpotlightsPerGMTurn() {
+			eligible = append(eligible, e)
+		}
+	}
+	return eligible
+}
+
+func (ce *CombatEngine) shouldGMSeizeSpotlight(state *models.CombatState, fearUsage strategy.ResourceUsageStrategy) bool {
+	if state.FearPool < 1 || len(state.GetAliveEnemies()) == 0 {
+		return false
+	}
+
+	consecutive := state.ConsecutivePlayerTurns
+
+	switch fearUsage {
+	case strategy.ResourceGreedy:
+		return consecutive >= 3
+	case strategy.ResourceConservative:
+		return consecutive >= 5
+	case strategy.ResourceDesperate:
+		return false
+	case strategy.ResourceRandom:
+		return consecutive >= 3 && ce.dice.RollDice(1, 2) == 1
+	case strategy.ResourceClever:
+		if consecutive >= 3 && state.FearPool >= 3 {
+			return true
+		}
+		return consecutive >= 4
+	default:
+		return consecutive >= 3
+	}
+}
+
+func (ce *CombatEngine) shouldSpendFearForAdditional(state *models.CombatState, fearUsage strategy.ResourceUsageStrategy) bool {
+	if state.FearPool < 1 || len(ce.getEligibleAdversaries(state)) == 0 {
+		return false
+	}
+
+	switch fearUsage {
+	case strategy.ResourceGreedy:
+		return true
+	case strategy.ResourceConservative:
+		return state.FearPool > 3
+	case strategy.ResourceDesperate:
+		return len(state.GetAlivePlayers()) > len(state.GetAliveEnemies())
+	case strategy.ResourceRandom:
+		return ce.dice.RollDice(1, 2) == 1
+	case strategy.ResourceClever:
+		return state.FearPool > 4 || len(state.GetAlivePlayers()) > len(state.GetAliveEnemies())
+	default:
+		return false
+	}
+}
+
+func (ce *CombatEngine) executeAdversarySpotlight(enemy *models.Combatant, state *models.CombatState, dm DecisionMaker) bool {
+	state.CurrentActor = enemy
+	enemy.AddSpotlightToken()
+
+	decision := dm.ChooseAction(state, enemy)
+	if decision.Target == nil {
+		return false
+	}
+
+	ce.ExecuteTurnWithDecision(enemy, decision, state)
+	enemy.ResetSpotlightTokens()
+	state.RecordAdversarySpotlight(enemy.ID)
+	state.IncrementTurn()
+	return true
+}
+
 func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker DecisionMaker, maxTurns int, enemyFearUsage strategy.ResourceUsageStrategy) *CombatOutcome {
 	turnCount := 0
 	roundCount := 0
 
-	// Players start with spotlight
-	currentSide := models.SidePlayer
-	spotlightShifted := false
-
 	for !state.IsCombatOver() && turnCount < maxTurns {
-		// Check for aggressive Fear usage: if players have gone more than 3 times in a row,
-		// GM can spend 1 Fear to grab spotlight
-		if state.ConsecutivePlayerTurns > 3 &&
-			enemyFearUsage == strategy.ResourceGreedy &&
-			state.FearPool >= 1 &&
-			len(state.GetAliveEnemies()) > 0 {
-			// Force spotlight grab using Fear
-			state.SpendFear(1)
-			spotlightShifted = true
-			state.ConsecutivePlayerTurns = 0
-			// Record this special action with a system actor
-			gmAction := &models.Combatant{Name: "GM"}
-			state.RecordAction(models.ActionParams{
-				Actor:          gmAction,
-				ActionType:     models.ActionPass,
-				Result:         "Spends 1 Fear to grab spotlight (aggressive strategy)",
-				SpotlightShift: true,
-			})
+		// === PLAYER PHASE ===
+		for !state.IsCombatOver() && turnCount < maxTurns {
+			if ce.shouldGMSeizeSpotlight(state, enemyFearUsage) {
+				state.SpendFear(1)
+				state.ConsecutivePlayerTurns = 0
+				gmActor := &models.Combatant{Name: "GM"}
+				state.RecordAction(models.ActionParams{
+					Actor:          gmActor,
+					ActionType:     models.ActionPass,
+					Result:         "Spends 1 Fear to seize spotlight",
+					SpotlightShift: true,
+				})
+				break
+			}
+
+			player := ce.chooseNextPlayer(state)
+			if player == nil {
+				break
+			}
+
+			state.CurrentActor = player
+			player.AddSpotlightToken()
+
+			decision := decisionMaker.ChooseAction(state, player)
+			if decision.Target == nil {
+				break
+			}
+
+			actionsBeforeTurn := len(state.ActionHistory)
+			ce.ExecuteTurnWithDecision(player, decision, state)
+			player.ResetSpotlightTokens()
+			state.IncrementTurn()
+			turnCount++
+			state.ConsecutivePlayerTurns++
+
+			spotlightShifted := false
+			for i := actionsBeforeTurn; i < len(state.ActionHistory); i++ {
+				if state.ActionHistory[i].SpotlightShift {
+					spotlightShifted = true
+					break
+				}
+			}
+
+			if spotlightShifted {
+				break
+			}
 		}
 
-		// Determine next actor based on spotlight
-		actor, _ := ce.DetermineNextActor(state, currentSide, spotlightShifted)
-		if actor == nil {
+		if state.IsCombatOver() || turnCount >= maxTurns {
 			break
 		}
 
-		// Update current side and track consecutive player turns
-		currentSide = actor.Side
-		if actor.Side == models.SidePlayer {
-			state.ConsecutivePlayerTurns++
-		} else {
-			state.ConsecutivePlayerTurns = 0
+		// === GM TURN ===
+		if len(state.GetAliveEnemies()) == 0 {
+			continue
 		}
 
-		// AI chooses action
-		decision := decisionMaker.ChooseAction(state, actor)
-		if decision.Target == nil {
-			break // No valid target
+		state.BeginGMTurn()
+		state.ConsecutivePlayerTurns = 0
+
+		firstEnemy := ce.chooseGMAdversary(state)
+		if firstEnemy != nil {
+			ce.executeAdversarySpotlight(firstEnemy, state, decisionMaker)
+			turnCount++
 		}
 
-		// Store action history length before action
-		actionsBeforeTurn := len(state.ActionHistory)
-
-		// Execute turn based on decision
-		ce.ExecuteTurnWithDecision(actor, decision, state)
-
-		// Check if spotlight shifted based on last action
-		spotlightShifted = false
-		if len(state.ActionHistory) > actionsBeforeTurn {
-			lastAction := state.ActionHistory[len(state.ActionHistory)-1]
-			spotlightShifted = lastAction.SpotlightShift
+		for !state.IsCombatOver() && turnCount < maxTurns &&
+			ce.shouldSpendFearForAdditional(state, enemyFearUsage) {
+			state.SpendFear(1)
+			nextEnemy := ce.chooseGMAdversary(state)
+			if nextEnemy == nil {
+				break
+			}
+			ce.executeAdversarySpotlight(nextEnemy, state, decisionMaker)
+			turnCount++
 		}
 
-		// Enemy turn logic: enemy gets ONE turn, then spotlight automatically goes to players
-		// (unless enemy has Relentless feature - not implemented yet)
-		if actor.Side == models.SideEnemy && !spotlightShifted {
-			// Enemy had a turn without causing shift - force spotlight back to players
-			spotlightShifted = true
-		}
-
-		state.IncrementTurn()
-		turnCount++
-
-		// Track rounds (every 2 turns approximately)
-		if turnCount%2 == 0 {
-			state.IncrementRound()
-			roundCount++
-		}
+		state.EndGMTurn()
+		state.IncrementRound()
+		roundCount++
 	}
 
 	outcome := &CombatOutcome{
@@ -349,7 +413,6 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		ActionHistory: state.ActionHistory,
 	}
 
-	// Gather survivor stats
 	for _, p := range state.Players {
 		if p.IsAlive() {
 			outcome.SurvivingPlayers = append(outcome.SurvivingPlayers, p.Name)

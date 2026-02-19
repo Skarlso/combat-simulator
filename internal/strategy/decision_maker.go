@@ -99,18 +99,52 @@ func DefaultRandomConfig() StrategyConfig {
 	}
 }
 
-// ChooseAction selects an action (feature or basic attack) and target
-// Returns ActionDecision with target and optional feature choice
 func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {
-	// Select target based on strategy
+	if ai.shouldClearCondition(actor) {
+		return &ActionDecision{Target: actor}
+	}
+
 	target := ai.selectTarget(state, actor)
 	if target == nil {
 		return &ActionDecision{Target: nil}
 	}
 
-	// Evaluate features vs basic attack
 	decision := ai.evaluateBestAction(state, actor, target)
 	return decision
+}
+
+func (ai *AIDecisionMaker) shouldClearCondition(actor *models.Combatant) bool {
+	if len(actor.Conditions) == 0 {
+		return false
+	}
+
+	hasHarmful := actor.HasCondition(models.ConditionBurning) ||
+		actor.HasCondition(models.ConditionPoisoned) ||
+		actor.HasCondition(models.ConditionVulnerable) ||
+		actor.HasCondition(models.ConditionRestrained)
+
+	if !hasHarmful {
+		return false
+	}
+
+	switch ai.ConditionClearing {
+	case ClearImmediately:
+		return true
+	case ClearWhenSafe:
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		return hpPercent > 50
+	case ClearProbabilistic:
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		threshold := 60
+		if hpPercent < 30 {
+			threshold = 80
+		}
+		return ai.rng.Intn(100) < threshold
+	case ClearNever:
+		return false
+	default:
+		return false
+	}
 }
 
 // selectTarget chooses a target from enemies
@@ -181,16 +215,21 @@ func (ai *AIDecisionMaker) calculateThreat(combatant *models.Combatant) int {
 	return threat
 }
 
-// evaluateBestAction compares features vs basic attack and returns the best choice
 func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *models.Combatant, target *models.Combatant) *ActionDecision {
-	bestValue := ai.evaluateBasicAttack(actor, target)
-	decision := &ActionDecision{Target: target} // Default: basic attack
+	if !ai.shouldUseAbilities(state, actor) {
+		return &ActionDecision{Target: target}
+	}
 
-	// Evaluate player domain abilities
+	bestValue := ai.evaluateBasicAttack(actor, target)
+	decision := &ActionDecision{Target: target}
+
 	if actor.Side == models.SidePlayer {
 		for i := range actor.DomainAbilities {
 			ability := &actor.DomainAbilities[i]
 			if !ai.canAffordAbility(state, actor, ability) {
+				continue
+			}
+			if !ai.shouldSpendResources(state, actor, ability.HopeCost, ability.StressCost) {
 				continue
 			}
 
@@ -203,11 +242,13 @@ func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *
 		}
 	}
 
-	// Evaluate enemy adversary features
 	if actor.Side == models.SideEnemy {
 		for i := range actor.AdversaryFeatures {
 			feature := &actor.AdversaryFeatures[i]
 			if !ai.canAffordFeature(state, feature) {
+				continue
+			}
+			if !ai.shouldSpendResources(state, actor, feature.FearCost, feature.StressCost) {
 				continue
 			}
 
@@ -223,20 +264,60 @@ func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *
 	return decision
 }
 
-// evaluateBasicAttack estimates expected value of a basic attack
-func (ai *AIDecisionMaker) evaluateBasicAttack(actor *models.Combatant, target *models.Combatant) float64 {
-	// Estimate average damage from actor's damage dice
-	avgDamage := ai.estimateAverageDamage(actor.DamageDice)
+func (ai *AIDecisionMaker) shouldUseAbilities(state *models.CombatState, actor *models.Combatant) bool {
+	switch ai.AbilityUsage {
+	case AbilityNever:
+		return false
+	case AbilityAlways:
+		return true
+	case AbilitySparingly:
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		return hpPercent < ai.LowHPThreshold || len(state.GetEnemiesOf(actor)) <= 1
+	case AbilityContextual:
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		if hpPercent < ai.LowHPThreshold {
+			return true
+		}
+		return ai.rng.Intn(100) < 60
+	default:
+		return true
+	}
+}
 
-	// Factor in hit chance (rough estimate based on proficiency vs defense)
-	hitChance := 0.6 // Base 60% hit chance
-	if actor.Proficiency > target.GetDefense() {
-		hitChance = 0.75
-	} else if actor.Proficiency < target.GetDefense()-3 {
-		hitChance = 0.45
+func (ai *AIDecisionMaker) shouldSpendResources(state *models.CombatState, actor *models.Combatant, hopeFearCost, stressCost int) bool {
+	if hopeFearCost == 0 && stressCost == 0 {
+		return true
 	}
 
-	// Expected value = avgDamage * hitChance
+	switch ai.ResourceUsage {
+	case ResourceGreedy:
+		return true
+	case ResourceConservative:
+		if actor.Side == models.SidePlayer {
+			return state.HopePool > hopeFearCost+2
+		}
+		return state.FearPool > hopeFearCost+2
+	case ResourceDesperate:
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		return hpPercent < ai.LowHPThreshold
+	case ResourceRandom:
+		return ai.rng.Intn(100) < 50
+	case ResourceClever:
+		enemiesLeft := len(state.GetEnemiesOf(actor))
+		if enemiesLeft <= 1 {
+			return true
+		}
+		hpPercent := (actor.HP * 100) / actor.HPMax
+		return hpPercent < 50 || ai.rng.Intn(100) < 40
+	default:
+		return true
+	}
+}
+
+// evaluateBasicAttack estimates expected value of a basic attack
+func (ai *AIDecisionMaker) evaluateBasicAttack(actor *models.Combatant, target *models.Combatant) float64 {
+	avgDamage := ai.estimateAverageDamage(actor.DamageDice)
+	hitChance := ai.estimateSuccessProbability(actor, target, "target", 0)
 	return avgDamage * hitChance
 }
 
@@ -277,9 +358,7 @@ func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, t
 			return 0.25 // Very unlikely
 		}
 	} else {
-		// Enemy uses d20 + ATK
-		// Average roll is 10.5 + proficiency
-		avgRoll := 10 + actor.Proficiency
+		avgRoll := 10 + actor.GetAttackBonus()
 
 		diff := avgRoll - dc
 		if diff >= 5 {
@@ -321,12 +400,15 @@ func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *mod
 		value += ai.evaluateEffect(effect, actor, target, state)
 	}
 
-	// Factor in success probability based on DC
 	successProb := ai.estimateSuccessProbability(actor, target, feature.DCType, feature.FixedDC)
 	value *= successProb
 
-	// Subtract fear cost penalty - costs paid regardless of success
-	value -= float64(feature.FearCost) * 1.0
+	value -= float64(feature.FearCost) * 0.5
+
+	// Features are the adversary's designed actions; prefer over generic attacks.
+	// In Daggerheart's threshold system, raw dice differences matter less than
+	// tactical effects, so give features an inherent preference.
+	value += 2.0
 
 	return value
 }

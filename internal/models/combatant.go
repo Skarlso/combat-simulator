@@ -54,10 +54,13 @@ type Combatant struct {
 	// Active conditions
 	Conditions []*ActiveCondition
 
+	// Relentless: how many times this adversary can be spotlighted in a single GM turn
+	RelentlessLimit int
+
 	// Combat state flags
 	IsDefeated        bool
 	IsFullyStressed   bool
-	IsSummonTemplate  bool // If true, this is a template for summoning only - don't add to combat directly
+	IsSummonTemplate  bool
 }
 
 // Resistance reduces incoming damage to specific type
@@ -118,6 +121,13 @@ func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, 
 	}
 }
 
+func (c *Combatant) MaxSpotlightsPerGMTurn() int {
+	if c.RelentlessLimit > 0 {
+		return c.RelentlessLimit
+	}
+	return 1
+}
+
 // AddResistance adds 50% damage resistance to a damage type
 func (c *Combatant) AddResistance(damageType DamageType) {
 	c.Resistances = append(c.Resistances, Resistance{
@@ -167,34 +177,23 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	}
 
 	// Apply resistance/immunity/vulnerability (after reductions, before armor/threshold)
-	// Immunity = 0% damage, Resistance = 50% damage, Vulnerability = 150% damage
-	// NO STACKING: If you have resistance, you have it. Period.
 	hasResistance := false
 	hasImmunity := false
-	hasVulnerability := false
 
-	// Check permanent resistances/immunities (type-specific)
 	for _, resist := range c.Resistances {
 		if resist.Type == damageType {
 			if resist.IsImmune {
 				hasImmunity = true
-				break // Immunity found, stop checking
+				break
 			}
 			hasResistance = true
-			// Don't break - keep checking for immunity
 		}
 	}
 
-	// Check condition-based modifiers (applies to all damage types)
 	if c.HasCondition(ConditionResistant) {
 		hasResistance = true
 	}
-	if c.HasCondition(ConditionVulnerable) {
-		hasVulnerability = true
-	}
 
-	// Apply modifier (priority: Immunity > Resistance > Vulnerability)
-	// If you have both Resistance and Vulnerability, Resistance wins
 	if hasImmunity {
 		return DamageResult{
 			ProcessedDamage:  0,
@@ -209,8 +208,6 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	}
 	if hasResistance {
 		actualDamage = actualDamage / 2
-	} else if hasVulnerability {
-		actualDamage = int(float64(actualDamage) * 1.5)
 	}
 
 	if actualDamage < 0 {
@@ -220,13 +217,11 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	// Store the processed damage (after all modifiers, before armor/threshold)
 	processedDamage := actualDamage
 
-	// Calculate damage threshold FIRST
 	threshold := DamageThresholdFromAmount(actualDamage, c)
 
-	// Check if armor can reduce threshold (only ONE slot per damage instance)
 	armorReducedMinor := false
 	armorUsed := false
-	if c.ArmorSlots > 0 {
+	if threshold != ThresholdNone && c.ArmorSlots > 0 {
 		c.ArmorSlots--
 		armorUsed = true
 		// Reduce threshold by one level: Severe→Major→Minor→None (0 HP)
@@ -241,15 +236,14 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 		}
 	}
 
-	// Apply threshold-based HP damage
 	hpDamage := 0
 	switch threshold {
+	case ThresholdNone:
+		hpDamage = 0
 	case ThresholdMinor:
 		if armorReducedMinor {
-			// Minor + armor = 0 HP damage (fully negated)
 			hpDamage = 0
 		} else {
-			// Either no armor, or armor reduced higher threshold to Minor
 			hpDamage = 1
 		}
 	case ThresholdMajor:
@@ -343,22 +337,28 @@ func (c *Combatant) AddStress(amount int) {
 	if c.Stress >= c.StressMax {
 		c.Stress = c.StressMax
 		c.IsFullyStressed = true
+		c.AddCondition(&ActiveCondition{
+			Type:     ConditionVulnerable,
+			Duration: DurationUntilCleared,
+		})
 	}
 }
 
-// ClearStress removes stress
 func (c *Combatant) ClearStress(amount int) {
 	c.Stress -= amount
 	if c.Stress < 0 {
 		c.Stress = 0
 	}
-	if c.Stress < c.StressMax {
+	if c.Stress < c.StressMax && c.IsFullyStressed {
 		c.IsFullyStressed = false
+		c.RemoveCondition(ConditionVulnerable)
 	}
 }
 
-// AddCondition applies a status effect
 func (c *Combatant) AddCondition(condition *ActiveCondition) {
+	if c.HasCondition(condition.Type) {
+		return
+	}
 	c.Conditions = append(c.Conditions, condition)
 }
 
@@ -492,8 +492,10 @@ func CloneCombatant(template *Combatant, uniqueID string) *Combatant {
 		ArmorSlots:        template.ArmorSlots,
 		DamageDice:        template.DamageDice,
 		SpotlightTokens:   0,
+		RelentlessLimit:   template.RelentlessLimit,
 		IsDefeated:        false,
 		IsFullyStressed:   false,
+		IsSummonTemplate:  template.IsSummonTemplate,
 		AdversaryFeatures: make([]AdversaryFeature, len(template.AdversaryFeatures)),
 		DomainAbilities:   make([]DomainAbility, len(template.DomainAbilities)),
 		Resistances:       make([]Resistance, len(template.Resistances)),

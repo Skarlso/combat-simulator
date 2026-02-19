@@ -190,6 +190,23 @@ func TestFearPool(t *testing.T) {
 	}
 }
 
+func TestHopePoolCap(t *testing.T) {
+	state := newTestState()
+	state.AddHope(100)
+	if state.HopePool != MaxHopePool {
+		t.Errorf("HopePool = %d, want %d (capped)", state.HopePool, MaxHopePool)
+	}
+}
+
+func TestFearPoolCap(t *testing.T) {
+	state := newTestState()
+	state.FearPool = 0
+	state.AddFear(100)
+	if state.FearPool != MaxFearPool {
+		t.Errorf("FearPool = %d, want %d (capped)", state.FearPool, MaxFearPool)
+	}
+}
+
 func TestIncrementCounters(t *testing.T) {
 	state := newTestState()
 

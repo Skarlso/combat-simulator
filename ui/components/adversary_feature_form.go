@@ -16,8 +16,9 @@ type AdversaryFeatureForm struct {
 	AvailableAdversaries []*models.Combatant
 
 	// Form state
-	showForm          bool
-	newName           string
+	showForm      bool
+	editingIndex  int
+	newName       string
 	newDescription    string
 	newPassive        bool
 	newFearCost       int
@@ -142,8 +143,13 @@ func (aff *AdversaryFeatureForm) renderFeatureItem(feature *models.AdversaryFeat
 		}
 	}
 
+	itemClass := "ability-item"
+	if aff.editingIndex == idx {
+		itemClass += " editing"
+	}
+
 	return app.Div().
-		Class("ability-item").
+		Class(itemClass).
 		Body(
 			app.Div().
 				Class("ability-info").
@@ -157,21 +163,38 @@ func (aff *AdversaryFeatureForm) renderFeatureItem(feature *models.AdversaryFeat
 						return app.Div().Class("ability-desc").Text(feature.Description)
 					}),
 				),
-			app.Button().
-				Class("btn btn-danger btn-small").
-				Text("Remove").
-				OnClick(func(ctx app.Context, e app.Event) {
-					aff.removeFeature(ctx, idx)
-				}),
+			app.Div().
+				Class("item-actions").
+				Body(
+					app.Button().
+						Class("btn btn-small").
+						Text("Edit").
+						OnClick(func(ctx app.Context, e app.Event) {
+							aff.startEditing(ctx, idx)
+						}),
+					app.Button().
+						Class("btn btn-danger btn-small").
+						Text("Remove").
+						OnClick(func(ctx app.Context, e app.Event) {
+							aff.removeFeature(ctx, idx)
+						}),
+				),
 		)
 }
 
 // renderAddForm renders the feature creation form
 func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
+	formTitle := "Add Adversary Feature"
+	saveText := "Add Feature"
+	if aff.editingIndex >= 0 {
+		formTitle = "Edit Adversary Feature"
+		saveText = "Save"
+	}
+
 	return app.Div().
 		Class("ability-add-form").
 		Body(
-			app.H4().Text("Add Adversary Feature"),
+			app.H4().Text(formTitle),
 			app.Div().
 				Class("form-group").
 				Body(
@@ -421,11 +444,11 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 					app.Button().
 						Class("btn btn-primary").
 						Type("button").
-						Text("Add Feature").
+						Text(saveText).
 						Disabled(aff.newName == "").
 						OnClick(func(ctx app.Context, e app.Event) {
 							e.PreventDefault()
-							aff.addFeature(ctx)
+							aff.saveFeature(ctx)
 						}),
 					app.Button().
 						Class("btn btn-secondary").
@@ -543,8 +566,56 @@ func (aff *AdversaryFeatureForm) needsMagnitude() bool {
 }
 
 
-// addFeature creates and adds a new feature
-func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
+func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(aff.Features) {
+		return
+	}
+	feature := aff.Features[idx]
+	aff.editingIndex = idx
+	aff.showForm = true
+	aff.newName = feature.Name
+	aff.newDescription = feature.Description
+	aff.newPassive = feature.Passive
+	aff.newFearCost = feature.FearCost
+	aff.newStressCost = feature.StressCost
+	aff.newSpotlightLim = feature.SpotlightLimit
+	aff.newUsageType = feature.UsageType
+	aff.newMaxUses = feature.MaxUses
+	aff.newDCType = feature.DCType
+	aff.newFixedDC = feature.FixedDC
+
+	switch {
+	case feature.FearCost > 0:
+		aff.newCostType = "fear"
+	case feature.StressCost > 0:
+		aff.newCostType = "stress"
+	default:
+		aff.newCostType = "free"
+	}
+
+	if len(feature.Effects) > 0 {
+		eff := feature.Effects[0]
+		aff.newEffectType = reverseEffectCategory(eff.Category)
+		aff.newDiceFormula = eff.DiceFormula
+		aff.newDamageType = eff.DamageType
+		aff.newMagnitude = eff.Magnitude
+		aff.newDuration = eff.Duration
+		if eff.Category == models.FeatureEffectSummonAllies {
+			if eff.DiceFormula != "" {
+				aff.newQuantityType = "dice"
+			} else {
+				aff.newQuantityType = "fixed"
+			}
+			aff.selectedForSummon = make(map[string]bool)
+			for _, s := range eff.SummonPool {
+				aff.selectedForSummon[s.ID] = true
+			}
+		}
+	}
+	ctx.Update()
+}
+
+func (aff *AdversaryFeatureForm) buildFeature() *models.AdversaryFeature {
 	effectCategory := resolveEffectCategory(aff.newEffectType)
 
 	magnitude := aff.newMagnitude
@@ -596,7 +667,7 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		usesLeft = aff.newMaxUses
 	}
 
-	feature := &models.AdversaryFeature{
+	return &models.AdversaryFeature{
 		Name:        aff.newName,
 		Description: aff.newDescription,
 		Passive:     aff.newPassive,
@@ -613,8 +684,16 @@ func (aff *AdversaryFeatureForm) addFeature(ctx app.Context) {
 		FixedDC:        aff.newFixedDC,
 		Effects:        []models.FeatureEffect{effect},
 	}
+}
 
-	aff.Features = append(aff.Features, feature)
+func (aff *AdversaryFeatureForm) saveFeature(ctx app.Context) {
+	feature := aff.buildFeature()
+
+	if aff.editingIndex >= 0 && aff.editingIndex < len(aff.Features) {
+		aff.Features[aff.editingIndex] = feature
+	} else {
+		aff.Features = append(aff.Features, feature)
+	}
 
 	if aff.OnChange != nil {
 		aff.OnChange(aff.Features)
@@ -640,6 +719,7 @@ func (aff *AdversaryFeatureForm) removeFeature(ctx app.Context, idx int) {
 
 // resetForm resets the form to default values
 func (aff *AdversaryFeatureForm) resetForm() {
+	aff.editingIndex = -1
 	aff.newName = ""
 	aff.newDescription = ""
 	aff.newPassive = true

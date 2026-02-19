@@ -17,8 +17,9 @@ type AdversaryList struct {
 	OnRemove    func(app.Context, int)
 
 	// Form state for adding new adversary
-	showForm           bool
-	newName            string
+	showForm    bool
+	sectionOpen map[string]bool
+	newName     string
 	newTier            string
 	newType            string
 	newDifficulty      int
@@ -79,7 +80,7 @@ func (al *AdversaryList) renderList() app.UI {
 			templateTag = " [TEMPLATE]"
 		}
 		items[i] = app.Div().
-			Class("adversary-item").
+			Class("adversary-item combatant-item").
 			Body(
 				app.Div().
 					Class("adversary-info").
@@ -94,18 +95,33 @@ func (al *AdversaryList) renderList() app.UI {
 							adversary.StressMax,
 							adversary.ATK)),
 					),
-				app.Button().
-					Class("btn btn-danger btn-small").
-					Text("Remove").
-					OnClick(func(ctx app.Context, e app.Event) {
-						if al.OnRemove != nil {
-							al.OnRemove(ctx, idx)
-						}
-					}),
+				app.Div().
+					Class("item-actions").
+					Body(
+						app.Button().
+							Class("btn btn-small").
+							Text("Duplicate").
+							OnClick(func(ctx app.Context, e app.Event) {
+								al.duplicateAdversary(ctx, idx)
+							}),
+						app.Button().
+							Class("btn btn-danger btn-small").
+							Text("Remove").
+							OnClick(func(ctx app.Context, e app.Event) {
+								if al.OnRemove != nil {
+									al.OnRemove(ctx, idx)
+								}
+							}),
+					),
 			)
 	}
 
 	return app.Div().Class("adversary-items").Body(items...)
+}
+
+func (al *AdversaryList) toggleSection(ctx app.Context, name string) {
+	al.sectionOpen[name] = !al.sectionOpen[name]
+	ctx.Update()
 }
 
 // renderAddForm renders the form for adding a new adversary
@@ -114,181 +130,209 @@ func (al *AdversaryList) renderAddForm() app.UI {
 		Class("add-form").
 		Body(
 			app.H4().Text("Add New Adversary"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Name:"),
-					app.Input().
-						Type("text").
-						Value(al.newName).
-						Placeholder("Ancient Witch").
-						OnInput(func(ctx app.Context, e app.Event) {
-							al.newName = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
+			renderAccordionHeader("Identity", al.sectionOpen["identity"], func(ctx app.Context, e app.Event) {
+				al.toggleSection(ctx, "identity")
+			}),
+			app.If(al.sectionOpen["identity"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("Tier:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									al.newTier = ctx.JSSrc().Get("value").String()
-								}).
-								Body(
-									app.Option().Value("Tier 1").Text("Tier 1").Selected(al.newTier == "Tier 1"),
-									app.Option().Value("Tier 2").Text("Tier 2").Selected(al.newTier == "Tier 2"),
-									app.Option().Value("Tier 3").Text("Tier 3").Selected(al.newTier == "Tier 3"),
-									app.Option().Value("Tier 4").Text("Tier 4").Selected(al.newTier == "Tier 4"),
-									app.Option().Value("Tier 5").Text("Tier 5").Selected(al.newTier == "Tier 5"),
-								),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Type:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									al.newType = ctx.JSSrc().Get("value").String()
-								}).
-								Body(
-									app.Option().Value("Minion").Text("Minion").Selected(al.newType == "Minion"),
-									app.Option().Value("Standard").Text("Standard").Selected(al.newType == "Standard"),
-									app.Option().Value("Elite").Text("Elite").Selected(al.newType == "Elite"),
-									app.Option().Value("Solo").Text("Solo").Selected(al.newType == "Solo"),
-									app.Option().Value("Horde").Text("Horde").Selected(al.newType == "Horde"),
-								),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Difficulty:"),
+							app.Label().Text("Name:"),
 							app.Input().
-								Type("number").
-								Value(al.newDifficulty).
-								Min(1).
-								Max(25).
-								OnInput(handleIntInput(&al.newDifficulty)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("ATK:"),
-							app.Input().
-								Type("number").
-								Value(al.newATK).
-								Min(0).
-								Max(10).
-								OnInput(handleIntInput(&al.newATK)),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("HP Max:"),
-							app.Input().
-								Type("number").
-								Value(al.newHP).
-								Min(1).
-								Max(100).
-								OnInput(handleIntInput(&al.newHP)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Stress Max:"),
-							app.Input().
-								Type("number").
-								Value(al.newStress).
-								Min(1).
-								Max(20).
-								OnInput(handleIntInput(&al.newStress)),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Minor Threshold:"),
-							app.Input().
-								Type("number").
-								Value(al.newMinorThreshold).
-								Min(1).
-								Max(30).
-								OnInput(handleIntInput(&al.newMinorThreshold)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Major Threshold:"),
-							app.Input().
-								Type("number").
-								Value(al.newMajorThreshold).
-								Min(1).
-								Max(50).
-								OnInput(handleIntInput(&al.newMajorThreshold)),
-						),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
-					app.Input().
-						Type("text").
-						Value(al.newDamageDice).
-						Placeholder("e.g., 2d6+4 or 1d8+1d4+2").
-						OnInput(func(ctx app.Context, e app.Event) {
-							al.newDamageDice = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Motives & Tactics:"),
-					app.Textarea().
-						Text(al.newMotives).
-						Placeholder("Manipulate, curse, deceive...").
-						Rows(3).
-						OnInput(func(ctx app.Context, e app.Event) {
-							text := ctx.JSSrc().Get("value").String()
-							al.newMotives = text
-							al.newTactics = text
-						}),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().
-						Class("checkbox-label").
-						Body(
-							app.Input().
-								Type("checkbox").
-								Checked(al.newIsSummonTemplate).
-								OnChange(func(ctx app.Context, e app.Event) {
-									al.newIsSummonTemplate = ctx.JSSrc().Get("checked").Bool()
-									ctx.Update()
+								Type("text").
+								Value(al.newName).
+								Placeholder("Ancient Witch").
+								OnInput(func(ctx app.Context, e app.Event) {
+									al.newName = ctx.JSSrc().Get("value").String()
 								}),
-							app.Text(" Summon Template Only (won't fight unless summoned)"),
 						),
-				),
-			&AdversaryFeatureForm{
-				Features:             al.newFeatures,
-				AvailableAdversaries: al.Adversaries,
-				OnChange: func(updated []*models.AdversaryFeature) {
-					al.newFeatures = updated
-				},
-			},
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Tier:"),
+									app.Select().
+										OnChange(func(ctx app.Context, e app.Event) {
+											al.newTier = ctx.JSSrc().Get("value").String()
+										}).
+										Body(
+											app.Option().Value("Tier 1").Text("Tier 1").Selected(al.newTier == "Tier 1"),
+											app.Option().Value("Tier 2").Text("Tier 2").Selected(al.newTier == "Tier 2"),
+											app.Option().Value("Tier 3").Text("Tier 3").Selected(al.newTier == "Tier 3"),
+											app.Option().Value("Tier 4").Text("Tier 4").Selected(al.newTier == "Tier 4"),
+											app.Option().Value("Tier 5").Text("Tier 5").Selected(al.newTier == "Tier 5"),
+										),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Type:"),
+									app.Select().
+										OnChange(func(ctx app.Context, e app.Event) {
+											al.newType = ctx.JSSrc().Get("value").String()
+										}).
+										Body(
+											app.Option().Value("Minion").Text("Minion").Selected(al.newType == "Minion"),
+											app.Option().Value("Standard").Text("Standard").Selected(al.newType == "Standard"),
+											app.Option().Value("Elite").Text("Elite").Selected(al.newType == "Elite"),
+											app.Option().Value("Solo").Text("Solo").Selected(al.newType == "Solo"),
+											app.Option().Value("Horde").Text("Horde").Selected(al.newType == "Horde"),
+										),
+								),
+						),
+				)
+			}),
+			renderAccordionHeader("Stats", al.sectionOpen["stats"], func(ctx app.Context, e app.Event) {
+				al.toggleSection(ctx, "stats")
+			}),
+			app.If(al.sectionOpen["stats"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Difficulty:"),
+									app.Input().
+										Type("number").
+										Value(al.newDifficulty).
+										Min(1).
+										Max(25).
+										OnInput(handleIntInput(&al.newDifficulty)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("ATK:"),
+									app.Input().
+										Type("number").
+										Value(al.newATK).
+										Min(0).
+										Max(10).
+										OnInput(handleIntInput(&al.newATK)),
+								),
+						),
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("HP Max:"),
+									app.Input().
+										Type("number").
+										Value(al.newHP).
+										Min(1).
+										Max(100).
+										OnInput(handleIntInput(&al.newHP)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Stress Max:"),
+									app.Input().
+										Type("number").
+										Value(al.newStress).
+										Min(1).
+										Max(20).
+										OnInput(handleIntInput(&al.newStress)),
+								),
+						),
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Minor Threshold:"),
+									app.Input().
+										Type("number").
+										Value(al.newMinorThreshold).
+										Min(1).
+										Max(30).
+										OnInput(handleIntInput(&al.newMinorThreshold)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Major Threshold:"),
+									app.Input().
+										Type("number").
+										Value(al.newMajorThreshold).
+										Min(1).
+										Max(50).
+										OnInput(handleIntInput(&al.newMajorThreshold)),
+								),
+						),
+				)
+			}),
+			renderAccordionHeader("Combat", al.sectionOpen["combat"], func(ctx app.Context, e app.Event) {
+				al.toggleSection(ctx, "combat")
+			}),
+			app.If(al.sectionOpen["combat"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
+							app.Input().
+								Type("text").
+								Value(al.newDamageDice).
+								Placeholder("e.g., 2d6+4 or 1d8+1d4+2").
+								OnInput(func(ctx app.Context, e app.Event) {
+									al.newDamageDice = ctx.JSSrc().Get("value").String()
+								}),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Motives & Tactics:"),
+							app.Textarea().
+								Text(al.newMotives).
+								Placeholder("Manipulate, curse, deceive...").
+								Rows(3).
+								OnInput(func(ctx app.Context, e app.Event) {
+									text := ctx.JSSrc().Get("value").String()
+									al.newMotives = text
+									al.newTactics = text
+								}),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().
+								Class("checkbox-label").
+								Body(
+									app.Input().
+										Type("checkbox").
+										Checked(al.newIsSummonTemplate).
+										OnChange(func(ctx app.Context, e app.Event) {
+											al.newIsSummonTemplate = ctx.JSSrc().Get("checked").Bool()
+											ctx.Update()
+										}),
+									app.Text(" Summon Template Only (won't fight unless summoned)"),
+								),
+						),
+				)
+			}),
+			renderAccordionHeader("Features", al.sectionOpen["features"], func(ctx app.Context, e app.Event) {
+				al.toggleSection(ctx, "features")
+			}),
+			app.If(al.sectionOpen["features"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
+					&AdversaryFeatureForm{
+						Features:             al.newFeatures,
+						AvailableAdversaries: al.Adversaries,
+						OnChange: func(updated []*models.AdversaryFeature) {
+							al.newFeatures = updated
+						},
+					},
+				)
+			}),
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -311,6 +355,19 @@ func (al *AdversaryList) renderAddForm() app.UI {
 		)
 }
 
+
+func (al *AdversaryList) duplicateAdversary(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(al.Adversaries) {
+		return
+	}
+	original := al.Adversaries[idx]
+	newID := fmt.Sprintf("enemy-%d", len(al.Adversaries))
+	clone := models.CloneCombatant(original, newID)
+	clone.Name = original.Name + " (Copy)"
+	if al.OnAdd != nil {
+		al.OnAdd(ctx, clone)
+	}
+}
 
 // addAdversary creates a new adversary and adds it to the list
 func (al *AdversaryList) addAdversary(ctx app.Context) {
@@ -361,4 +418,10 @@ func (al *AdversaryList) resetForm() {
 	al.newTactics = ""
 	al.newFeatures = make([]*models.AdversaryFeature, 0)
 	al.newIsSummonTemplate = false
+	al.sectionOpen = map[string]bool{
+		"identity": true,
+		"stats":    false,
+		"combat":   false,
+		"features": false,
+	}
 }

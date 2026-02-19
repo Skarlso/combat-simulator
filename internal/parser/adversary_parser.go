@@ -136,13 +136,20 @@ func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
 		DomainAbilities:   make([]models.DomainAbility, 0),
 	}
 
-	// Parse features using FeatureParser
 	for _, jsonFeature := range adv.Features {
+		if strings.EqualFold(jsonFeature.Name, "Relentless") {
+			combatant.RelentlessLimit = jsonFeature.Uses
+			continue
+		}
+
 		feature := ap.featureParser.ParseFeature(jsonFeature.Name, jsonFeature.Description)
 		if feature != nil {
+			if jsonFeature.Uses > 0 {
+				feature.MaxUses = jsonFeature.Uses
+				feature.UsesLeft = jsonFeature.Uses
+			}
 			combatant.AdversaryFeatures = append(combatant.AdversaryFeatures, *feature)
 		}
-		// Silently skip unmapped features (graceful degradation)
 	}
 
 	return combatant

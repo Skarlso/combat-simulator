@@ -15,8 +15,9 @@ type DomainAbilityForm struct {
 	OnChange  func([]*models.DomainAbility)
 
 	// Form state
-	showForm         bool
-	newName          string
+	showForm      bool
+	editingIndex  int
+	newName       string
 	newDescription   string
 	newPassive       bool
 	newTriggerType   string
@@ -129,8 +130,13 @@ func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, i
 		}
 	}
 
+	itemClass := "ability-item"
+	if daf.editingIndex == idx {
+		itemClass += " editing"
+	}
+
 	return app.Div().
-		Class("ability-item").
+		Class(itemClass).
 		Body(
 			app.Div().
 				Class("ability-info").
@@ -144,21 +150,38 @@ func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, i
 						return app.Div().Class("ability-desc").Text(ability.Description)
 					}),
 				),
-			app.Button().
-				Class("btn btn-danger btn-small").
-				Text("Remove").
-				OnClick(func(ctx app.Context, e app.Event) {
-					daf.removeAbility(ctx, idx)
-				}),
+			app.Div().
+				Class("item-actions").
+				Body(
+					app.Button().
+						Class("btn btn-small").
+						Text("Edit").
+						OnClick(func(ctx app.Context, e app.Event) {
+							daf.startEditing(ctx, idx)
+						}),
+					app.Button().
+						Class("btn btn-danger btn-small").
+						Text("Remove").
+						OnClick(func(ctx app.Context, e app.Event) {
+							daf.removeAbility(ctx, idx)
+						}),
+				),
 		)
 }
 
 // renderAddForm renders the ability creation form
 func (daf *DomainAbilityForm) renderAddForm() app.UI {
+	formTitle := "Add Domain Ability"
+	saveText := "Add Ability"
+	if daf.editingIndex >= 0 {
+		formTitle = "Edit Domain Ability"
+		saveText = "Save"
+	}
+
 	return app.Div().
 		Class("ability-add-form").
 		Body(
-			app.H4().Text("Add Domain Ability"),
+			app.H4().Text(formTitle),
 			app.Div().
 				Class("form-group").
 				Body(
@@ -461,11 +484,11 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 					app.Button().
 						Class("btn btn-primary").
 						Type("button").
-						Text("Add Ability").
+						Text(saveText).
 						Disabled(daf.newName == "").
 						OnClick(func(ctx app.Context, e app.Event) {
 							e.PreventDefault()
-							daf.addAbility(ctx)
+							daf.saveAbility(ctx)
 						}),
 					app.Button().
 						Class("btn btn-secondary").
@@ -498,11 +521,41 @@ func (daf *DomainAbilityForm) needsMagnitude() bool {
 }
 
 
-// addAbility creates and adds a new ability
-func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
+func (daf *DomainAbilityForm) startEditing(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(daf.Abilities) {
+		return
+	}
+	ability := daf.Abilities[idx]
+	daf.editingIndex = idx
+	daf.showForm = true
+	daf.newName = ability.Name
+	daf.newDescription = ability.Description
+	daf.newPassive = ability.Passive
+	daf.newTriggerType = string(ability.Trigger.Type)
+	daf.newTriggerFilter = ability.Trigger.Filter
+	daf.newHopeCost = ability.HopeCost
+	daf.newStressCost = ability.StressCost
+	daf.newRefreshType = ability.RefreshType
+	daf.newMaxUses = ability.MaxUses
+	daf.newDCType = ability.DCType
+	daf.newFixedDC = ability.FixedDC
+	daf.newUsesTokens = ability.UsesTokens
+	daf.newTokenName = ability.TokenName
+	daf.newTokensMax = ability.TokensMax
+	if len(ability.Effects) > 0 {
+		eff := ability.Effects[0]
+		daf.newEffectType = reverseEffectCategory(eff.Category)
+		daf.newDiceFormula = eff.DiceFormula
+		daf.newDamageType = eff.DamageType
+		daf.newMagnitude = eff.Magnitude
+		daf.newDuration = eff.Duration
+	}
+	ctx.Update()
+}
+
+func (daf *DomainAbilityForm) buildAbility() *models.DomainAbility {
 	effectCategory := resolveEffectCategory(daf.newEffectType)
 
-	// Set magnitude based on effect type
 	magnitude := daf.newMagnitude
 	if daf.newEffectType == "resistance" {
 		magnitude = 50
@@ -519,7 +572,7 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		DamageType:  daf.newDamageType,
 	}
 
-	ability := &models.DomainAbility{
+	return &models.DomainAbility{
 		Name:        daf.newName,
 		Description: daf.newDescription,
 		Passive:     daf.newPassive,
@@ -540,8 +593,16 @@ func (daf *DomainAbilityForm) addAbility(ctx app.Context) {
 		TokensMax:   daf.newTokensMax,
 		Effects:     []models.FeatureEffect{effect},
 	}
+}
 
-	daf.Abilities = append(daf.Abilities, ability)
+func (daf *DomainAbilityForm) saveAbility(ctx app.Context) {
+	ability := daf.buildAbility()
+
+	if daf.editingIndex >= 0 && daf.editingIndex < len(daf.Abilities) {
+		daf.Abilities[daf.editingIndex] = ability
+	} else {
+		daf.Abilities = append(daf.Abilities, ability)
+	}
 
 	if daf.OnChange != nil {
 		daf.OnChange(daf.Abilities)
@@ -567,6 +628,7 @@ func (daf *DomainAbilityForm) removeAbility(ctx app.Context, idx int) {
 
 // resetForm resets the form to default values
 func (daf *DomainAbilityForm) resetForm() {
+	daf.editingIndex = -1
 	daf.newName = ""
 	daf.newDescription = ""
 	daf.newPassive = false

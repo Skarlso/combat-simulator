@@ -280,24 +280,13 @@ func TestTakeDamageResistance(t *testing.T) {
 	}
 }
 
-func TestTakeDamageVulnerability(t *testing.T) {
+func TestTakeDamageVulnerableNoLongerAffectsDamage(t *testing.T) {
 	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
 	c.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
 
 	result := c.TakeDamage(10, DamagePhysical, nil)
-	if result.ProcessedDamage != 15 {
-		t.Errorf("ProcessedDamage = %d, want 15 (150%% vulnerability)", result.ProcessedDamage)
-	}
-}
-
-func TestTakeDamageResistanceBeatsVulnerability(t *testing.T) {
-	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
-	c.AddResistance(DamagePhysical)
-	c.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
-
-	result := c.TakeDamage(10, DamagePhysical, nil)
-	if result.ProcessedDamage != 5 {
-		t.Errorf("ProcessedDamage = %d, want 5 (resistance wins over vulnerability)", result.ProcessedDamage)
+	if result.ProcessedDamage != 10 {
+		t.Errorf("ProcessedDamage = %d, want 10 (Vulnerable is accuracy bonus, not damage)", result.ProcessedDamage)
 	}
 }
 
@@ -438,7 +427,7 @@ func TestDamageThresholdFromAmount(t *testing.T) {
 		{"player minor (level 3)", 4, newTestPlayer(), ThresholdMinor},
 		{"player major (level 3)", 6, newTestPlayer(), ThresholdMajor},
 		{"player severe (level 3)", 9, newTestPlayer(), ThresholdSevere},
-		{"zero damage", 0, newTestAdversary(), ThresholdMinor},
+		{"zero damage", 0, newTestAdversary(), ThresholdNone},
 	}
 
 	for _, tt := range tests {
@@ -448,6 +437,90 @@ func TestDamageThresholdFromAmount(t *testing.T) {
 				t.Errorf("DamageThresholdFromAmount(%d) = %v, want %v", tt.damage, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestTakeDamageZeroDamageNoHPMarked(t *testing.T) {
+	c := newTestAdversary()
+	hpBefore := c.HP
+	result := c.TakeDamage(0, DamagePhysical, nil)
+	if result.HPDamage != 0 {
+		t.Errorf("HPDamage = %d, want 0 for zero damage", result.HPDamage)
+	}
+	if c.HP != hpBefore {
+		t.Errorf("HP = %d, want %d (unchanged)", c.HP, hpBefore)
+	}
+	if result.Threshold != ThresholdNone {
+		t.Errorf("Threshold = %v, want ThresholdNone", result.Threshold)
+	}
+}
+
+func TestTakeDamageZeroDamageNoArmorUsed(t *testing.T) {
+	c := newTestAdversary()
+	c.ArmorSlots = 2
+	result := c.TakeDamage(0, DamagePhysical, nil)
+	if result.ArmorUsed {
+		t.Error("armor should not be used for zero damage")
+	}
+	if c.ArmorSlots != 2 {
+		t.Errorf("ArmorSlots = %d, want 2 (unchanged)", c.ArmorSlots)
+	}
+}
+
+func TestAddConditionDedup(t *testing.T) {
+	c := newTestPlayer()
+	c.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
+	c.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
+	count := 0
+	for _, cond := range c.Conditions {
+		if cond.Type == ConditionVulnerable {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("Vulnerable count = %d, want 1 (no duplicates)", count)
+	}
+}
+
+func TestAddStressFullAppliesVulnerable(t *testing.T) {
+	c := newTestPlayer()
+	c.AddStress(c.StressMax)
+	if !c.IsFullyStressed {
+		t.Fatal("should be fully stressed")
+	}
+	if !c.HasCondition(ConditionVulnerable) {
+		t.Error("fully stressed should apply Vulnerable condition")
+	}
+}
+
+func TestAddStressFullVulnerableNoDuplicate(t *testing.T) {
+	c := newTestPlayer()
+	c.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
+	c.AddStress(c.StressMax)
+	count := 0
+	for _, cond := range c.Conditions {
+		if cond.Type == ConditionVulnerable {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("Vulnerable count = %d, want 1 (dedup)", count)
+	}
+}
+
+func TestClearStressRemovesVulnerable(t *testing.T) {
+	c := newTestPlayer()
+	c.AddStress(c.StressMax)
+	if !c.HasCondition(ConditionVulnerable) {
+		t.Fatal("should have Vulnerable after full stress")
+	}
+
+	c.ClearStress(1)
+	if c.HasCondition(ConditionVulnerable) {
+		t.Error("Vulnerable should be removed when stress drops below max")
+	}
+	if c.IsFullyStressed {
+		t.Error("should no longer be fully stressed")
 	}
 }
 

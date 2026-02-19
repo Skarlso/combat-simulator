@@ -18,8 +18,9 @@ type CombatantList struct {
 	OnRemove   func(app.Context, int)
 
 	// Form state for adding new combatant
-	showForm           bool
-	newName            string
+	showForm    bool
+	sectionOpen map[string]bool
+	newName     string
 	newLevel           int
 	newEvasion         int
 	newProficiency     int
@@ -71,7 +72,7 @@ func (cl *CombatantList) renderList() app.UI {
 
 	items := make([]app.UI, len(cl.Combatants))
 	for i, combatant := range cl.Combatants {
-		idx := i // Capture for closure
+		idx := i
 		items[i] = app.Div().
 			Class("combatant-item").
 			Body(
@@ -85,18 +86,33 @@ func (cl *CombatantList) renderList() app.UI {
 							return app.Span().Text(fmt.Sprintf(" | Armor: %d", combatant.ArmorSlots))
 						}),
 					),
-				app.Button().
-					Class("btn btn-danger btn-small").
-					Text("Remove").
-					OnClick(func(ctx app.Context, e app.Event) {
-						if cl.OnRemove != nil {
-							cl.OnRemove(ctx, idx)
-						}
-					}),
+				app.Div().
+					Class("item-actions").
+					Body(
+						app.Button().
+							Class("btn btn-small").
+							Text("Duplicate").
+							OnClick(func(ctx app.Context, e app.Event) {
+								cl.duplicateCombatant(ctx, idx)
+							}),
+						app.Button().
+							Class("btn btn-danger btn-small").
+							Text("Remove").
+							OnClick(func(ctx app.Context, e app.Event) {
+								if cl.OnRemove != nil {
+									cl.OnRemove(ctx, idx)
+								}
+							}),
+					),
 			)
 	}
 
 	return app.Div().Class("combatant-items").Body(items...)
+}
+
+func (cl *CombatantList) toggleSection(ctx app.Context, name string) {
+	cl.sectionOpen[name] = !cl.sectionOpen[name]
+	ctx.Update()
 }
 
 // renderAddForm renders the form for adding a new combatant
@@ -105,140 +121,168 @@ func (cl *CombatantList) renderAddForm() app.UI {
 		Class("add-form").
 		Body(
 			app.H4().Text("Add New Combatant"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Name:"),
-					app.Input().
-						Type("text").
-						Value(cl.newName).
-						Placeholder("Character name").
-						OnInput(func(ctx app.Context, e app.Event) {
-							cl.newName = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
+			renderAccordionHeader("Identity", cl.sectionOpen["identity"], func(ctx app.Context, e app.Event) {
+				cl.toggleSection(ctx, "identity")
+			}),
+			app.If(cl.sectionOpen["identity"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("Level:"),
+							app.Label().Text("Name:"),
 							app.Input().
-								Type("number").
-								Value(cl.newLevel).
-								Min(1).
-								Max(10).
-								OnInput(handleIntInput(&cl.newLevel)),
+								Type("text").
+								Value(cl.newName).
+								Placeholder("Character name").
+								OnInput(func(ctx app.Context, e app.Event) {
+									cl.newName = ctx.JSSrc().Get("value").String()
+								}),
 						),
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Level:"),
+									app.Input().
+										Type("number").
+										Value(cl.newLevel).
+										Min(1).
+										Max(10).
+										OnInput(handleIntInput(&cl.newLevel)),
+								),
+						),
+				)
+			}),
+			renderAccordionHeader("Stats", cl.sectionOpen["stats"], func(ctx app.Context, e app.Event) {
+				cl.toggleSection(ctx, "stats")
+			}),
+			app.If(cl.sectionOpen["stats"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("HP Max:"),
+									app.Input().
+										Type("number").
+										Value(cl.newHP).
+										Min(1).
+										Max(50).
+										OnInput(handleIntInput(&cl.newHP)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Evasion:"),
+									app.Input().
+										Type("number").
+										Value(cl.newEvasion).
+										Min(1).
+										Max(20).
+										OnInput(handleIntInput(&cl.newEvasion)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Proficiency:"),
+									app.Input().
+										Type("number").
+										Value(cl.newProficiency).
+										Min(0).
+										Max(5).
+										OnInput(handleIntInput(&cl.newProficiency)),
+								),
+						),
+					app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Stress Max:"),
+									app.Input().
+										Type("number").
+										Value(cl.newStress).
+										Min(1).
+										Max(10).
+										OnInput(handleIntInput(&cl.newStress)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Armor Slots:"),
+									app.Input().
+										Type("number").
+										Value(cl.newArmor).
+										Min(0).
+										Max(5).
+										OnInput(handleIntInput(&cl.newArmor)),
+								),
+						),
+				)
+			}),
+			renderAccordionHeader("Combat", cl.sectionOpen["combat"], func(ctx app.Context, e app.Event) {
+				cl.toggleSection(ctx, "combat")
+			}),
+			app.If(cl.sectionOpen["combat"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("HP Max:"),
+							app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
 							app.Input().
-								Type("number").
-								Value(cl.newHP).
-								Min(1).
-								Max(50).
-								OnInput(handleIntInput(&cl.newHP)),
+								Type("text").
+								Value(cl.newDamageDice).
+								Placeholder("e.g., 2d6+2 or 1d6+1d4+3").
+								OnInput(func(ctx app.Context, e app.Event) {
+									cl.newDamageDice = ctx.JSSrc().Get("value").String()
+								}),
 						),
 					app.Div().
-						Class("form-group").
+						Class("form-row").
 						Body(
-							app.Label().Text("Evasion:"),
-							app.Input().
-								Type("number").
-								Value(cl.newEvasion).
-								Min(1).
-								Max(20).
-								OnInput(handleIntInput(&cl.newEvasion)),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Minor Threshold:"),
+									app.Input().
+										Type("number").
+										Value(cl.newMinorThreshold).
+										Min(1).
+										Max(20).
+										OnInput(handleIntInput(&cl.newMinorThreshold)),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Major Threshold:"),
+									app.Input().
+										Type("number").
+										Value(cl.newMajorThreshold).
+										Min(1).
+										Max(30).
+										OnInput(handleIntInput(&cl.newMajorThreshold)),
+								),
 						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Proficiency:"),
-							app.Input().
-								Type("number").
-								Value(cl.newProficiency).
-								Min(0).
-								Max(5).
-								OnInput(handleIntInput(&cl.newProficiency)),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Stress Max:"),
-							app.Input().
-								Type("number").
-								Value(cl.newStress).
-								Min(1).
-								Max(10).
-								OnInput(handleIntInput(&cl.newStress)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Armor Slots:"),
-							app.Input().
-								Type("number").
-								Value(cl.newArmor).
-								Min(0).
-								Max(5).
-								OnInput(handleIntInput(&cl.newArmor)),
-						),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
-					app.Input().
-						Type("text").
-						Value(cl.newDamageDice).
-						Placeholder("e.g., 2d6+2 or 1d6+1d4+3").
-						OnInput(func(ctx app.Context, e app.Event) {
-							cl.newDamageDice = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Minor Threshold:"),
-							app.Input().
-								Type("number").
-								Value(cl.newMinorThreshold).
-								Min(1).
-								Max(20).
-								OnInput(handleIntInput(&cl.newMinorThreshold)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Major Threshold:"),
-							app.Input().
-								Type("number").
-								Value(cl.newMajorThreshold).
-								Min(1).
-								Max(30).
-								OnInput(handleIntInput(&cl.newMajorThreshold)),
-						),
-				),
-			&DomainAbilityForm{
-				Abilities: cl.newDomainAbilities,
-				OnChange: func(updated []*models.DomainAbility) {
-					cl.newDomainAbilities = updated
-				},
-			},
+				)
+			}),
+			renderAccordionHeader("Abilities", cl.sectionOpen["abilities"], func(ctx app.Context, e app.Event) {
+				cl.toggleSection(ctx, "abilities")
+			}),
+			app.If(cl.sectionOpen["abilities"], func() app.UI {
+				return app.Div().Class("accordion-body").Body(
+					&DomainAbilityForm{
+						Abilities: cl.newDomainAbilities,
+						OnChange: func(updated []*models.DomainAbility) {
+							cl.newDomainAbilities = updated
+						},
+					},
+				)
+			}),
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -261,6 +305,19 @@ func (cl *CombatantList) renderAddForm() app.UI {
 		)
 }
 
+
+func (cl *CombatantList) duplicateCombatant(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(cl.Combatants) {
+		return
+	}
+	original := cl.Combatants[idx]
+	newID := fmt.Sprintf("%s-%d", cl.Side, len(cl.Combatants))
+	clone := models.CloneCombatant(original, newID)
+	clone.Name = original.Name + " (Copy)"
+	if cl.OnAdd != nil {
+		cl.OnAdd(ctx, clone)
+	}
+}
 
 // addCombatant creates a new combatant and adds it to the list
 func (cl *CombatantList) addCombatant(ctx app.Context) {
@@ -308,4 +365,10 @@ func (cl *CombatantList) resetForm() {
 	cl.newMinorThreshold = 4
 	cl.newMajorThreshold = 7
 	cl.newDomainAbilities = make([]*models.DomainAbility, 0)
+	cl.sectionOpen = map[string]bool{
+		"identity":  true,
+		"stats":     false,
+		"combat":    false,
+		"abilities": false,
+	}
 }

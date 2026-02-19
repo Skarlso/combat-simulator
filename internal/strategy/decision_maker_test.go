@@ -153,3 +153,213 @@ func TestChooseActionWithAbility(t *testing.T) {
 		t.Log("AI chose basic attack over ability - may be correct based on evaluation")
 	}
 }
+
+func TestAbilityUsageNever(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection: TargetLowestHP,
+		AbilityUsage:    AbilityNever,
+		ResourceUsage:   ResourceGreedy,
+	})
+
+	state := newTestCombatState()
+	state.Players[0].DomainAbilities = []models.DomainAbility{
+		{
+			Name:     "Fireball",
+			HopeCost: 0,
+			UsesLeft: 99,
+			MaxUses:  99,
+			Effects: []models.FeatureEffect{
+				{Category: models.FeatureEffectDamage, DiceFormula: "10d6"},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, state.Players[0])
+	if decision.DomainAbility != nil {
+		t.Error("AbilityNever should never select an ability")
+	}
+}
+
+func TestResourceConservativeHoardsHope(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection: TargetLowestHP,
+		AbilityUsage:    AbilityAlways,
+		ResourceUsage:   ResourceConservative,
+	})
+
+	state := newTestCombatState()
+	state.HopePool = 2
+	state.Players[0].DomainAbilities = []models.DomainAbility{
+		{
+			Name:     "Costly Spell",
+			HopeCost: 1,
+			UsesLeft: 99,
+			MaxUses:  99,
+			Effects: []models.FeatureEffect{
+				{Category: models.FeatureEffectDamage, DiceFormula: "10d6"},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, state.Players[0])
+	if decision.DomainAbility != nil {
+		t.Error("Conservative should hoard resources when pool is low (need cost+2)")
+	}
+}
+
+func TestResourceDesperateOnlyWhenLowHP(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection: TargetLowestHP,
+		AbilityUsage:    AbilityAlways,
+		ResourceUsage:   ResourceDesperate,
+		LowHPThreshold:  30,
+	})
+
+	state := newTestCombatState()
+	state.HopePool = 5
+	state.Players[0].DomainAbilities = []models.DomainAbility{
+		{
+			Name:     "Desperation Move",
+			HopeCost: 1,
+			UsesLeft: 99,
+			MaxUses:  99,
+			Effects: []models.FeatureEffect{
+				{Category: models.FeatureEffectDamage, DiceFormula: "10d6"},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, state.Players[0])
+	if decision.DomainAbility != nil {
+		t.Error("Desperate should not spend resources at full HP")
+	}
+
+	state.Players[0].HP = 2
+	decision = ai.ChooseAction(state, state.Players[0])
+	if decision.DomainAbility == nil {
+		t.Error("Desperate should spend resources when HP is low")
+	}
+}
+
+func TestConditionClearingImmediate(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection:   TargetLowestHP,
+		ConditionClearing: ClearImmediately,
+	})
+
+	state := newTestCombatState()
+	state.Players[0].AddCondition(&models.ActiveCondition{
+		Type:     models.ConditionBurning,
+		Duration: models.DurationUntilCleared,
+	})
+
+	decision := ai.ChooseAction(state, state.Players[0])
+	if decision.Target != state.Players[0] {
+		t.Error("ClearImmediately should target self to clear harmful condition")
+	}
+}
+
+func TestEnemyFeatureSelectedOverBasicAttack(t *testing.T) {
+	ai := newTestAI(DefaultGreedyConfig())
+	state := newTestCombatState()
+
+	enemy := state.Enemies[0]
+	enemy.DamageDice = "1d8"
+	enemy.ATK = 2
+	enemy.AdversaryFeatures = []models.AdversaryFeature{
+		{
+			Name:     "Venom Strike",
+			FearCost: 0,
+			DCType:   "none",
+			Effects: []models.FeatureEffect{
+				{
+					Category:    models.FeatureEffectDamage,
+					DiceFormula: "1d6",
+					DamageType:  "physical",
+				},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, enemy)
+	if decision.AdversaryFeature == nil {
+		basicVal := ai.evaluateBasicAttack(enemy, decision.Target)
+		featureVal := ai.evaluateFeature(state, enemy, decision.Target, &enemy.AdversaryFeatures[0])
+		t.Errorf("enemy should use free auto-succeed feature over basic attack; basicVal=%.2f featureVal=%.2f", basicVal, featureVal)
+	}
+}
+
+func TestEnemyFeatureWithFearCost(t *testing.T) {
+	ai := newTestAI(DefaultGreedyConfig())
+	state := newTestCombatState()
+	state.FearPool = 5
+
+	enemy := state.Enemies[0]
+	enemy.DamageDice = "1d8"
+	enemy.ATK = 2
+	enemy.AdversaryFeatures = []models.AdversaryFeature{
+		{
+			Name:     "Venom Strike",
+			FearCost: 1,
+			DCType:   "none",
+			Effects: []models.FeatureEffect{
+				{
+					Category:    models.FeatureEffectDamage,
+					DiceFormula: "1d6",
+					DamageType:  "physical",
+				},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, enemy)
+	if decision.AdversaryFeature == nil {
+		t.Error("feature with 1 Fear cost and auto-succeed should still beat basic attack")
+	}
+}
+
+func TestEnemyFeatureWithDCTarget(t *testing.T) {
+	ai := newTestAI(DefaultGreedyConfig())
+	state := newTestCombatState()
+	state.FearPool = 5
+
+	enemy := state.Enemies[0]
+	enemy.DamageDice = "1d8"
+	enemy.ATK = 2
+	enemy.AdversaryFeatures = []models.AdversaryFeature{
+		{
+			Name:   "Venom Strike",
+			DCType: "target",
+			Effects: []models.FeatureEffect{
+				{
+					Category:    models.FeatureEffectDamage,
+					DiceFormula: "1d6",
+					DamageType:  "physical",
+				},
+			},
+		},
+	}
+
+	decision := ai.ChooseAction(state, enemy)
+	if decision.AdversaryFeature == nil {
+		t.Error("free feature with target DC should still beat basic attack")
+	}
+}
+
+func TestConditionClearingNever(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection:   TargetLowestHP,
+		ConditionClearing: ClearNever,
+	})
+
+	state := newTestCombatState()
+	state.Players[0].AddCondition(&models.ActiveCondition{
+		Type:     models.ConditionBurning,
+		Duration: models.DurationUntilCleared,
+	})
+
+	decision := ai.ChooseAction(state, state.Players[0])
+	if decision.Target == state.Players[0] {
+		t.Error("ClearNever should not target self for condition clearing")
+	}
+}

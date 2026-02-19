@@ -31,6 +31,8 @@ const (
 // String returns the string representation of the threshold
 func (dt DamageThreshold) String() string {
 	switch dt {
+	case ThresholdNone:
+		return "None"
 	case ThresholdMinor:
 		return "Minor"
 	case ThresholdMajor:
@@ -42,21 +44,23 @@ func (dt DamageThreshold) String() string {
 	}
 }
 
-// DamageThresholdFromAmount determines threshold based on combatant's custom thresholds
+// ThresholdNone represents zero damage (no HP marked).
+const ThresholdNone DamageThreshold = -1
+
+// DamageThresholdFromAmount determines threshold based on combatant's custom thresholds.
+// Returns ThresholdNone for zero damage per SRD.
 func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold {
+	if damage <= 0 {
+		return ThresholdNone
+	}
+
 	thresholds := combatant.CustomThresholds
 	if len(thresholds) == 0 {
-		// For PCs: base threshold + level
-		// For adversaries: use tier-based default
 		if !combatant.IsAdversary {
-			// PC thresholds scale with level
-			// Base armor thresholds: Minor=3, Major=6
-			// Add level to each threshold
 			minorThreshold := 3 + combatant.Level
 			majorThreshold := 6 + combatant.Level
 			thresholds = []int{minorThreshold, majorThreshold}
 		} else {
-			// Default adversary thresholds: <4=Minor, 4-6=Major, 7+=Severe
 			thresholds = []int{4, 7}
 		}
 	}
@@ -137,8 +141,7 @@ type DiceResult int
 const (
 	ResultHope DiceResult = iota
 	ResultFear
-	ResultCriticalHope // Natural 12 on Hope die
-	ResultCriticalFear // Natural 12 on Fear die
+	ResultCriticalHope // Matching dice = critical success (always "with Hope" per SRD)
 )
 
 func (d DiceResult) String() string {
@@ -149,8 +152,6 @@ func (d DiceResult) String() string {
 		return "Fear"
 	case ResultCriticalHope:
 		return "Critical Hope"
-	case ResultCriticalFear:
-		return "Critical Fear"
 	default:
 		return "Unknown"
 	}
