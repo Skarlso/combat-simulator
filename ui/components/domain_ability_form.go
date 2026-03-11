@@ -178,38 +178,45 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 		saveText = "Save"
 	}
 
+	diceErr := validateDiceNotation(daf.newDiceFormula)
+
 	return app.Div().
 		Class("ability-add-form").
 		Body(
 			app.H4().Text(formTitle),
 			app.Div().
-				Class("form-group").
+				Class("form-row").
 				Body(
-					app.Label().Text("Name:"),
-					app.Input().
-						Type("text").
-						Value(daf.newName).
-						Placeholder("Rune Strike").
-						OnInput(func(ctx app.Context, e app.Event) {
-							daf.newName = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Description (optional):"),
-					app.Input().
-						Type("text").
-						Value(daf.newDescription).
-						Placeholder("Channel runic power...").
-						OnInput(func(ctx app.Context, e app.Event) {
-							daf.newDescription = ctx.JSSrc().Get("value").String()
-						}),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Name:"),
+							app.Input().
+								Type("text").
+								Value(daf.newName).
+								Placeholder("Rune Strike").
+								OnInput(func(ctx app.Context, e app.Event) {
+									daf.newName = ctx.JSSrc().Get("value").String()
+								}),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Description:"),
+							app.Input().
+								Type("text").
+								Value(daf.newDescription).
+								Placeholder("Channel runic power...").
+								OnInput(func(ctx app.Context, e app.Event) {
+									daf.newDescription = ctx.JSSrc().Get("value").String()
+								}),
+						),
 				),
 			app.Div().
 				Class("form-group").
 				Body(
 					app.Label().
+						Class("checkbox-label").
 						Body(
 							app.Input().
 								Type("checkbox").
@@ -221,263 +228,273 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							app.Text(" Passive (always on)"),
 						),
 				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Trigger Type:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									daf.newTriggerType = ctx.JSSrc().Get("value").String()
-									ctx.Update()
-								}).
-								Body(
-									app.Option().Value("").Text("None (manual activation)").Selected(daf.newTriggerType == ""),
-									app.Option().Value("on_attack").Text("On Attack").Selected(daf.newTriggerType == "on_attack"),
-									app.Option().Value("on_hit").Text("On Hit").Selected(daf.newTriggerType == "on_hit"),
-									app.Option().Value("on_critical").Text("On Critical").Selected(daf.newTriggerType == "on_critical"),
-									app.Option().Value("on_damage_taken").Text("On Damage Taken").Selected(daf.newTriggerType == "on_damage_taken"),
-									app.Option().Value("start_turn").Text("Start of Turn").Selected(daf.newTriggerType == "start_turn"),
-									app.Option().Value("end_turn").Text("End of Turn").Selected(daf.newTriggerType == "end_turn"),
-								),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Trigger Filter (optional):"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									daf.newTriggerFilter = ctx.JSSrc().Get("value").String()
-									ctx.Update()
-								}).
-								Body(
-									app.Option().Value("").Text("None").Selected(daf.newTriggerFilter == ""),
-									app.Option().Value("if_target_below_50_hp").Text("If target below 50% HP").Selected(daf.newTriggerFilter == "if_target_below_50_hp"),
-									app.Option().Value("if_hidden").Text("If hidden").Selected(daf.newTriggerFilter == "if_hidden"),
-									app.Option().Value("if_ally_adjacent").Text("If ally adjacent").Selected(daf.newTriggerFilter == "if_ally_adjacent"),
-								),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Hope Cost:"),
-							app.Input().
-								Type("number").
-								Value(daf.newHopeCost).
-								Min(0).
-								Max(10).
-								OnInput(handleIntInput(&daf.newHopeCost)),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Stress Cost:"),
-							app.Input().
-								Type("number").
-								Value(daf.newStressCost).
-								Min(0).
-								Max(5).
-								OnInput(handleIntInput(&daf.newStressCost)),
-						),
-				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Refresh Type:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									daf.newRefreshType = ctx.JSSrc().Get("value").String()
-									ctx.Update()
-								}).
-								Body(
-									app.Option().Value("unlimited").Text("Unlimited").Selected(daf.newRefreshType == "unlimited"),
-									app.Option().Value("rest").Text("Per Rest").Selected(daf.newRefreshType == "rest"),
-									app.Option().Value("long_rest").Text("Per Long Rest").Selected(daf.newRefreshType == "long_rest"),
-									app.Option().Value("scene").Text("Per Scene").Selected(daf.newRefreshType == "scene"),
-								),
-						),
-					app.If(daf.newRefreshType != "unlimited", func() app.UI {
-						return app.Div().
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Trigger"),
+				app.Div().
+					Class("form-row").
+					Body(
+						app.Div().
 							Class("form-group").
 							Body(
-								app.Label().Text("Max Uses:"),
+								app.Label().Text("Trigger Type:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										daf.newTriggerType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("").Text("None (manual)").Selected(daf.newTriggerType == ""),
+										app.Option().Value("on_attack").Text("On Attack").Selected(daf.newTriggerType == "on_attack"),
+										app.Option().Value("on_hit").Text("On Hit").Selected(daf.newTriggerType == "on_hit"),
+										app.Option().Value("on_critical").Text("On Critical").Selected(daf.newTriggerType == "on_critical"),
+										app.Option().Value("on_damage_taken").Text("On Damage Taken").Selected(daf.newTriggerType == "on_damage_taken"),
+										app.Option().Value("start_turn").Text("Start of Turn").Selected(daf.newTriggerType == "start_turn"),
+										app.Option().Value("end_turn").Text("End of Turn").Selected(daf.newTriggerType == "end_turn"),
+									),
+							),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Filter:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										daf.newTriggerFilter = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("").Text("None").Selected(daf.newTriggerFilter == ""),
+										app.Option().Value("if_target_below_50_hp").Text("Target below 50% HP").Selected(daf.newTriggerFilter == "if_target_below_50_hp"),
+										app.Option().Value("if_hidden").Text("If hidden").Selected(daf.newTriggerFilter == "if_hidden"),
+										app.Option().Value("if_ally_adjacent").Text("If ally adjacent").Selected(daf.newTriggerFilter == "if_ally_adjacent"),
+									),
+							),
+					),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Cost & Usage"),
+				app.Div().
+					Class("form-row-3").
+					Body(
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Hope Cost:"),
 								app.Input().
 									Type("number").
-									Value(daf.newMaxUses).
-									Min(0).
-									Max(10).
-									OnInput(handleIntInput(&daf.newMaxUses)),
-							)
-					}),
-				),
-			app.H5().Text("Difficulty Check"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("DC Type:"),
-					app.Select().
-						OnChange(func(ctx app.Context, e app.Event) {
-							daf.newDCType = ctx.JSSrc().Get("value").String()
-							ctx.Update()
-						}).
+									Value(daf.newHopeCost).
+									Min(0).Max(10).
+									OnInput(handleIntInput(&daf.newHopeCost)),
+							),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Stress Cost:"),
+								app.Input().
+									Type("number").
+									Value(daf.newStressCost).
+									Min(0).Max(5).
+									OnInput(handleIntInput(&daf.newStressCost)),
+							),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Refresh:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										daf.newRefreshType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("unlimited").Text("Unlimited").Selected(daf.newRefreshType == "unlimited"),
+										app.Option().Value("rest").Text("Per Rest").Selected(daf.newRefreshType == "rest"),
+										app.Option().Value("long_rest").Text("Per Long Rest").Selected(daf.newRefreshType == "long_rest"),
+										app.Option().Value("scene").Text("Per Scene").Selected(daf.newRefreshType == "scene"),
+									),
+							),
+					),
+				app.If(daf.newRefreshType != "unlimited", func() app.UI {
+					return app.Div().
+						Class("form-group").
 						Body(
-							app.Option().Value("none").Text("Auto-Succeed").Selected(daf.newDCType == "none"),
-							app.Option().Value("target").Text("Target's Difficulty").Selected(daf.newDCType == "target"),
-							app.Option().Value("fixed").Text("Fixed DC").Selected(daf.newDCType == "fixed"),
-						),
-				),
-			app.If(daf.newDCType == "fixed", func() app.UI {
-				return app.Div().
+							app.Label().Text("Max Uses:"),
+							app.Input().
+								Type("number").
+								Value(daf.newMaxUses).
+								Min(0).Max(10).
+								OnInput(handleIntInput(&daf.newMaxUses)),
+						)
+				}),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Difficulty Check"),
+				app.Div().
+					Class("form-row").
+					Body(
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("DC Type:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										daf.newDCType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("none").Text("Auto-Succeed").Selected(daf.newDCType == "none"),
+										app.Option().Value("target").Text("Target's Difficulty").Selected(daf.newDCType == "target"),
+										app.Option().Value("fixed").Text("Fixed DC").Selected(daf.newDCType == "fixed"),
+									),
+							),
+						app.If(daf.newDCType == "fixed", func() app.UI {
+							return app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Fixed DC:"),
+									app.Input().
+										Type("number").
+										Value(daf.newFixedDC).
+										Min(1).Max(30).
+										OnInput(handleIntInput(&daf.newFixedDC)),
+								)
+						}),
+					),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Tokens"),
+				app.Div().
 					Class("form-group").
 					Body(
-						app.Label().Text("Fixed DC:"),
-						app.Input().
-							Type("number").
-							Value(daf.newFixedDC).
-							Min(1).
-							Max(30).
-							OnInput(handleIntInput(&daf.newFixedDC)),
-					)
-			}),
-			app.H5().Text("Token Configuration"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().
+						app.Label().
+							Class("checkbox-label").
+							Body(
+								app.Input().
+									Type("checkbox").
+									Checked(daf.newUsesTokens).
+									OnChange(func(ctx app.Context, e app.Event) {
+										daf.newUsesTokens = ctx.JSSrc().Get("checked").Bool()
+										ctx.Update()
+									}),
+								app.Text(" Uses tokens"),
+							),
+					),
+				app.If(daf.newUsesTokens, func() app.UI {
+					return app.Div().
+						Class("form-row").
 						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Token Name:"),
+									app.Input().
+										Type("text").
+										Value(daf.newTokenName).
+										Placeholder("Chaos").
+										OnInput(func(ctx app.Context, e app.Event) {
+											daf.newTokenName = ctx.JSSrc().Get("value").String()
+										}),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Max Tokens (0=unlimited):"),
+									app.Input().
+										Type("number").
+										Value(daf.newTokensMax).
+										Min(0).Max(20).
+										OnInput(handleIntInput(&daf.newTokensMax)),
+								),
+						)
+				}),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Effect"),
+				app.Div().
+					Class("form-group").
+					Body(
+						app.Label().Text("Effect Type:"),
+						app.Select().
+							OnChange(func(ctx app.Context, e app.Event) {
+								daf.newEffectType = ctx.JSSrc().Get("value").String()
+								ctx.Update()
+							}).
+							Body(
+								app.Option().Value("damage").Text("Damage").Selected(daf.newEffectType == "damage"),
+								app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(daf.newEffectType == "area_damage"),
+								app.Option().Value("heal").Text("Heal HP").Selected(daf.newEffectType == "heal"),
+								app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(daf.newEffectType == "stress_inflict"),
+								app.Option().Value("stress_clear").Text("Clear Stress").Selected(daf.newEffectType == "stress_clear"),
+								app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(daf.newEffectType == "apply_vulnerable"),
+								app.Option().Value("apply_poison").Text("Apply Poison").Selected(daf.newEffectType == "apply_poison"),
+								app.Option().Value("armor_damage").Text("Damage Armor Slots").Selected(daf.newEffectType == "armor_damage"),
+								app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(daf.newEffectType == "grant_armor"),
+								app.Option().Value("damage_reduction").Text("Damage Reduction (Ward)").Selected(daf.newEffectType == "damage_reduction"),
+								app.Option().Value("token_place").Text("Place Token").Selected(daf.newEffectType == "token_place"),
+								app.Option().Value("token_spend").Text("Spend Token").Selected(daf.newEffectType == "token_spend"),
+								app.Option().Value("resistance").Text("Resistance (50%)").Selected(daf.newEffectType == "resistance"),
+								app.Option().Value("immunity").Text("Immunity (100%)").Selected(daf.newEffectType == "immunity"),
+							),
+					),
+				app.If(needsDiceFormula(daf.newEffectType), func() app.UI {
+					return app.Div().
+						Class(formGroupClass(diceErr != "")).
+						Body(
+							app.Label().Text("Dice Formula:"),
 							app.Input().
-								Type("checkbox").
-								Checked(daf.newUsesTokens).
-								OnChange(func(ctx app.Context, e app.Event) {
-									daf.newUsesTokens = ctx.JSSrc().Get("checked").Bool()
+								Type("text").
+								Value(daf.newDiceFormula).
+								Placeholder("2d6+3").
+								OnInput(func(ctx app.Context, e app.Event) {
+									daf.newDiceFormula = ctx.JSSrc().Get("value").String()
 									ctx.Update()
 								}),
-							app.Text(" This ability uses tokens"),
-						),
-				),
-			app.If(daf.newUsesTokens, func() app.UI {
-				return app.Div().
-					Body(
-						app.Div().
-							Class("form-group").
-							Body(
-								app.Label().Text("Token Name (e.g., 'Chaos', 'Ward'):"),
-								app.Input().
-									Type("text").
-									Value(daf.newTokenName).
-									Placeholder("Chaos").
-									OnInput(func(ctx app.Context, e app.Event) {
-										daf.newTokenName = ctx.JSSrc().Get("value").String()
-									}),
-							),
-						app.Div().
-							Class("form-group").
-							Body(
-								app.Label().Text("Max Tokens (0 = unlimited):"),
-								app.Input().
-									Type("number").
-									Value(daf.newTokensMax).
-									Min(0).
-									Max(20).
-									OnInput(handleIntInput(&daf.newTokensMax)),
-							),
-					)
-			}),
-			app.H5().Text("Effect"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Effect Type:"),
-					app.Select().
-						OnChange(func(ctx app.Context, e app.Event) {
-							daf.newEffectType = ctx.JSSrc().Get("value").String()
-							ctx.Update()
-						}).
+							renderValidationMsg(diceErr),
+						)
+				}),
+				app.If(needsMagnitude(daf.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
 						Body(
-							app.Option().Value("damage").Text("Damage").Selected(daf.newEffectType == "damage"),
-							app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(daf.newEffectType == "area_damage"),
-							app.Option().Value("heal").Text("Heal HP").Selected(daf.newEffectType == "heal"),
-							app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(daf.newEffectType == "stress_inflict"),
-							app.Option().Value("stress_clear").Text("Clear Stress").Selected(daf.newEffectType == "stress_clear"),
-							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(daf.newEffectType == "apply_vulnerable"),
-							app.Option().Value("apply_poison").Text("Apply Poison").Selected(daf.newEffectType == "apply_poison"),
-							app.Option().Value("armor_damage").Text("Damage Armor Slots").Selected(daf.newEffectType == "armor_damage"),
-							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(daf.newEffectType == "grant_armor"),
-							app.Option().Value("damage_reduction").Text("Damage Reduction (Ward)").Selected(daf.newEffectType == "damage_reduction"),
-							app.Option().Value("token_place").Text("Place Token").Selected(daf.newEffectType == "token_place"),
-							app.Option().Value("token_spend").Text("Spend Token").Selected(daf.newEffectType == "token_spend"),
-							app.Option().Value("resistance").Text("Resistance (50%)").Selected(daf.newEffectType == "resistance"),
-							app.Option().Value("immunity").Text("Immunity (100%)").Selected(daf.newEffectType == "immunity"),
-						),
-				),
-			app.If(needsDiceFormula(daf.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Dice Formula (e.g., 2d6+3):"),
-						app.Input().
-							Type("text").
-							Value(daf.newDiceFormula).
-							Placeholder("2d6+3").
-							OnInput(func(ctx app.Context, e app.Event) {
-								daf.newDiceFormula = ctx.JSSrc().Get("value").String()
-							}),
-					)
-			}),
-			app.If(needsMagnitude(daf.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Amount:"),
-						app.Input().
-							Type("number").
-							Value(daf.newMagnitude).
-							Min(1).
-							Max(10).
-							OnInput(handleIntInput(&daf.newMagnitude)),
-					)
-			}),
-			app.If(needsDamageType(daf.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Damage Type:"),
-						app.Select().
-							OnChange(func(ctx app.Context, e app.Event) {
-								daf.newDamageType = ctx.JSSrc().Get("value").String()
-							}).
-							Body(
-								app.Option().Value("physical").Text("Physical").Selected(daf.newDamageType == "physical"),
-								app.Option().Value("magic").Text("Magic").Selected(daf.newDamageType == "magic"),
-							),
-					)
-			}),
-			app.If(needsDuration(daf.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Duration:"),
-						app.Select().
-							OnChange(func(ctx app.Context, e app.Event) {
-								daf.newDuration = ctx.JSSrc().Get("value").String()
-							}).
-							Body(
-								app.Option().Value("instant").Text("Instant").Selected(daf.newDuration == "instant"),
-								app.Option().Value("1_turn").Text("1 Turn").Selected(daf.newDuration == "1_turn"),
-								app.Option().Value("until_cleared").Text("Until Cleared").Selected(daf.newDuration == "until_cleared"),
-								app.Option().Value("permanent").Text("Permanent").Selected(daf.newDuration == "permanent"),
-							),
-					)
-			}),
+							app.Label().Text("Amount:"),
+							app.Input().
+								Type("number").
+								Value(daf.newMagnitude).
+								Min(1).Max(10).
+								OnInput(handleIntInput(&daf.newMagnitude)),
+						)
+				}),
+				app.If(needsDamageType(daf.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Damage Type:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newDamageType = ctx.JSSrc().Get("value").String()
+								}).
+								Body(
+									app.Option().Value("physical").Text("Physical").Selected(daf.newDamageType == "physical"),
+									app.Option().Value("magic").Text("Magic").Selected(daf.newDamageType == "magic"),
+								),
+						)
+				}),
+				app.If(needsDuration(daf.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Duration:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									daf.newDuration = ctx.JSSrc().Get("value").String()
+								}).
+								Body(
+									app.Option().Value("instant").Text("Instant").Selected(daf.newDuration == "instant"),
+									app.Option().Value("1_turn").Text("1 Turn").Selected(daf.newDuration == "1_turn"),
+									app.Option().Value("until_cleared").Text("Until Cleared").Selected(daf.newDuration == "until_cleared"),
+									app.Option().Value("permanent").Text("Permanent").Selected(daf.newDuration == "permanent"),
+								),
+						)
+				}),
+			),
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -485,7 +502,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 						Class("btn btn-primary").
 						Type("button").
 						Text(saveText).
-						Disabled(daf.newName == "").
+						Disabled(daf.newName == "" || diceErr != "").
 						OnClick(func(ctx app.Context, e app.Event) {
 							e.PreventDefault()
 							daf.saveAbility(ctx)

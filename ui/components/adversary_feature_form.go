@@ -191,38 +191,45 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 		saveText = "Save"
 	}
 
+	diceErr := validateDiceNotation(aff.newDiceFormula)
+
 	return app.Div().
 		Class("ability-add-form").
 		Body(
 			app.H4().Text(formTitle),
 			app.Div().
-				Class("form-group").
+				Class("form-row").
 				Body(
-					app.Label().Text("Name:"),
-					app.Input().
-						Type("text").
-						Value(aff.newName).
-						Placeholder("Venomous Stinger").
-						OnInput(func(ctx app.Context, e app.Event) {
-							aff.newName = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Description (optional):"),
-					app.Input().
-						Type("text").
-						Value(aff.newDescription).
-						Placeholder("Injects venom...").
-						OnInput(func(ctx app.Context, e app.Event) {
-							aff.newDescription = ctx.JSSrc().Get("value").String()
-						}),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Name:"),
+							app.Input().
+								Type("text").
+								Value(aff.newName).
+								Placeholder("Venomous Stinger").
+								OnInput(func(ctx app.Context, e app.Event) {
+									aff.newName = ctx.JSSrc().Get("value").String()
+								}),
+						),
+					app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Description:"),
+							app.Input().
+								Type("text").
+								Value(aff.newDescription).
+								Placeholder("Injects venom...").
+								OnInput(func(ctx app.Context, e app.Event) {
+									aff.newDescription = ctx.JSSrc().Get("value").String()
+								}),
+						),
 				),
 			app.Div().
 				Class("form-group").
 				Body(
 					app.Label().
+						Class("checkbox-label").
 						Body(
 							app.Input().
 								Type("checkbox").
@@ -234,210 +241,217 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							app.Text(" Passive (always on)"),
 						),
 				),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Cost Type:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									aff.newCostType = ctx.JSSrc().Get("value").String()
-									ctx.Update()
-								}).
-								Body(
-									app.Option().Value("free").Text("Free").Selected(aff.newCostType == "free"),
-									app.Option().Value("fear").Text("Fear").Selected(aff.newCostType == "fear"),
-									app.Option().Value("stress").Text("Stress").Selected(aff.newCostType == "stress"),
-								),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Spotlight Limit (per turn):"),
-							app.Input().
-								Type("number").
-								Value(aff.newSpotlightLim).
-								Min(0).
-								Max(5).
-								OnInput(handleIntInput(&aff.newSpotlightLim)),
-						),
-				),
-			app.If(aff.newCostType == "fear", func() app.UI {
-				return app.Div().
-					Class("form-group").
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Cost & Usage"),
+				app.Div().
+					Class("form-row-3").
 					Body(
-						app.Label().Text("Fear Cost:"),
-						app.Input().
-							Type("number").
-							Value(aff.newFearCost).
-							Min(1).
-							Max(10).
-							OnInput(handleIntInput(&aff.newFearCost)),
-					)
-			}),
-			app.If(aff.newCostType == "stress", func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Stress Cost:"),
-						app.Input().
-							Type("number").
-							Value(aff.newStressCost).
-							Min(1).
-							Max(10).
-							OnInput(handleIntInput(&aff.newStressCost)),
-					)
-			}),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Usage Limit:"),
-							app.Select().
-								OnChange(func(ctx app.Context, e app.Event) {
-									aff.newUsageType = ctx.JSSrc().Get("value").String()
-									ctx.Update()
-								}).
-								Body(
-									app.Option().Value("unlimited").Text("Unlimited").Selected(aff.newUsageType == "unlimited"),
-									app.Option().Value("once_per_scene").Text("Once per Scene").Selected(aff.newUsageType == "once_per_scene"),
-									app.Option().Value("once_per_session").Text("Once per Session").Selected(aff.newUsageType == "once_per_session"),
-									app.Option().Value("once_per_rest").Text("Once per Rest").Selected(aff.newUsageType == "once_per_rest"),
-								),
-						),
-					app.If(aff.newUsageType != "unlimited", func() app.UI {
-						return app.Div().
+						app.Div().
 							Class("form-group").
 							Body(
-								app.Label().Text("Max Uses:"),
+								app.Label().Text("Cost Type:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										aff.newCostType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("free").Text("Free").Selected(aff.newCostType == "free"),
+										app.Option().Value("fear").Text("Fear").Selected(aff.newCostType == "fear"),
+										app.Option().Value("stress").Text("Stress").Selected(aff.newCostType == "stress"),
+									),
+							),
+						app.If(aff.newCostType == "fear", func() app.UI {
+							return app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Fear Cost:"),
+									app.Input().
+										Type("number").
+										Value(aff.newFearCost).
+										Min(1).Max(10).
+										OnInput(handleIntInput(&aff.newFearCost)),
+								)
+						}),
+						app.If(aff.newCostType == "stress", func() app.UI {
+							return app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Stress Cost:"),
+									app.Input().
+										Type("number").
+										Value(aff.newStressCost).
+										Min(1).Max(10).
+										OnInput(handleIntInput(&aff.newStressCost)),
+								)
+						}),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Spotlight Limit:"),
 								app.Input().
 									Type("number").
-									Value(aff.newMaxUses).
-									Min(1).
-									Max(10).
-									OnInput(handleIntInput(&aff.newMaxUses)),
-							)
-					}),
-				),
-			app.H5().Text("Effect"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Effect Type:"),
-					app.Select().
-						OnChange(func(ctx app.Context, e app.Event) {
-							aff.newEffectType = ctx.JSSrc().Get("value").String()
-							ctx.Update()
-						}).
-						Body(
-							app.Option().Value("damage").Text("Damage").Selected(aff.newEffectType == "damage"),
-							app.Option().Value("direct_damage").Text("Direct Damage").Selected(aff.newEffectType == "direct_damage"),
-							app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(aff.newEffectType == "area_damage"),
-							app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(aff.newEffectType == "stress_inflict"),
-							app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(aff.newEffectType == "apply_vulnerable"),
-							app.Option().Value("apply_poison").Text("Apply Poison").Selected(aff.newEffectType == "apply_poison"),
-							app.Option().Value("armor_damage").Text("Damage Armor").Selected(aff.newEffectType == "armor_damage"),
-							app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(aff.newEffectType == "grant_armor"),
-							app.Option().Value("resistance").Text("Resistance (50%)").Selected(aff.newEffectType == "resistance"),
-							app.Option().Value("immunity").Text("Immunity (100%)").Selected(aff.newEffectType == "immunity"),
-							app.Option().Value("summon_allies").Text("Summon Allies").Selected(aff.newEffectType == "summon_allies"),
-						),
-				),
-			app.If(needsDiceFormula(aff.newEffectType), func() app.UI {
-				return app.Div().
+									Value(aff.newSpotlightLim).
+									Min(0).Max(5).
+									OnInput(handleIntInput(&aff.newSpotlightLim)),
+							),
+					),
+				app.Div().
+					Class("form-row").
+					Body(
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("Usage Limit:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										aff.newUsageType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("unlimited").Text("Unlimited").Selected(aff.newUsageType == "unlimited"),
+										app.Option().Value("once_per_scene").Text("Once per Scene").Selected(aff.newUsageType == "once_per_scene"),
+										app.Option().Value("once_per_session").Text("Once per Session").Selected(aff.newUsageType == "once_per_session"),
+										app.Option().Value("once_per_rest").Text("Once per Rest").Selected(aff.newUsageType == "once_per_rest"),
+									),
+							),
+						app.If(aff.newUsageType != "unlimited", func() app.UI {
+							return app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Max Uses:"),
+									app.Input().
+										Type("number").
+										Value(aff.newMaxUses).
+										Min(1).Max(10).
+										OnInput(handleIntInput(&aff.newMaxUses)),
+								)
+						}),
+					),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Effect"),
+				app.Div().
 					Class("form-group").
 					Body(
-						app.Label().Text("Dice Formula (e.g., 2d6+3):"),
-						app.Input().
-							Type("text").
-							Value(aff.newDiceFormula).
-							Placeholder("1d8").
-							OnInput(func(ctx app.Context, e app.Event) {
-								aff.newDiceFormula = ctx.JSSrc().Get("value").String()
-							}),
-					)
-			}),
-			app.If(needsMagnitude(aff.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Amount:"),
-						app.Input().
-							Type("number").
-							Value(aff.newMagnitude).
-							Min(1).
-							Max(10).
-							OnInput(handleIntInput(&aff.newMagnitude)),
-					)
-			}),
-			app.If(needsDamageType(aff.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Damage Type:"),
+						app.Label().Text("Effect Type:"),
 						app.Select().
 							OnChange(func(ctx app.Context, e app.Event) {
-								aff.newDamageType = ctx.JSSrc().Get("value").String()
+								aff.newEffectType = ctx.JSSrc().Get("value").String()
+								ctx.Update()
 							}).
 							Body(
-								app.Option().Value("physical").Text("Physical").Selected(aff.newDamageType == "physical"),
-								app.Option().Value("magic").Text("Magic").Selected(aff.newDamageType == "magic"),
+								app.Option().Value("damage").Text("Damage").Selected(aff.newEffectType == "damage"),
+								app.Option().Value("direct_damage").Text("Direct Damage").Selected(aff.newEffectType == "direct_damage"),
+								app.Option().Value("area_damage").Text("Area Damage (AOE)").Selected(aff.newEffectType == "area_damage"),
+								app.Option().Value("stress_inflict").Text("Inflict Stress").Selected(aff.newEffectType == "stress_inflict"),
+								app.Option().Value("apply_vulnerable").Text("Apply Vulnerable").Selected(aff.newEffectType == "apply_vulnerable"),
+								app.Option().Value("apply_poison").Text("Apply Poison").Selected(aff.newEffectType == "apply_poison"),
+								app.Option().Value("armor_damage").Text("Damage Armor").Selected(aff.newEffectType == "armor_damage"),
+								app.Option().Value("grant_armor").Text("Grant Armor Slots").Selected(aff.newEffectType == "grant_armor"),
+								app.Option().Value("resistance").Text("Resistance (50%)").Selected(aff.newEffectType == "resistance"),
+								app.Option().Value("immunity").Text("Immunity (100%)").Selected(aff.newEffectType == "immunity"),
+								app.Option().Value("summon_allies").Text("Summon Allies").Selected(aff.newEffectType == "summon_allies"),
 							),
-					)
-			}),
-			app.If(needsDuration(aff.newEffectType), func() app.UI {
-				return app.Div().
-					Class("form-group").
-					Body(
-						app.Label().Text("Duration:"),
-						app.Select().
-							OnChange(func(ctx app.Context, e app.Event) {
-								aff.newDuration = ctx.JSSrc().Get("value").String()
-							}).
-							Body(
-								app.Option().Value("instant").Text("Instant").Selected(aff.newDuration == "instant"),
-								app.Option().Value("1_turn").Text("1 Turn").Selected(aff.newDuration == "1_turn"),
-								app.Option().Value("until_cleared").Text("Until Cleared").Selected(aff.newDuration == "until_cleared"),
-								app.Option().Value("permanent").Text("Permanent").Selected(aff.newDuration == "permanent"),
-							),
-					)
-			}),
-			app.If(aff.newEffectType == "summon_allies", func() app.UI {
-				return aff.renderSummonControls()
-			}),
-			app.H5().Text("Difficulty Check"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("DC Type:"),
-					app.Select().
-						OnChange(func(ctx app.Context, e app.Event) {
-							aff.newDCType = ctx.JSSrc().Get("value").String()
-							ctx.Update()
-						}).
+					),
+				app.If(needsDiceFormula(aff.newEffectType), func() app.UI {
+					return app.Div().
+						Class(formGroupClass(diceErr != "")).
 						Body(
-							app.Option().Value("none").Text("Auto-Succeed").Selected(aff.newDCType == "none"),
-							app.Option().Value("target").Text("Target's Evasion").Selected(aff.newDCType == "target"),
-							app.Option().Value("fixed").Text("Fixed DC").Selected(aff.newDCType == "fixed"),
-						),
-				),
-			app.If(aff.newDCType == "fixed", func() app.UI {
-				return app.Div().
-					Class("form-group").
+							app.Label().Text("Dice Formula:"),
+							app.Input().
+								Type("text").
+								Value(aff.newDiceFormula).
+								Placeholder("1d8").
+								OnInput(func(ctx app.Context, e app.Event) {
+									aff.newDiceFormula = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}),
+							renderValidationMsg(diceErr),
+						)
+				}),
+				app.If(needsMagnitude(aff.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Amount:"),
+							app.Input().
+								Type("number").
+								Value(aff.newMagnitude).
+								Min(1).Max(10).
+								OnInput(handleIntInput(&aff.newMagnitude)),
+						)
+				}),
+				app.If(needsDamageType(aff.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Damage Type:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newDamageType = ctx.JSSrc().Get("value").String()
+								}).
+								Body(
+									app.Option().Value("physical").Text("Physical").Selected(aff.newDamageType == "physical"),
+									app.Option().Value("magic").Text("Magic").Selected(aff.newDamageType == "magic"),
+								),
+						)
+				}),
+				app.If(needsDuration(aff.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Duration:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newDuration = ctx.JSSrc().Get("value").String()
+								}).
+								Body(
+									app.Option().Value("instant").Text("Instant").Selected(aff.newDuration == "instant"),
+									app.Option().Value("1_turn").Text("1 Turn").Selected(aff.newDuration == "1_turn"),
+									app.Option().Value("until_cleared").Text("Until Cleared").Selected(aff.newDuration == "until_cleared"),
+									app.Option().Value("permanent").Text("Permanent").Selected(aff.newDuration == "permanent"),
+								),
+						)
+				}),
+				app.If(aff.newEffectType == "summon_allies", func() app.UI {
+					return aff.renderSummonControls()
+				}),
+			),
+			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Difficulty Check"),
+				app.Div().
+					Class("form-row").
 					Body(
-						app.Label().Text("Fixed DC:"),
-						app.Input().
-							Type("number").
-							Value(aff.newFixedDC).
-							Min(1).
-							Max(30).
-							OnInput(handleIntInput(&aff.newFixedDC)),
-					)
-			}),
+						app.Div().
+							Class("form-group").
+							Body(
+								app.Label().Text("DC Type:"),
+								app.Select().
+									OnChange(func(ctx app.Context, e app.Event) {
+										aff.newDCType = ctx.JSSrc().Get("value").String()
+										ctx.Update()
+									}).
+									Body(
+										app.Option().Value("none").Text("Auto-Succeed").Selected(aff.newDCType == "none"),
+										app.Option().Value("target").Text("Target's Evasion").Selected(aff.newDCType == "target"),
+										app.Option().Value("fixed").Text("Fixed DC").Selected(aff.newDCType == "fixed"),
+									),
+							),
+						app.If(aff.newDCType == "fixed", func() app.UI {
+							return app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Fixed DC:"),
+									app.Input().
+										Type("number").
+										Value(aff.newFixedDC).
+										Min(1).Max(30).
+										OnInput(handleIntInput(&aff.newFixedDC)),
+								)
+						}),
+					),
+			),
 			app.Div().
 				Class("form-actions").
 				Body(
@@ -445,7 +459,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 						Class("btn btn-primary").
 						Type("button").
 						Text(saveText).
-						Disabled(aff.newName == "").
+						Disabled(aff.newName == "" || diceErr != "").
 						OnClick(func(ctx app.Context, e app.Event) {
 							e.PreventDefault()
 							aff.saveFeature(ctx)

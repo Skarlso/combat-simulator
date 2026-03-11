@@ -219,37 +219,69 @@ body {
 
 /* Forms */
 .form-group {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   font-weight: 500;
+  font-size: 0.875rem;
   color: var(--dark);
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
-  padding: 0.5rem;
-  font-size: 1rem;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.9rem;
   border: 2px solid var(--border);
   border-radius: 4px;
   transition: border-color 0.2s;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--hope);
   box-shadow: 0 0 0 3px rgba(231, 199, 75, 0.1);
 }
 
+.form-group input[type="number"] {
+  max-width: 120px;
+}
+
 .form-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.form-row-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+/* Validation feedback */
+.form-group.has-error input,
+.form-group.has-error select {
+  border-color: var(--danger);
+}
+
+.form-group.has-error input:focus,
+.form-group.has-error select:focus {
+  box-shadow: 0 0 0 3px rgba(217, 83, 79, 0.1);
+}
+
+.validation-error {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--danger);
+  margin-top: 0.2rem;
+  font-weight: 500;
 }
 
 .form-help {
@@ -688,6 +720,19 @@ body {
   font-size: 0.8rem;
 }
 
+.dice-hope {
+  color: var(--hope-dark);
+}
+
+.dice-fear {
+  color: var(--fear);
+}
+
+.dice-winner {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
 .log-col-damage {
   font-weight: 500;
   color: var(--danger);
@@ -736,6 +781,68 @@ body {
 
 .accordion-body {
   padding: 0.5rem 0;
+}
+
+/* Sub-form sections within ability/feature forms */
+.form-subsection {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(36, 19, 95, 0.03);
+  border-radius: 4px;
+  border-left: 3px solid var(--hope);
+}
+
+.form-subsection h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--fear);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Ability add/edit form */
+.ability-add-form {
+  padding: 1rem;
+  background: rgba(231, 199, 75, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+
+.ability-add-form h4 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: var(--hope-dark);
+}
+
+/* Ability list items — tighter */
+.ability-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  transition: all 0.2s;
+}
+
+.ability-item:hover {
+  border-color: var(--hope);
+}
+
+.ability-effect {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.ability-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin-top: 0.15rem;
 }
 
 /* Item actions (Duplicate + Remove side by side) */

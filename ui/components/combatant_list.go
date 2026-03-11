@@ -161,7 +161,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 			app.If(cl.sectionOpen["stats"], func() app.UI {
 				return app.Div().Class("accordion-body").Body(
 					app.Div().
-						Class("form-row").
+						Class("form-row-3").
 						Body(
 							app.Div().
 								Class("form-group").
@@ -198,7 +198,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 								),
 						),
 					app.Div().
-						Class("form-row").
+						Class("form-row-3").
 						Body(
 							app.Div().
 								Class("form-group").

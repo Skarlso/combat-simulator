@@ -5,6 +5,31 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
 
+func validateDiceNotation(s string) string {
+	if s == "" {
+		return ""
+	}
+	_, err := models.ParseDiceNotation(s)
+	if err != nil {
+		return "Invalid dice notation (e.g. 2d6+3)"
+	}
+	return ""
+}
+
+func renderValidationMsg(msg string) app.UI {
+	if msg == "" {
+		return app.Text("")
+	}
+	return app.Span().Class("validation-error").Text(msg)
+}
+
+func formGroupClass(hasError bool) string {
+	if hasError {
+		return "form-group has-error"
+	}
+	return "form-group"
+}
+
 func handleIntInput(target *int) func(app.Context, app.Event) {
 	return func(ctx app.Context, e app.Event) {
 		*target = ctx.JSSrc().Get("valueAsNumber").Int()

@@ -207,23 +207,33 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 	}
 
 	for _, action := range outcome.ActionHistory {
-		// Format dice roll
-		diceRoll := "-"
+		// Build dice roll column as structured UI
+		var diceRollUI app.UI
 		if action.HopeDie > 0 || action.FearDie > 0 || action.D20Roll > 0 {
-			// Check if this is a player (both Hope and Fear) or enemy (d20)
 			if action.FearDie > 0 {
-				// Player attack/ability - duality dice
-				diceRoll = fmt.Sprintf("H:%d F:%d = %d (vs %d)",
-					action.HopeDie, action.FearDie, action.TotalRoll, action.TargetDefense)
+				isFearResult := action.FearDie > action.HopeDie
+				hopeClass := "dice-hope"
+				fearClass := "dice-fear"
+				if isFearResult {
+					fearClass += " dice-winner"
+				} else {
+					hopeClass += " dice-winner"
+				}
+				diceRollUI = app.Span().Body(
+					app.Span().Class(hopeClass).Text(fmt.Sprintf("H:%d", action.HopeDie)),
+					app.Text(" "),
+					app.Span().Class(fearClass).Text(fmt.Sprintf("F:%d", action.FearDie)),
+					app.Text(fmt.Sprintf(" = %d (vs %d)", action.TotalRoll, action.TargetDefense)),
+				)
 			} else if action.D20Roll > 0 {
-				// Enemy attack/ability - d20
-				diceRoll = fmt.Sprintf("d20:%d = %d (vs %d)",
-					action.D20Roll, action.TotalRoll, action.TargetDefense)
+				diceRollUI = app.Text(fmt.Sprintf("d20:%d = %d (vs %d)",
+					action.D20Roll, action.TotalRoll, action.TargetDefense))
 			} else {
-				// Old format fallback (for backwards compatibility)
-				diceRoll = fmt.Sprintf("d20:%d = %d (vs %d)",
-					action.HopeDie, action.TotalRoll, action.TargetDefense)
+				diceRollUI = app.Text(fmt.Sprintf("d20:%d = %d (vs %d)",
+					action.HopeDie, action.TotalRoll, action.TargetDefense))
 			}
+		} else {
+			diceRollUI = app.Text("-")
 		}
 
 		// Format damage with individual dice
@@ -305,7 +315,7 @@ func (rs *ResultsSummary) renderCombatLog() app.UI {
 			app.Span().Class("log-col-actor").Text(action.Actor),
 			app.Span().Class("log-col-action").Text(actionText),
 			app.Span().Class("log-col-target").Text(targetText),
-			app.Span().Class("log-col-dice").Text(diceRoll),
+			app.Span().Class("log-col-dice").Body(diceRollUI),
 			app.Span().Class("log-col-damage").Text(damageText),
 			app.Span().Class("log-col-result").Text(resultText),
 			app.Span().Class("log-col-pools").Text(poolsText),
