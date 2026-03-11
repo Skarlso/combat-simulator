@@ -419,7 +419,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							app.Option().Value("immunity").Text("Immunity (100%)").Selected(daf.newEffectType == "immunity"),
 						),
 				),
-			app.If(daf.needsDiceFormula(), func() app.UI {
+			app.If(needsDiceFormula(daf.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -433,7 +433,7 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 							}),
 					)
 			}),
-			app.If(daf.needsMagnitude(), func() app.UI {
+			app.If(needsMagnitude(daf.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -504,21 +504,6 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 		)
 }
 
-// Helper methods for conditional rendering
-func (daf *DomainAbilityForm) needsDiceFormula() bool {
-	return daf.newEffectType == "damage" ||
-		daf.newEffectType == "direct_damage" ||
-		daf.newEffectType == "heal" ||
-		daf.newEffectType == "damage_reduction"
-}
-
-func (daf *DomainAbilityForm) needsMagnitude() bool {
-	return daf.newEffectType == "stress_inflict" ||
-		daf.newEffectType == "stress_clear" ||
-		daf.newEffectType == "grant_armor" ||
-		daf.newEffectType == "token_place" ||
-		daf.newEffectType == "token_spend"
-}
 
 
 func (daf *DomainAbilityForm) startEditing(ctx app.Context, idx int) {

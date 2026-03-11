@@ -347,7 +347,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							app.Option().Value("summon_allies").Text("Summon Allies").Selected(aff.newEffectType == "summon_allies"),
 						),
 				),
-			app.If(aff.needsDiceFormula(), func() app.UI {
+			app.If(needsDiceFormula(aff.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -361,7 +361,7 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 							}),
 					)
 			}),
-			app.If(aff.needsMagnitude(), func() app.UI {
+			app.If(needsMagnitude(aff.newEffectType), func() app.UI {
 				return app.Div().
 					Class("form-group").
 					Body(
@@ -554,16 +554,6 @@ func (aff *AdversaryFeatureForm) renderSummonPoolPicker() app.UI {
 	return app.Div().Class("summon-pool-picker").Body(items...)
 }
 
-// Helper methods for conditional rendering
-func (aff *AdversaryFeatureForm) needsDiceFormula() bool {
-	return aff.newEffectType == "damage" || aff.newEffectType == "direct_damage" || aff.newEffectType == "area_damage"
-}
-
-func (aff *AdversaryFeatureForm) needsMagnitude() bool {
-	return aff.newEffectType == "stress_inflict" ||
-		aff.newEffectType == "armor_damage" ||
-		aff.newEffectType == "grant_armor"
-}
 
 
 func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
@@ -728,7 +718,7 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newCostType = "free"
 	aff.newSpotlightLim = 0
 	aff.newUsageType = "unlimited"
-	aff.newMaxUses = 1
+	aff.newMaxUses = 0
 	aff.newDiceFormula = "1d6"
 	aff.newDamageType = "physical"
 	aff.newEffectType = "damage"

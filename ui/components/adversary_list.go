@@ -30,7 +30,6 @@ type AdversaryList struct {
 	newMajorThreshold  int
 	newDamageDice      string
 	newMotives         string
-	newTactics         string
 	newFeatures        []*models.AdversaryFeature
 	newIsSummonTemplate bool
 }
@@ -296,9 +295,7 @@ func (al *AdversaryList) renderAddForm() app.UI {
 								Placeholder("Manipulate, curse, deceive...").
 								Rows(3).
 								OnInput(func(ctx app.Context, e app.Event) {
-									text := ctx.JSSrc().Get("value").String()
-									al.newMotives = text
-									al.newTactics = text
+									al.newMotives = ctx.JSSrc().Get("value").String()
 								}),
 						),
 					app.Div().
@@ -384,7 +381,7 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	)
 	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
-	adversary.Tactics = al.newTactics
+	adversary.Tactics = al.newMotives
 	adversary.IsSummonTemplate = al.newIsSummonTemplate
 
 	for _, feature := range al.newFeatures {
@@ -415,7 +412,6 @@ func (al *AdversaryList) resetForm() {
 	al.newMinorThreshold = 8
 	al.newMajorThreshold = 16
 	al.newMotives = ""
-	al.newTactics = ""
 	al.newFeatures = make([]*models.AdversaryFeature, 0)
 	al.newIsSummonTemplate = false
 	al.sectionOpen = map[string]bool{

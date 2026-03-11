@@ -525,13 +525,13 @@ func TestClearStressRemovesVulnerable(t *testing.T) {
 }
 
 func TestParseDamageType(t *testing.T) {
-	if parseDamageType("magic") != DamageMagic {
+	if ParseDamageType("magic") != DamageMagic {
 		t.Error("'magic' should return DamageMagic")
 	}
-	if parseDamageType("physical") != DamagePhysical {
+	if ParseDamageType("physical") != DamagePhysical {
 		t.Error("'physical' should return DamagePhysical")
 	}
-	if parseDamageType("anything_else") != DamagePhysical {
+	if ParseDamageType("anything_else") != DamagePhysical {
 		t.Error("unknown should default to DamagePhysical")
 	}
 }

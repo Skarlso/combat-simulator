@@ -128,9 +128,3 @@ type DomainAbility struct {
 	Effects []FeatureEffect
 }
 
-// SummonData contains information about summoned allies
-type SummonData struct {
-	AdversaryType string // Type of adversary to summon (reference to adversary definition)
-	Quantity      int    // How many to summon
-	DiceFormula   string // "1d4" if quantity is rolled
-}

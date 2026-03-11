@@ -67,3 +67,20 @@ func needsDamageType(effectType string) bool {
 func needsDuration(effectType string) bool {
 	return effectType == "apply_vulnerable" || effectType == "apply_poison"
 }
+
+func needsDiceFormula(effectType string) bool {
+	return effectType == "damage" ||
+		effectType == "direct_damage" ||
+		effectType == "area_damage" ||
+		effectType == "heal" ||
+		effectType == "damage_reduction"
+}
+
+func needsMagnitude(effectType string) bool {
+	return effectType == "stress_inflict" ||
+		effectType == "stress_clear" ||
+		effectType == "armor_damage" ||
+		effectType == "grant_armor" ||
+		effectType == "token_place" ||
+		effectType == "token_spend"
+}

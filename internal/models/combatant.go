@@ -15,7 +15,7 @@ type Combatant struct {
 	// Player-specific stats
 	Level       int // PC level for threshold calculation
 	Evasion     int
-	Proficiency int // Used for damage thresholds
+	Proficiency int
 
 	// Adversary-specific stats
 	IsAdversary   bool
@@ -433,7 +433,7 @@ func (c *Combatant) ApplyPassiveResistances() {
 		}
 		for _, effect := range feature.Effects {
 			if effect.Category == FeatureEffectDamageResistance {
-				damageType := parseDamageType(effect.DamageType)
+				damageType := ParseDamageType(effect.DamageType)
 				if effect.Magnitude >= 100 {
 					c.AddImmunity(damageType)
 				} else {
@@ -450,7 +450,7 @@ func (c *Combatant) ApplyPassiveResistances() {
 		}
 		for _, effect := range ability.Effects {
 			if effect.Category == FeatureEffectDamageResistance {
-				damageType := parseDamageType(effect.DamageType)
+				damageType := ParseDamageType(effect.DamageType)
 				if effect.Magnitude >= 100 {
 					c.AddImmunity(damageType)
 				} else {
@@ -461,8 +461,8 @@ func (c *Combatant) ApplyPassiveResistances() {
 	}
 }
 
-// parseDamageType converts string to DamageType
-func parseDamageType(s string) DamageType {
+// ParseDamageType converts string to DamageType
+func ParseDamageType(s string) DamageType {
 	if s == "magic" {
 		return DamageMagic
 	}

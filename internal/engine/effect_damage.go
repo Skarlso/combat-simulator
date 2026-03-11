@@ -20,7 +20,7 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 		damage += notation.Roll(fr.dice)
 	}
 
-	damageType := parseDamageTypeString(effect.DamageType)
+	damageType := models.ParseDamageType(effect.DamageType)
 	damageRes := target.TakeDamage(damage, damageType, fr.dice)
 
 	if activationResult != nil {
@@ -81,7 +81,7 @@ func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor 
 		damage += notation.Roll(fr.dice)
 	}
 
-	damageType := parseDamageTypeString(effect.DamageType)
+	damageType := models.ParseDamageType(effect.DamageType)
 	enemies := state.GetEnemiesOf(actor)
 	if len(enemies) == 0 {
 		return nil
@@ -114,9 +114,3 @@ func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor 
 	return nil
 }
 
-func parseDamageTypeString(s string) models.DamageType {
-	if s == "magic" {
-		return models.DamageMagic
-	}
-	return models.DamagePhysical
-}

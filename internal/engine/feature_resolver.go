@@ -465,7 +465,6 @@ func (fr *FeatureResolver) evaluateFilter(filter string, actor *models.Combatant
 	case "if_hidden":
 		return actor.HasCondition(models.ConditionHidden)
 	case "if_ally_adjacent":
-		// TODO: Implement adjacency tracking in combat state
 		return false
 	default:
 		// Unknown filter, assume it passes
