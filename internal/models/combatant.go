@@ -324,8 +324,7 @@ func (c *Combatant) Heal(amount int) {
 // AddStress increases stress level
 func (c *Combatant) AddStress(amount int) {
 	if c.Stress >= c.StressMax {
-		// Stress overflow: mark HP instead
-		c.HP--
+		c.HP -= amount
 		if c.HP <= 0 {
 			c.HP = 0
 			c.IsDefeated = true
@@ -335,12 +334,20 @@ func (c *Combatant) AddStress(amount int) {
 
 	c.Stress += amount
 	if c.Stress >= c.StressMax {
+		overflow := c.Stress - c.StressMax
 		c.Stress = c.StressMax
 		c.IsFullyStressed = true
 		c.AddCondition(&ActiveCondition{
 			Type:     ConditionVulnerable,
 			Duration: DurationUntilCleared,
 		})
+		if overflow > 0 {
+			c.HP -= overflow
+			if c.HP <= 0 {
+				c.HP = 0
+				c.IsDefeated = true
+			}
+		}
 	}
 }
 
@@ -512,6 +519,8 @@ func CloneCombatant(template *Combatant, uniqueID string) *Combatant {
 	copy(clone.DomainAbilities, template.DomainAbilities)
 	copy(clone.Resistances, template.Resistances)
 	copy(clone.Experience, template.Experience)
+
+	clone.ApplyPassiveResistances()
 
 	return clone
 }

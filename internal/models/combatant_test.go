@@ -524,6 +524,73 @@ func TestClearStressRemovesVulnerable(t *testing.T) {
 	}
 }
 
+func TestAddStressOverflowMultiple(t *testing.T) {
+	c := newTestPlayer()
+	c.Stress = c.StressMax
+
+	hpBefore := c.HP
+	c.AddStress(5)
+	if c.HP != hpBefore-5 {
+		t.Errorf("HP after stress overflow of 5 = %d, want %d", c.HP, hpBefore-5)
+	}
+}
+
+func TestAddStressPartialOverflow(t *testing.T) {
+	c := newTestPlayer()
+	c.StressMax = 6
+	c.Stress = 4
+
+	hpBefore := c.HP
+	c.AddStress(5) // 4+5=9, max=6, overflow=3
+	if c.Stress != c.StressMax {
+		t.Errorf("Stress = %d, want %d", c.Stress, c.StressMax)
+	}
+	if c.HP != hpBefore-3 {
+		t.Errorf("HP after partial overflow = %d, want %d (3 overflow)", c.HP, hpBefore-3)
+	}
+	if !c.IsFullyStressed {
+		t.Error("should be fully stressed")
+	}
+	if !c.HasCondition(ConditionVulnerable) {
+		t.Error("should have Vulnerable condition")
+	}
+}
+
+func TestAddStressOverflowDefeatsMultiple(t *testing.T) {
+	c := newTestPlayer()
+	c.HP = 3
+	c.Stress = c.StressMax
+
+	c.AddStress(5)
+	if c.HP != 0 {
+		t.Errorf("HP = %d, want 0", c.HP)
+	}
+	if !c.IsDefeated {
+		t.Error("should be defeated from stress overflow exceeding HP")
+	}
+}
+
+func TestCloneCombatantAppliesPassiveResistances(t *testing.T) {
+	template := newTestAdversary()
+	template.AdversaryFeatures = []AdversaryFeature{
+		{
+			Name:    "Thick Hide",
+			Passive: true,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageResistance, Magnitude: 50, DamageType: "physical"},
+			},
+		},
+	}
+
+	clone := CloneCombatant(template, "clone-1")
+	if len(clone.Resistances) != 1 {
+		t.Fatalf("clone Resistances len = %d, want 1", len(clone.Resistances))
+	}
+	if clone.Resistances[0].Type != DamagePhysical {
+		t.Errorf("clone resistance type = %v, want DamagePhysical", clone.Resistances[0].Type)
+	}
+}
+
 func TestParseDamageType(t *testing.T) {
 	if ParseDamageType("magic") != DamageMagic {
 		t.Error("'magic' should return DamageMagic")

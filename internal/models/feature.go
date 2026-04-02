@@ -63,7 +63,6 @@ const (
 	TriggerOnCritical    FeatureTriggerType = "on_critical"
 	TriggerStartTurn     FeatureTriggerType = "start_turn"
 	TriggerEndTurn       FeatureTriggerType = "end_turn"
-	TriggerAlways        FeatureTriggerType = "always"
 )
 
 type FeatureTriggerCondition struct {
