@@ -2,7 +2,6 @@
 
 # Variables
 BINARY_NAME=wasm-server
-EXAMPLE_BINARY=example
 WASM_OUTPUT=web/app.wasm
 STATIC_DIR=docs
 
@@ -12,7 +11,7 @@ help: ## Show this help message
 	@echo 'Available targets:'
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'
 
-build: build-wasm build-example ## Build all binaries
+build: build-wasm build-server ## Build all binaries
 
 build-wasm: ## Build WASM binary
 	@echo "Building WASM binary..."
@@ -23,15 +22,6 @@ build-server: ## Build server binary
 	@echo "Building server binary..."
 	go build -o bin/$(BINARY_NAME) ./cmd/wasm/
 	@echo "Server binary built: bin/$(BINARY_NAME)"
-
-build-example: ## Build example CLI binary
-	@echo "Building example binary..."
-	go build -o bin/$(EXAMPLE_BINARY) ./cmd/example/
-	@echo "Example binary built: bin/$(EXAMPLE_BINARY)"
-
-run-example: build-example ## Run the CLI example
-	@echo "Running example simulation..."
-	./bin/$(EXAMPLE_BINARY)
 
 serve: build-wasm build-server ## Build and run the web server
 	@echo "Starting web server on http://localhost:8080"

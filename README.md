@@ -1,248 +1,127 @@
 # Daggerheart Combat Simulator
 
-Monte Carlo combat simulation for Daggerheart RPG. Analyze encounter balance by running thousands of simulated combats with configurable AI strategies.
+Monte Carlo combat simulation for the Daggerheart TTRPG. Run thousands of simulated combats to analyze encounter balance with configurable AI strategies.
+
+Built with Go and WebAssembly ([go-app/v10](https://github.com/maxence-charriere/go-app)).
 
 ## Features
 
-### Core Combat Engine
-- **Duality Dice System**: d12 Hope vs d12 Fear with Spirit mechanics
-- **Damage Thresholds**: Minor/Major/Severe tiers
-- **Hope/Fear Tokens**: Resource pools for special abilities
-- **Stress Mechanics**: Fully stressed = disadvantage
-- **Spotlight System**: Token-based turn selection (configurable threshold)
-- **Conditions**: Burning, poisoned, cloaked, advantage, disadvantage, etc.
-- **Resistances**: Damage type resistances (physical, magic, fire, frost, poison)
+### Combat Engine
+- **Duality Dice** -- Players roll 2d12 (Hope + Fear), adversaries roll d20
+- **Hope/Fear Pools** -- Shared resource pools (Hope capped at 6, Fear at 12)
+- **Damage Thresholds** -- Minor/Major/Severe tiers with level/tier scaling and custom thresholds
+- **Armor System** -- Slot-based threshold reduction (Severe->Major->Minor->None)
+- **Stress** -- Overflow to HP damage, fully stressed applies Vulnerable
+- **Spotlight System** -- Player phase / GM turn loop with Fear spending and Relentless(X)
+- **Conditions** -- Burning, poisoned, vulnerable, resistant, stunned, restrained, advantage, disadvantage, taunted, hidden
+- **Resistances/Immunities** -- Physical and magic damage types, feature-based
+
+### Feature System
+- **Adversary Features** -- Active/passive abilities with Fear or stress costs
+- **Domain Abilities** -- Player abilities with Hope or stress costs
+- **24 Effect Types** -- Damage, healing, conditions, AOE, summoning, tokens, armor, stress, and more
+- **DC Checks** -- None, target defense, or fixed DC with success probability
+- **Token Mechanics** -- Place/spend tokens on abilities (e.g. Unleash Chaos pattern)
+- **Trigger System** -- on_attack, on_hit, on_critical, on_damage_taken, start_turn, end_turn
+- **Usage Limits** -- Per-scene, per-session, per-rest tracking
 
 ### AI Strategies
-- **Greedy**: Aggressive resource usage, focus fire on weakest targets
-- **Conservative**: Hoards resources, clears conditions immediately
-- **Desperate**: Context-aware, uses resources when low HP
-- **Random**: Unpredictable behavior
+- **Greedy** -- Aggressive resource spending, focus fire
+- **Conservative** -- Hoards resources, clears conditions early
+- **Desperate** -- Spends resources only when low HP
+- **Random** -- Unpredictable behavior
+- **Clever** -- Context-aware decisions based on combat state
 
-### Simulation Features
-- Monte Carlo analysis (100-10,000 simulations)
-- Win rate statistics
-- Average combat duration (turns/rounds)
-- Configurable player and enemy strategies
-- Results visualization with charts
+Each strategy configures resource usage, ability usage, condition clearing, target selection, GM spotlight seizure, and Fear spending for additional adversary turns.
+
+### Simulation
+- Monte Carlo analysis (configurable run count)
+- Win rate, average turns/rounds, min/max tracking
+- Deterministic replay via seed
+- Per-strategy comparison
 
 ## Quick Start
 
-### Using Make (Recommended)
+```bash
+make help       # Show all available commands
+make serve      # Build WASM + start web server at http://localhost:8080
+make test       # Run all tests
+```
+
+### Web UI
 
 ```bash
-# Show all available commands
-make help
-
-# Run the CLI example
-make run-example
-
-# Build and run the web server
 make serve
-
-# Generate static pages for GitHub Pages
-make static-pages
 ```
 
-### Command Line Example
+Open http://localhost:8080. Create players and adversaries, configure strategies, run simulations.
+
+### Static Deployment
 
 ```bash
-# Or run directly with Go
-go run cmd/example/main.go
+make static-pages   # Generate static site in docs/
 ```
 
-Output:
+Deploy `docs/` to GitHub Pages or any static host.
+
+### Programmatic Usage
+
+```go
+config := simulation.DefaultSimulationConfig()
+config.RunCount = 1000
+config.PlayerTemplates = []*models.Combatant{
+    models.NewCombatant("p1", "Rogue", models.SidePlayer, 3, 12, 2, 15, 6),
+}
+config.PlayerTemplates[0].DamageDice = "2d6+2"
+config.EnemyTemplates = []*models.Combatant{
+    models.NewAdversary("e1", "Goblin", "Tier 1", "Standard", 10, 3, 8, 4, []int{4, 7}),
+}
+config.EnemyTemplates[0].DamageDice = "1d6"
+
+runner := simulation.NewSimulationRunner(config)
+result, err := runner.Run()
+fmt.Println(result.Summary())
 ```
-Daggerheart Combat Simulator - Example
-=======================================
-
-Combat Setup:
-  Players: Grimjaw the Rogue (HP: 6), Thora the Fighter (HP: 8)
-  Enemies: Goblin Archer (HP: 4), Goblin Warrior (HP: 4), Goblin Boss (HP: 7)
-  Simulations: 1000
-
-Results:
-========
-Simulations: 1000 | Player Wins: 981 (98.1%) | Enemy Wins: 19 (1.9%) | Avg Turns: 14.7 | Avg Rounds: 2.6
-```
-
-### Web UI (WASM)
-
-```bash
-# Build and run the web server
-make serve
-
-# Or manually:
-# go build -o bin/wasm-server ./cmd/wasm/
-# ./bin/wasm-server
-```
-
-Open http://localhost:8080 in your browser.
-
-## Deployment
-
-### GitHub Pages
-
-Generate static files and deploy to GitHub Pages:
-
-```bash
-# Generate static website in docs/ directory
-make static-pages
-
-# Commit and push
-git add docs/
-git commit -m "Update GitHub Pages"
-git push
-
-# Enable GitHub Pages in repository settings:
-# Settings → Pages → Source: Deploy from branch → Branch: main → /docs
-```
-
-The app will be available at `https://yourusername.github.io/daggerheart-combat-simulator/`
 
 ## Project Structure
 
 ```
 daggerheart-combat-simulator/
 ├── internal/
-│   ├── models/          # Core data structures
-│   │   ├── combatant.go
-│   │   ├── ability.go
-│   │   ├── condition.go
-│   │   └── combat_state.go
-│   ├── engine/          # Combat resolution
-│   │   ├── dice.go
-│   │   ├── resolver.go
-│   │   ├── effects.go
-│   │   ├── spotlight.go
-│   │   └── combat_engine.go
-│   ├── strategy/        # AI decision making
-│   │   └── decision_maker.go
-│   └── simulation/      # Monte Carlo runner
-│       └── runner.go
-├── ui/                  # WASM UI (go-app)
+│   ├── models/        # Combatant, features, conditions, combat state, dice notation
+│   ├── engine/        # Combat engine, resolver, feature resolver, dice, spotlight
+│   ├── strategy/      # AI decision maker with pluggable strategy configs
+│   ├── parser/        # JSON adversary/feature parsers, adversary registry
+│   └── simulation/    # Monte Carlo runner
+├── ui/
 │   ├── app.go
-│   ├── components/
-│   │   ├── combatant_list.go
-│   │   ├── config_form.go
-│   │   └── results_summary.go
+│   ├── components/    # WASM UI forms and display components
 │   └── pages/
-│       └── simulator.go
 ├── cmd/
-│   ├── example/         # CLI example
-│   └── wasm/            # Web server
-└── web/
-    └── static/          # CSS and assets
+│   ├── wasm/          # Web server entry point
+│   └── static-gen/    # Static site generator
+├── data/              # Embedded adversary JSON and feature mappings
+└── web/static/        # CSS and assets
 ```
 
-## Usage
-
-### Building Characters
-
-Characters have:
-- **Name**: Identifier
-- **HP Max**: Total hit points
-- **Evasion**: Difficulty to hit (vs duality roll)
-- **Proficiency**: Bonus to rolls and damage
-- **Stress Max**: Maximum stress (usually 6)
-- **Armor Slots**: Hits absorbed before HP damage
-- **Abilities**: Special attacks/skills
-- **Resistances**: Damage reduction by type
-
-### Creating Abilities
-
-Abilities are declarative:
-
-```go
-ability := &models.Ability{
-    Name: "Sneak Attack",
-    Trigger: models.TriggerManual,
-    TargetSingle: true,
-    TargetEnemies: true,
-    Costs: models.ResourceCost{
-        Stress: 1,
-    },
-    Conditions: []models.AbilityCondition{
-        {
-            Type: models.ConditionAllyInMelee,
-        },
-    },
-    Effects: []models.Effect{
-        models.DamageEffect{
-            DiceCount: 3,
-            DiceSize: 6,
-            FlatBonus: 2,
-            DamageType: models.DamagePhysical,
-        },
-    },
-}
-```
-
-### Configuring Simulations
-
-```go
-config := simulation.SimulationConfig{
-    RunCount: 1000,
-    PlayerTemplates: []*models.Combatant{rogue, fighter},
-    EnemyTemplates: []*models.Combatant{goblin1, goblin2},
-    InitialHopePool: 5,
-    InitialFearPool: 5,
-    SpotlightThreshold: 3,
-    PlayerStrategy: strategy.DefaultDesperateConfig(),
-    EnemyStrategy: strategy.DefaultGreedyConfig(),
-    MaxTurnsPerCombat: 100,
-}
-
-runner := simulation.NewSimulationRunner(config)
-result, _ := runner.Run()
-```
-
-## Development Status
-
-**Completed:**
-- ✅ Core combat engine
-- ✅ Data models
-- ✅ AI strategies
-- ✅ Monte Carlo simulation
-- ✅ WASM UI (basic)
-- ✅ Character creation forms
-- ✅ Config forms
-- ✅ Results visualization
-
-**TODO:**
-- ⬜ Ability builder UI
-- ⬜ Export to CSV/PDF
-- ⬜ Advanced charts
-- ⬜ Save/load encounters
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed design documentation.
-
-## Makefile Commands
+## Makefile
 
 | Command | Description |
-|---------|-------------|
-| `make help` | Show all available commands |
-| `make build` | Build all binaries (WASM + example) |
+|---|---|
+| `make serve` | Build WASM + server, start at localhost:8080 |
+| `make build` | Build all binaries |
 | `make build-wasm` | Build WASM binary only |
-| `make build-server` | Build web server binary |
-| `make build-example` | Build CLI example binary |
-| `make run-example` | Build and run CLI example |
-| `make serve` | Build and start web server |
-| `make static-pages` | Generate static site for GitHub Pages |
-| `make clean` | Remove all build artifacts |
+| `make static-pages` | Generate static site for deployment |
 | `make test` | Run all tests |
 | `make fmt` | Format all Go code |
-| `make lint` | Run linter (golangci-lint or go vet) |
-| `make deps` | Download and tidy dependencies |
-| `make all` | Clean, deps, build, and test |
+| `make lint` | Run linter |
+| `make clean` | Remove build artifacts |
+| `make all` | Clean, deps, build, test |
 
 ## Requirements
 
-- Go 1.21+
+- Go 1.26+
 - Modern web browser (for WASM UI)
-- Make (optional, for convenience commands)
 
 ## License
 
