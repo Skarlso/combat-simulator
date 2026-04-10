@@ -38,7 +38,7 @@ func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int
 
 	var summoned []*models.Combatant
 	for range quantity {
-		template := pool[fr.dice.RollDice(1, len(pool))-1]
+		template := pool[fr.dice.RollDice(1, len(pool), 0)-1]
 		state.SummonCounter++
 		state.SummonedCounts[template.Name]++
 		numberedName := fmt.Sprintf("%s #%d", template.Name, state.SummonedCounts[template.Name])

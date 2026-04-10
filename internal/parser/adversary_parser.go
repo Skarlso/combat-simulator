@@ -3,7 +3,6 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -52,18 +51,6 @@ type AdversaryParser struct {
 	featureParser *FeatureParser
 }
 
-// NewAdversaryParser creates a parser with feature mapping
-func NewAdversaryParser(mappingFilePath string) (*AdversaryParser, error) {
-	fp, err := NewFeatureParser(mappingFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	return &AdversaryParser{
-		featureParser: fp,
-	}, nil
-}
-
 // NewAdversaryParserFromBytes creates a parser from in-memory feature mappings
 func NewAdversaryParserFromBytes(mappingData []byte) (*AdversaryParser, error) {
 	fp, err := NewFeatureParserFromBytes(mappingData)
@@ -74,16 +61,6 @@ func NewAdversaryParserFromBytes(mappingData []byte) (*AdversaryParser, error) {
 	return &AdversaryParser{
 		featureParser: fp,
 	}, nil
-}
-
-// LoadAdversariesFromFile loads all adversaries from a JSON file
-func (ap *AdversaryParser) LoadAdversariesFromFile(filePath string) ([]*models.Combatant, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read adversary file: %w", err)
-	}
-
-	return ap.LoadAdversariesFromBytes(data)
 }
 
 // LoadAdversariesFromBytes loads all adversaries from in-memory JSON data

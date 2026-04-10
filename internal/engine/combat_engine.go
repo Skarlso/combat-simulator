@@ -268,7 +268,7 @@ func (ce *CombatEngine) shouldGMSeizeSpotlight(state *models.CombatState, fearUs
 	case strategy.ResourceDesperate:
 		return false
 	case strategy.ResourceRandom:
-		return consecutive >= 3 && ce.dice.RollDice(1, 2) == 1
+		return consecutive >= 3 && ce.dice.RollDice(1, 2, 0) == 1
 	case strategy.ResourceClever:
 		if consecutive >= 3 && state.FearPool >= 3 {
 			return true
@@ -292,7 +292,7 @@ func (ce *CombatEngine) shouldSpendFearForAdditional(state *models.CombatState, 
 	case strategy.ResourceDesperate:
 		return len(state.GetAlivePlayers()) > len(state.GetAliveEnemies())
 	case strategy.ResourceRandom:
-		return ce.dice.RollDice(1, 2) == 1
+		return ce.dice.RollDice(1, 2, 0) == 1
 	case strategy.ResourceClever:
 		return state.FearPool > 4 || len(state.GetAlivePlayers()) > len(state.GetAliveEnemies())
 	default:

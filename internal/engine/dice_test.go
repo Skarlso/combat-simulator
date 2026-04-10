@@ -11,47 +11,39 @@ func newSeededRoller(seed int64) *StandardDiceRoller {
 	return NewStandardDiceRoller(rand.New(rand.NewSource(seed)))
 }
 
-func TestRollD6Range(t *testing.T) {
+func TestRollDiceRanges(t *testing.T) {
 	roller := newSeededRoller(42)
-	for i := 0; i < 100; i++ {
-		v := roller.RollD6()
-		if v < 1 || v > 6 {
-			t.Errorf("RollD6() = %d, want 1-6", v)
-		}
+	tests := []struct {
+		name string
+		size int
+	}{
+		{"d6", 6},
+		{"d12", 12},
+		{"d20", 20},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := 0; i < 100; i++ {
+				v := roller.RollDice(1, tt.size, 0)
+				if v < 1 || v > tt.size {
+					t.Errorf("RollDice(1, %d) = %d, want 1-%d", tt.size, v, tt.size)
+				}
+			}
+		})
 	}
 }
 
-func TestRollD12Range(t *testing.T) {
+func TestRollDiceWithBonus(t *testing.T) {
 	roller := newSeededRoller(42)
-	for i := 0; i < 100; i++ {
-		v := roller.RollD12()
-		if v < 1 || v > 12 {
-			t.Errorf("RollD12() = %d, want 1-12", v)
-		}
-	}
-}
-
-func TestRollD20Range(t *testing.T) {
-	roller := newSeededRoller(42)
-	for i := 0; i < 100; i++ {
-		v := roller.RollD20()
-		if v < 1 || v > 20 {
-			t.Errorf("RollD20() = %d, want 1-20", v)
-		}
-	}
-}
-
-func TestRollDamage(t *testing.T) {
-	roller := newSeededRoller(42)
-	result := roller.RollDamage(2, 6, 3)
+	result := roller.RollDice(2, 6, 3)
 	if result < 5 || result > 15 {
-		t.Errorf("RollDamage(2,6,3) = %d, want 5-15", result)
+		t.Errorf("RollDice(2,6,3) = %d, want 5-15", result)
 	}
 }
 
-func TestRollDamageDetailed(t *testing.T) {
+func TestRollDiceDetailed(t *testing.T) {
 	roller := newSeededRoller(42)
-	result := roller.RollDamageDetailed(3, 8, 2)
+	result := roller.RollDiceDetailed(3, 8, 2)
 
 	if len(result.DiceValues) != 3 {
 		t.Errorf("DiceValues len = %d, want 3", len(result.DiceValues))
@@ -74,7 +66,7 @@ func TestRollDamageDetailed(t *testing.T) {
 
 func TestRollDice(t *testing.T) {
 	roller := newSeededRoller(42)
-	result := roller.RollDice(4, 6)
+	result := roller.RollDice(4, 6, 0)
 	if result < 4 || result > 24 {
 		t.Errorf("RollDice(4,6) = %d, want 4-24", result)
 	}

@@ -3,7 +3,6 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
@@ -45,16 +44,6 @@ type FeatureMappingFile struct {
 // FeatureParser converts JSON feature descriptions into quantized AdversaryFeatures
 type FeatureParser struct {
 	mappings map[string]FeatureMapping
-}
-
-// NewFeatureParser creates a parser with loaded mappings
-func NewFeatureParser(mappingFilePath string) (*FeatureParser, error) {
-	data, err := os.ReadFile(mappingFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read mapping file: %w", err)
-	}
-
-	return NewFeatureParserFromBytes(data)
 }
 
 // NewFeatureParserFromBytes creates a parser from in-memory JSON data

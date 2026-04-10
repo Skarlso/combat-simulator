@@ -27,17 +27,11 @@ func (m *mockDiceRoller) RollD20Attack(modifier int) D20RollResult {
 	return D20RollResult{D20Roll: 15, Modifier: modifier, Total: 15 + modifier}
 }
 
-func (m *mockDiceRoller) RollDamage(_, _, _ int) int { return m.damage }
-
-func (m *mockDiceRoller) RollDamageDetailed(_, _, _ int) DamageRollResult {
+func (m *mockDiceRoller) RollDiceDetailed(_, _, _ int) DamageRollResult {
 	return DamageRollResult{DiceValues: []int{m.damage}, Total: m.damage}
 }
 
-func (m *mockDiceRoller) RollD6() int  { return 3 }
-func (m *mockDiceRoller) RollD12() int { return 6 }
-func (m *mockDiceRoller) RollD20() int { return 15 }
-
-func (m *mockDiceRoller) RollDice(_, diceSize int) int {
+func (m *mockDiceRoller) RollDice(_, diceSize, _ int) int {
 	if diceSize == 2 {
 		return m.coinFlip
 	}

@@ -87,9 +87,9 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		hasDisadv := attacker.HasCondition(models.ConditionDisadvantage) || defender.HasCondition(models.ConditionHidden)
 
 		if hasAdv && !hasDisadv {
-			hopeModifier += cr.dice.RollD6()
+			hopeModifier += cr.dice.RollDice(1, 6, 0)
 		} else if hasDisadv && !hasAdv {
-			hopeModifier -= cr.dice.RollD6()
+			hopeModifier -= cr.dice.RollDice(1, 6, 0)
 		}
 		if attacker.IsFullyStressed {
 			hopeModifier -= 2
@@ -132,9 +132,9 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		hasAdv := defender.HasCondition(models.ConditionVulnerable)
 		hasDisadv := defender.HasCondition(models.ConditionHidden)
 		if hasAdv && !hasDisadv {
-			attackModifier += cr.dice.RollD6()
+			attackModifier += cr.dice.RollDice(1, 6, 0)
 		} else if hasDisadv && !hasAdv {
-			attackModifier -= cr.dice.RollD6()
+			attackModifier -= cr.dice.RollDice(1, 6, 0)
 		}
 		d20Roll := cr.dice.RollD20Attack(attackModifier)
 		result.D20Result = d20Roll
@@ -155,7 +155,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	}
 
 	// Roll damage with individual dice tracking
-	damageResult := cr.dice.RollDamageDetailed(diceCount, diceSize, flatBonus)
+	damageResult := cr.dice.RollDiceDetailed(diceCount, diceSize, flatBonus)
 	damageRoll := damageResult.Total
 
 	// Apply critical damage bonus

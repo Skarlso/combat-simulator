@@ -165,9 +165,9 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 			(target != nil && target.HasCondition(models.ConditionHidden))
 
 		if hasAdv && !hasDisadv {
-			hopeModifier += fr.dice.RollD6()
+			hopeModifier += fr.dice.RollDice(1, 6, 0)
 		} else if hasDisadv && !hasAdv {
-			hopeModifier -= fr.dice.RollD6()
+			hopeModifier -= fr.dice.RollDice(1, 6, 0)
 		}
 		if actor.IsFullyStressed {
 			hopeModifier -= 2
@@ -204,14 +204,14 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 		return result
 
 	} else {
-		roll := fr.dice.RollDice(1, 20)
+		roll := fr.dice.RollDice(1, 20, 0)
 		attackBonus := actor.GetAttackBonus()
 		hasAdvEnemy := target != nil && target.HasCondition(models.ConditionVulnerable)
 		hasDisadvEnemy := target != nil && target.HasCondition(models.ConditionHidden)
 		if hasAdvEnemy && !hasDisadvEnemy {
-			attackBonus += fr.dice.RollD6()
+			attackBonus += fr.dice.RollDice(1, 6, 0)
 		} else if hasDisadvEnemy && !hasAdvEnemy {
-			attackBonus -= fr.dice.RollD6()
+			attackBonus -= fr.dice.RollDice(1, 6, 0)
 		}
 		totalRoll := roll + attackBonus
 

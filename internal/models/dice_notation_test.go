@@ -108,12 +108,8 @@ type mockRoller struct {
 	fixedRoll int
 }
 
-func (m *mockRoller) RollDamage(diceCount, diceSize, flatBonus int) int {
+func (m *mockRoller) RollDice(diceCount, diceSize, flatBonus int) int {
 	return diceCount*m.fixedRoll + flatBonus
-}
-
-func (m *mockRoller) RollD6() int {
-	return m.fixedRoll
 }
 
 func TestDiceNotationRoll(t *testing.T) {

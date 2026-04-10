@@ -122,8 +122,7 @@ func (dn *DiceNotation) String() string {
 
 // RollDamage interface for rolling dice
 type DiceRoller interface {
-	RollDamage(diceCount, diceSize, flatBonus int) int
-	RollD6() int
+	RollDice(diceCount, diceSize, flatBonus int) int
 }
 
 // Roll executes all dice rolls and returns the total damage
@@ -136,7 +135,7 @@ func (dn *DiceNotation) Roll(roller DiceRoller) int {
 			total += term.Size
 		} else {
 			// Roll dice
-			total += roller.RollDamage(term.Count, term.Size, 0)
+			total += roller.RollDice(term.Count, term.Size, 0)
 		}
 	}
 	return total

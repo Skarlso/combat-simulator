@@ -10,12 +10,8 @@ import (
 type DiceRoller interface {
 	RollDuality(hopeModifier, fearModifier int) DualityRollResult
 	RollD20Attack(modifier int) D20RollResult
-	RollDamage(diceCount, diceSize, flatBonus int) int
-	RollDamageDetailed(diceCount, diceSize, flatBonus int) DamageRollResult
-	RollD6() int
-	RollD12() int
-	RollD20() int
-	RollDice(diceCount, diceSize int) int
+	RollDice(diceCount, diceSize, flatBonus int) int
+	RollDiceDetailed(diceCount, diceSize, flatBonus int) DamageRollResult
 }
 
 // DamageRollResult contains individual dice values
@@ -63,8 +59,8 @@ func (dr *StandardDiceRoller) GetRNG() *rand.Rand {
 
 // RollDuality performs the core d12 Hope vs d12 Fear roll
 func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) DualityRollResult {
-	hopeDie := dr.RollD12()
-	fearDie := dr.RollD12()
+	hopeDie := dr.RollDice(1, 12, 0)
+	fearDie := dr.RollDice(1, 12, 0)
 
 	hopeTotal := hopeDie + hopeModifier
 	fearTotal := fearDie + fearModifier
@@ -99,8 +95,8 @@ func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) Dualit
 	return result
 }
 
-// RollDamage rolls damage dice and adds flat bonus
-func (dr *StandardDiceRoller) RollDamage(diceCount, diceSize, flatBonus int) int {
+// RollDice rolls dice and adds flat bonus
+func (dr *StandardDiceRoller) RollDice(diceCount, diceSize, flatBonus int) int {
 	total := flatBonus
 	for i := 0; i < diceCount; i++ {
 		total += dr.rng.Intn(diceSize) + 1
@@ -108,8 +104,8 @@ func (dr *StandardDiceRoller) RollDamage(diceCount, diceSize, flatBonus int) int
 	return total
 }
 
-// RollDamageDetailed rolls damage dice and returns individual values
-func (dr *StandardDiceRoller) RollDamageDetailed(diceCount, diceSize, flatBonus int) DamageRollResult {
+// RollDiceDetailed rolls dice and returns individual values
+func (dr *StandardDiceRoller) RollDiceDetailed(diceCount, diceSize, flatBonus int) DamageRollResult {
 	diceValues := make([]int, diceCount)
 	total := flatBonus
 
@@ -128,7 +124,7 @@ func (dr *StandardDiceRoller) RollDamageDetailed(diceCount, diceSize, flatBonus 
 
 // RollD20Attack rolls d20 + modifier for enemy attacks
 func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
-	d20 := dr.RollD20()
+	d20 := dr.RollDice(1, 20, 0)
 	total := d20 + modifier
 
 	return D20RollResult{
@@ -139,22 +135,3 @@ func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
 	}
 }
 
-// RollD6 rolls a single d6
-func (dr *StandardDiceRoller) RollD6() int {
-	return dr.rng.Intn(6) + 1
-}
-
-// RollD12 rolls a single d12
-func (dr *StandardDiceRoller) RollD12() int {
-	return dr.rng.Intn(12) + 1
-}
-
-// RollD20 rolls a single d20
-func (dr *StandardDiceRoller) RollD20() int {
-	return dr.rng.Intn(20) + 1
-}
-
-// RollDice rolls multiple dice of given size
-func (dr *StandardDiceRoller) RollDice(diceCount, diceSize int) int {
-	return dr.RollDamage(diceCount, diceSize, 0)
-}
