@@ -198,7 +198,7 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 		return DamageResult{
 			ProcessedDamage:  0,
 			HPDamage:         0,
-			Threshold:        ThresholdMinor,
+			Threshold:        ThresholdNone,
 			HPBefore:         hpBefore,
 			HPAfter:          c.HP,
 			ArmorUsed:        false,

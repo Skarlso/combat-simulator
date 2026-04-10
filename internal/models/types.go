@@ -55,7 +55,7 @@ func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold
 	}
 
 	thresholds := combatant.CustomThresholds
-	if len(thresholds) == 0 {
+	if len(thresholds) < 2 {
 		if !combatant.IsAdversary {
 			minorThreshold := 3 + combatant.Level
 			majorThreshold := 6 + combatant.Level

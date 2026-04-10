@@ -223,7 +223,7 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 }
 
 // CanActivateAdversaryFeature checks if an adversary can use a feature
-func (fr *FeatureResolver) CanActivateAdversaryFeature(feature models.AdversaryFeature, actor *models.Combatant, state *models.CombatState) bool {
+func (fr *FeatureResolver) CanActivateAdversaryFeature(feature *models.AdversaryFeature, actor *models.Combatant, state *models.CombatState) bool {
 	if feature.FearCost > 0 && state.FearPool < feature.FearCost {
 		return false
 	}
@@ -271,7 +271,7 @@ func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility
 // ActivateAdversaryFeature triggers an adversary feature
 // Returns error and DC check result (if DC check was performed)
 func (fr *FeatureResolver) ActivateAdversaryFeature(
-	feature models.AdversaryFeature,
+	feature *models.AdversaryFeature,
 	actor *models.Combatant,
 	target *models.Combatant,
 	state *models.CombatState,
@@ -400,19 +400,27 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		}
 
 		// Try to activate (respects costs and spotlight limits)
-		if !fr.CanActivateAdversaryFeature(*feature, actor, state) {
+		if !fr.CanActivateAdversaryFeature(feature, actor, state) {
 			continue
 		}
 
-		// Activate the feature
-		_, _ = fr.ActivateAdversaryFeature(*feature, actor, target, state)
+		err, dcResult := fr.ActivateAdversaryFeature(feature, actor, target, state)
+		if err != nil {
+			state.RecordAction(models.ActionParams{
+				Actor:      actor,
+				ActionType: models.ActionUseAbility,
+				FeatureName: feature.Name,
+				Result:     fmt.Sprintf("Triggered: %v", err),
+				HopeDie:    dcResult.HopeDie,
+				FearDie:    dcResult.FearDie,
+			})
+		}
 	}
 
 	// Check domain abilities
 	for i := range actor.DomainAbilities {
 		ability := &actor.DomainAbilities[i]
 
-		// Skip if not passive or trigger doesn't match
 		if !ability.Passive {
 			continue
 		}
@@ -421,13 +429,21 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 			continue
 		}
 
-		// Try to activate (respects costs and usage limits)
 		if !fr.CanActivateDomainAbility(*ability, actor, state) {
 			continue
 		}
 
-		// Activate the ability
-		_, _ = fr.ActivateDomainAbility(ability, actor, target, state)
+		err, dcResult := fr.ActivateDomainAbility(ability, actor, target, state)
+		if err != nil {
+			state.RecordAction(models.ActionParams{
+				Actor:      actor,
+				ActionType: models.ActionUseAbility,
+				FeatureName: ability.Name,
+				Result:     fmt.Sprintf("Triggered: %v", err),
+				HopeDie:    dcResult.HopeDie,
+				FearDie:    dcResult.FearDie,
+			})
+		}
 	}
 }
 

@@ -404,6 +404,7 @@ func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *mod
 	value *= successProb
 
 	value -= float64(feature.FearCost) * 0.5
+	value -= float64(feature.StressCost) * 0.5
 
 	// Features are the adversary's designed actions; prefer over generic attacks.
 	// In Daggerheart's threshold system, raw dice differences matter less than

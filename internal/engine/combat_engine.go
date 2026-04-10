@@ -76,7 +76,7 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 		// If can't activate, fall through to basic attack
 	} else if decision.AdversaryFeature != nil {
 		// Check if can activate BEFORE attempting
-		if ce.featureResolver.CanActivateAdversaryFeature(*decision.AdversaryFeature, actor, state) {
+		if ce.featureResolver.CanActivateAdversaryFeature(decision.AdversaryFeature, actor, state) {
 			// Can activate - attempt it (may still fail DC check, but that's their turn)
 			ce.executeFeature(actor, target, decision.AdversaryFeature, state)
 			actionTaken = true
@@ -137,7 +137,7 @@ func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.C
 }
 
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) error {
-	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(*feature, actor, target, state)
+	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
 	ce.recordActivation(actor, target, feature.Name, err, dcResult, state)
 	return err
 }

@@ -32,6 +32,10 @@ func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *mod
 }
 
 func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int, actor *models.Combatant, state *models.CombatState) error {
+	if len(pool) == 0 {
+		return fmt.Errorf("summon pool is empty")
+	}
+
 	var summoned []*models.Combatant
 	for range quantity {
 		template := pool[fr.dice.RollDice(1, len(pool))-1]

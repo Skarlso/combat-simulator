@@ -82,6 +82,7 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 		Description: description,
 		Passive:     mapping.Passive,
 		FearCost:    mapping.FearCost,
+		StressCost:  mapping.StressCost,
 		Effects:     make([]models.FeatureEffect, 0, len(mapping.Effects)),
 	}
 
