@@ -47,7 +47,7 @@ func (ce *CombatEngine) SetAdversaryRegistry(registry AdversaryRegistry) {
 }
 
 // ExecuteTurnWithDecision runs a single combatant's turn based on AI decision
-func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) error {
+func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) {
 	// Process start-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
 
@@ -57,7 +57,7 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
 		state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionPass, Result: "Stunned", SpotlightShift: true})
-		return nil
+		return
 	}
 
 	target := decision.Target
@@ -94,11 +94,9 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 
 	// Process end-of-turn triggered features
 	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerEndTurn, false)
-
-	return nil
 }
 
-func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name string, err error, dcResult DCCheckResult, state *models.CombatState) {
+func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name string, isFeature bool, err error, dcResult DCCheckResult, state *models.CombatState) {
 	result := "Success"
 	spotlightShift := dcResult.SpotlightShift
 
@@ -112,7 +110,7 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 		ActionType:      models.ActionUseAbility,
 		Target:          target,
 		FeatureName:     name,
-		IsFeature:       err == nil,
+		IsFeature:       isFeature,
 		Result:          result,
 		DamageRoll:      dcResult.DamageRoll,
 		ProcessedDamage: dcResult.ProcessedDamage,
@@ -132,13 +130,13 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 
 func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
 	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
-	ce.recordActivation(actor, target, ability.Name, err, dcResult, state)
+	ce.recordActivation(actor, target, ability.Name, false, err, dcResult, state)
 	return err
 }
 
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) error {
 	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
-	ce.recordActivation(actor, target, feature.Name, err, dcResult, state)
+	ce.recordActivation(actor, target, feature.Name, true, err, dcResult, state)
 	return err
 }
 
