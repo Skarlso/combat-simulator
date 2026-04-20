@@ -99,6 +99,11 @@ type AdversaryFeature struct {
 	DCType  string // "none" (auto-succeed), "target" (roll vs target's Evasion), "fixed" (roll vs FixedDC)
 	FixedDC int    // DC value if DCType is "fixed"
 
+	UsesTokens bool
+	TokenName  string
+	TokensHeld int
+	TokensMax  int
+
 	Effects []FeatureEffect
 }
 

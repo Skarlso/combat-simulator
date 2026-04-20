@@ -13,6 +13,9 @@ type FeatureMapping struct {
 	FearCost   int                    `json:"fear_cost"`
 	StressCost int                    `json:"stress_cost"`
 	Passive    bool                   `json:"passive"`
+	UsesTokens bool                   `json:"uses_tokens,omitempty"`
+	TokenName  string                 `json:"token_name,omitempty"`
+	TokensMax  int                    `json:"tokens_max,omitempty"`
 	Effects    []FeatureMappingEffect `json:"effects"`
 }
 
@@ -72,6 +75,9 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 		Passive:     mapping.Passive,
 		FearCost:    mapping.FearCost,
 		StressCost:  mapping.StressCost,
+		UsesTokens:  mapping.UsesTokens,
+		TokenName:   mapping.TokenName,
+		TokensMax:   mapping.TokensMax,
 		Effects:     make([]models.FeatureEffect, 0, len(mapping.Effects)),
 	}
 

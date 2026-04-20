@@ -36,6 +36,10 @@ type AdversaryFeatureForm struct {
 	newFixedDC        int
 	newQuantityType   string
 	selectedForSummon map[string]bool
+
+	newUsesTokens bool
+	newTokenName  string
+	newTokensMax  int
 }
 
 // OnMount initializes default values
@@ -330,6 +334,53 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 					),
 			),
 			app.Div().Class("form-subsection").Body(
+				app.H5().Text("Tokens"),
+				app.Div().
+					Class("form-group").
+					Body(
+						app.Label().
+							Class("checkbox-label").
+							Body(
+								app.Input().
+									Type("checkbox").
+									Checked(aff.newUsesTokens).
+									OnChange(func(ctx app.Context, e app.Event) {
+										aff.newUsesTokens = ctx.JSSrc().Get("checked").Bool()
+										ctx.Update()
+									}),
+								app.Text(" Uses tokens"),
+							),
+					),
+				app.If(aff.newUsesTokens, func() app.UI {
+					return app.Div().
+						Class("form-row").
+						Body(
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Token Name:"),
+									app.Input().
+										Type("text").
+										Value(aff.newTokenName).
+										Placeholder("Rage").
+										OnInput(func(ctx app.Context, e app.Event) {
+											aff.newTokenName = ctx.JSSrc().Get("value").String()
+										}),
+								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Max Tokens (0=unlimited):"),
+									app.Input().
+										Type("number").
+										Value(aff.newTokensMax).
+										Min(0).Max(20).
+										OnInput(handleIntInput(&aff.newTokensMax)),
+								),
+						)
+				}),
+			),
+			app.Div().Class("form-subsection").Body(
 				app.H5().Text("Effect"),
 				app.Div().
 					Class("form-group").
@@ -352,6 +403,8 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 								app.Option().Value("resistance").Text("Resistance (50%)").Selected(aff.newEffectType == "resistance"),
 								app.Option().Value("immunity").Text("Immunity (100%)").Selected(aff.newEffectType == "immunity"),
 								app.Option().Value("summon_allies").Text("Summon Allies").Selected(aff.newEffectType == "summon_allies"),
+								app.Option().Value("token_place").Text("Place Token").Selected(aff.newEffectType == "token_place"),
+								app.Option().Value("token_spend").Text("Spend Token").Selected(aff.newEffectType == "token_spend"),
 							),
 					),
 				app.If(needsDiceFormula(aff.newEffectType), func() app.UI {
@@ -587,6 +640,9 @@ func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
 	aff.newMaxUses = feature.MaxUses
 	aff.newDCType = feature.DCType
 	aff.newFixedDC = feature.FixedDC
+	aff.newUsesTokens = feature.UsesTokens
+	aff.newTokenName = feature.TokenName
+	aff.newTokensMax = feature.TokensMax
 
 	switch {
 	case feature.FearCost > 0:
@@ -686,6 +742,10 @@ func (aff *AdversaryFeatureForm) buildFeature() *models.AdversaryFeature {
 		UsesLeft:       usesLeft,
 		DCType:         aff.newDCType,
 		FixedDC:        aff.newFixedDC,
+		UsesTokens:     aff.newUsesTokens,
+		TokenName:      aff.newTokenName,
+		TokensHeld:     0,
+		TokensMax:      aff.newTokensMax,
 		Effects:        []models.FeatureEffect{effect},
 	}
 }
@@ -742,4 +802,7 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newFixedDC = 12
 	aff.newQuantityType = "fixed"
 	aff.selectedForSummon = make(map[string]bool)
+	aff.newUsesTokens = false
+	aff.newTokenName = ""
+	aff.newTokensMax = 0
 }

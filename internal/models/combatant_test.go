@@ -591,6 +591,145 @@ func TestCloneCombatantAppliesPassiveResistances(t *testing.T) {
 	}
 }
 
+func TestTakeDamagePassiveReductionOnDomainAbility(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.DomainAbilities = []DomainAbility{
+		{
+			Name:    "Ward",
+			Passive: true,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 3},
+			},
+		},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 7 {
+		t.Errorf("ProcessedDamage = %d, want 7 (10 - 3 reduction)", result.ProcessedDamage)
+	}
+	if result.Threshold != ThresholdMajor {
+		t.Errorf("Threshold = %v, want ThresholdMajor (reduced from Severe)", result.Threshold)
+	}
+	if result.HPDamage != 2 {
+		t.Errorf("HPDamage = %d, want 2", result.HPDamage)
+	}
+}
+
+func TestTakeDamageNonPassiveAbilityIgnored(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.DomainAbilities = []DomainAbility{
+		{
+			Name:    "Active Shield",
+			Passive: false,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 5},
+			},
+		},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 10 {
+		t.Errorf("ProcessedDamage = %d, want 10 (non-passive should not auto-reduce)", result.ProcessedDamage)
+	}
+	if result.HPDamage != 3 {
+		t.Errorf("HPDamage = %d, want 3", result.HPDamage)
+	}
+}
+
+func TestTakeDamagePassiveReductionOnAdversaryFeature(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.AdversaryFeatures = []AdversaryFeature{
+		{
+			Name:    "Thick Plates",
+			Passive: true,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 4},
+			},
+		},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 6 {
+		t.Errorf("ProcessedDamage = %d, want 6 (10 - 4 reduction)", result.ProcessedDamage)
+	}
+}
+
+func TestTakeDamageNonPassiveFeatureIgnored(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.AdversaryFeatures = []AdversaryFeature{
+		{
+			Name:    "Deflect",
+			Passive: false,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 5},
+			},
+		},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 10 {
+		t.Errorf("ProcessedDamage = %d, want 10 (non-passive feature should not auto-reduce)", result.ProcessedDamage)
+	}
+}
+
+func TestTakeDamageReductionStacks(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.DomainAbilities = []DomainAbility{
+		{Name: "Ward A", Passive: true, Effects: []FeatureEffect{{Category: FeatureEffectDamageReduction, Magnitude: 2}}},
+	}
+	c.AdversaryFeatures = []AdversaryFeature{
+		{Name: "Plate", Passive: true, Effects: []FeatureEffect{{Category: FeatureEffectDamageReduction, Magnitude: 3}}},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 5 {
+		t.Errorf("ProcessedDamage = %d, want 5 (10 - 2 - 3)", result.ProcessedDamage)
+	}
+}
+
+func TestTakeDamageReductionDiceFormula(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.AdversaryFeatures = []AdversaryFeature{
+		{
+			Name:    "Runic Ward",
+			Passive: true,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 1, DiceFormula: "1d4"},
+			},
+		},
+	}
+
+	result := c.TakeDamage(10, DamagePhysical, &mockRoller{fixedRoll: 2})
+	if result.ProcessedDamage != 7 {
+		t.Errorf("ProcessedDamage = %d, want 7 (10 - 1 flat - 2 rolled)", result.ProcessedDamage)
+	}
+}
+
+func TestTakeDamageReductionFloorsAtZero(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.AdversaryFeatures = []AdversaryFeature{
+		{
+			Name:    "Invulnerable",
+			Passive: true,
+			Effects: []FeatureEffect{
+				{Category: FeatureEffectDamageReduction, Magnitude: 100},
+			},
+		},
+	}
+
+	hpBefore := c.HP
+	result := c.TakeDamage(5, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 0 {
+		t.Errorf("ProcessedDamage = %d, want 0 (reduction exceeds raw)", result.ProcessedDamage)
+	}
+	if result.HPDamage != 0 {
+		t.Errorf("HPDamage = %d, want 0", result.HPDamage)
+	}
+	if c.HP != hpBefore {
+		t.Errorf("HP = %d, want %d (unchanged)", c.HP, hpBefore)
+	}
+}
+
 func TestParseDamageType(t *testing.T) {
 	if ParseDamageType("magic") != DamageMagic {
 		t.Error("'magic' should return DamageMagic")

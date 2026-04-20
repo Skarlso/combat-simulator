@@ -270,41 +270,38 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 	}
 }
 
-// calculateDamageReduction checks for active damage reduction effects
 func (c *Combatant) calculateDamageReduction(roller DiceRoller) int {
 	totalReduction := 0
 
-	// Check domain abilities for damage reduction effects
 	for _, ability := range c.DomainAbilities {
+		if !ability.Passive {
+			continue
+		}
 		for _, effect := range ability.Effects {
-			if effect.Category == FeatureEffectDamageReduction {
-				// Add flat magnitude
-				totalReduction += effect.Magnitude
-
-				// Roll dice if formula present
-				if effect.DiceFormula != "" {
-					notation, err := ParseDiceNotation(effect.DiceFormula)
-					if err == nil {
-						totalReduction += notation.Roll(roller)
-					}
+			if effect.Category != FeatureEffectDamageReduction {
+				continue
+			}
+			totalReduction += effect.Magnitude
+			if effect.DiceFormula != "" {
+				if notation, err := ParseDiceNotation(effect.DiceFormula); err == nil {
+					totalReduction += notation.Roll(roller)
 				}
 			}
 		}
 	}
 
-	// Check adversary features for damage reduction effects
 	for _, feature := range c.AdversaryFeatures {
+		if !feature.Passive {
+			continue
+		}
 		for _, effect := range feature.Effects {
-			if effect.Category == FeatureEffectDamageReduction {
-				// Add flat magnitude
-				totalReduction += effect.Magnitude
-
-				// Roll dice if formula present
-				if effect.DiceFormula != "" {
-					notation, err := ParseDiceNotation(effect.DiceFormula)
-					if err == nil {
-						totalReduction += notation.Roll(roller)
-					}
+			if effect.Category != FeatureEffectDamageReduction {
+				continue
+			}
+			totalReduction += effect.Magnitude
+			if effect.DiceFormula != "" {
+				if notation, err := ParseDiceNotation(effect.DiceFormula); err == nil {
+					totalReduction += notation.Roll(roller)
 				}
 			}
 		}

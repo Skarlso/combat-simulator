@@ -102,9 +102,7 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectSummonAllies:
 		return fr.resolveSummon(effect, actor, state)
 
-	// Defensive abilities
 	case models.FeatureEffectDamageReduction:
-		// Passive - applied when taking damage (not implemented in combat flow yet)
 		return nil
 
 	case models.FeatureEffectGrantArmor:
@@ -236,6 +234,14 @@ func (fr *FeatureResolver) CanActivateAdversaryFeature(feature *models.Adversary
 		return false
 	}
 
+	for _, effect := range feature.Effects {
+		if effect.Category == models.FeatureEffectTokenSpend {
+			if feature.TokensHeld < effect.Magnitude {
+				return false
+			}
+		}
+	}
+
 	return true
 }
 
@@ -301,10 +307,27 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 		}
 	}
 
-	// Apply effects
+	for _, effect := range feature.Effects {
+		if effect.Category == models.FeatureEffectTokenSpend {
+			if feature.TokensHeld < effect.Magnitude {
+				return fmt.Errorf("not enough tokens: have %d, need %d", feature.TokensHeld, effect.Magnitude), dcResult
+			}
+			feature.TokensHeld -= effect.Magnitude
+		}
+	}
+
 	for _, effect := range feature.Effects {
 		if err := fr.ResolveEffect(effect, actor, target, state, &dcResult); err != nil {
 			return err, dcResult
+		}
+	}
+
+	for _, effect := range feature.Effects {
+		if effect.Category == models.FeatureEffectTokenPlace {
+			feature.TokensHeld += effect.Magnitude
+			if feature.TokensMax > 0 && feature.TokensHeld > feature.TokensMax {
+				feature.TokensHeld = feature.TokensMax
+			}
 		}
 	}
 
