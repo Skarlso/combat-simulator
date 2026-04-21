@@ -24,15 +24,11 @@ Two common SRD patterns currently unrepresented:
 - Add `FeatureEffectSpotlightAlly` category for master/minion chains (triggered on master's spotlight, free extra spotlight).
 - Wire into `combat_engine.go` spotlight loop so GM turn recognizes these before the standard 1-free + 1-Fear-each rule.
 
-## Priority 0.75: JSON Character Import (Multi-Character)
+## Priority 0.75: JSON Import (DONE 2026-04-21)
 
-UI forms for building PCs are painful for repeat setup. Add bulk JSON import.
-
-- One file, multiple PCs: `{"characters": [{...}, {...}]}`
-- Reuse the adversary JSON schema style where possible, but PC-specific (class, domains, hope max, etc.).
-- Import button in web UI that parses and adds all characters to the combatant list.
-- Validate on import (HP/stress bounds, known domains, attack dice format).
-- Consider same for adversaries (multi-adversary JSON) for scenario packs.
+- **Adversaries**: `AdversaryList` now has an `Import JSON` button that accepts `{"adversaries":[...]}` (same schema as bundled tier files). Uses `parser.AdversaryParser` with embedded feature mappings. Unmapped feature names still drop silently (documented limitation, not a regression of this change).
+- **Players**: new `parser.LoadCharactersFromBytes` with `CharacterFile` schema supporting name/level/evasion/proficiency/hp/stress/armor/damage_dice/thresholds/domain_abilities. 5 tests. `CombatantList` now has matching `Import JSON` panel wired to the same side (Player/Enemy) as the list it's attached to.
+- File upload (vs paste textarea) deferred — not worth the go-app JS bridging yet.
 
 
 
@@ -46,22 +42,12 @@ UI forms for building PCs are painful for repeat setup. Add bulk JSON import.
 - [ ] Template-only adversaries properly excluded from initial combat
 - [ ] Summoned creatures participating correctly in spotlight selection
 
-## Priority 1: Feature Library Dropdown (Web UI)
+## Priority 1: Feature Library Dropdown (DONE 2026-04-20)
 
-Web UI requires manual feature creation. Pre-mapped features exist but only for CLI.
-
-- 33/340 adversary features mapped in `data/feature_mappings.json`
-- ~6k lines of adversary JSON with full stat blocks
-- Parser system works in CLI tests
-- Web UI has blank forms only (no dropdowns)
-
-**To implement**:
-1. Add feature library dropdown to adversary feature form
-2. Load `feature_mappings.json` into web UI
-3. Populate form fields when feature selected from dropdown
-4. Still allow manual creation for custom features
-
-**Files**: `ui/components/adversary_feature_form.go`, possibly bundle `feature_mappings.json` in WASM
+- `parser.FeatureParser.FeatureNames()` added + tested.
+- `AdversaryFeatureForm` now loads `data.GetFeatureMappings()` in `OnMount`, exposes a "Start from template" dropdown above the name field (add-mode only). Selecting a mapped feature populates name/passive/costs/tokens/DC/first effect; user can still tweak before saving.
+- "Custom Feature" option retained for manual entry.
+- Coverage remains 33/340; Priority 2 (expand mappings) still open.
 
 ## Priority 2: Feature Coverage Expansion
 

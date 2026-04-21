@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/skarlso/daggerheart-combat-simulator/data"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 )
 
 // AdversaryList displays and manages a list of adversaries
@@ -32,6 +34,11 @@ type AdversaryList struct {
 	newMotives         string
 	newFeatures        []*models.AdversaryFeature
 	newIsSummonTemplate bool
+
+	showImport  bool
+	importText  string
+	importError string
+	importInfo  string
 }
 
 // OnMount initializes default values
@@ -55,12 +62,118 @@ func (al *AdversaryList) Render() app.UI {
 							al.showForm = !al.showForm
 							ctx.Update()
 						}),
+					app.Button().
+						Class("btn btn-small").
+						Text("Import JSON").
+						OnClick(func(ctx app.Context, e app.Event) {
+							al.showImport = !al.showImport
+							al.importError = ""
+							al.importInfo = ""
+							ctx.Update()
+						}),
 				),
+			app.If(al.showImport, func() app.UI {
+				return al.renderImportPanel()
+			}),
 			app.If(al.showForm, func() app.UI {
 				return al.renderAddForm()
 			}),
 			al.renderList(),
 		)
+}
+
+func (al *AdversaryList) renderImportPanel() app.UI {
+	return app.Div().
+		Class("add-form").
+		Body(
+			app.H4().Text("Import Adversaries from JSON"),
+			app.P().Text(`Paste a JSON document matching {"adversaries":[...]} (same schema as data/daggerheart_adversaries-tier-1.json).`),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Textarea().
+						Style("width", "100%").
+						Style("min-height", "200px").
+						Style("font-family", "monospace").
+						Placeholder(`{"adversaries": [{"name": "...", "tier": 1, ...}]}`).
+						Rows(12).
+						Text(al.importText).
+						OnInput(func(ctx app.Context, e app.Event) {
+							al.importText = ctx.JSSrc().Get("value").String()
+						}),
+				),
+			app.If(al.importError != "", func() app.UI {
+				return app.Div().Class("validation-error").Text(al.importError)
+			}),
+			app.If(al.importInfo != "", func() app.UI {
+				return app.Div().Class("validation-info").Text(al.importInfo)
+			}),
+			app.Div().
+				Class("form-actions").
+				Body(
+					app.Button().
+						Class("btn btn-primary").
+						Text("Import").
+						OnClick(func(ctx app.Context, e app.Event) {
+							al.runImport(ctx)
+						}),
+					app.Button().
+						Class("btn btn-secondary").
+						Text("Close").
+						OnClick(func(ctx app.Context, e app.Event) {
+							al.showImport = false
+							ctx.Update()
+						}),
+				),
+		)
+}
+
+func (al *AdversaryList) runImport(ctx app.Context) {
+	al.importError = ""
+	al.importInfo = ""
+
+	if al.importText == "" {
+		al.importError = "Paste JSON before importing."
+		ctx.Update()
+		return
+	}
+
+	mappings, err := data.GetFeatureMappings()
+	if err != nil {
+		al.importError = fmt.Sprintf("failed to load feature mappings: %v", err)
+		ctx.Update()
+		return
+	}
+
+	ap, err := parser.NewAdversaryParserFromBytes(mappings)
+	if err != nil {
+		al.importError = fmt.Sprintf("failed to initialize parser: %v", err)
+		ctx.Update()
+		return
+	}
+
+	imported, err := ap.LoadAdversariesFromBytes([]byte(al.importText))
+	if err != nil {
+		al.importError = fmt.Sprintf("invalid JSON: %v", err)
+		ctx.Update()
+		return
+	}
+
+	if len(imported) == 0 {
+		al.importError = "no adversaries found in JSON"
+		ctx.Update()
+		return
+	}
+
+	if al.OnAdd != nil {
+		for _, adv := range imported {
+			al.OnAdd(ctx, adv)
+		}
+	}
+
+	al.importInfo = fmt.Sprintf("Imported %d adversaries.", len(imported))
+	al.importText = ""
+	ctx.Update()
 }
 
 // renderList renders the list of adversaries

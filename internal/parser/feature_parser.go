@@ -61,6 +61,15 @@ func NewFeatureParserFromBytes(data []byte) (*FeatureParser, error) {
 	}, nil
 }
 
+// FeatureNames returns the names of all mapped features.
+func (fp *FeatureParser) FeatureNames() []string {
+	names := make([]string, 0, len(fp.mappings))
+	for name := range fp.mappings {
+		names = append(names, name)
+	}
+	return names
+}
+
 // ParseFeature converts a feature name into an AdversaryFeature
 // Returns nil if feature is not mapped
 func (fp *FeatureParser) ParseFeature(name string, description string) *models.AdversaryFeature {

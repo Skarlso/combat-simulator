@@ -2,10 +2,15 @@ package components
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/skarlso/daggerheart-combat-simulator/data"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 )
+
+const customLibraryOption = "__custom__"
 
 // AdversaryFeatureForm manages adding/editing adversary features (enemy abilities)
 type AdversaryFeatureForm struct {
@@ -40,11 +45,30 @@ type AdversaryFeatureForm struct {
 	newUsesTokens bool
 	newTokenName  string
 	newTokensMax  int
+
+	featureLibrary     *parser.FeatureParser
+	libraryFeatureKeys []string
+	selectedLibraryKey string
 }
 
 // OnMount initializes default values
 func (aff *AdversaryFeatureForm) OnMount(ctx app.Context) {
 	aff.resetForm()
+	aff.loadFeatureLibrary()
+}
+
+func (aff *AdversaryFeatureForm) loadFeatureLibrary() {
+	raw, err := data.GetFeatureMappings()
+	if err != nil {
+		return
+	}
+	fp, err := parser.NewFeatureParserFromBytes(raw)
+	if err != nil {
+		return
+	}
+	aff.featureLibrary = fp
+	aff.libraryFeatureKeys = fp.FeatureNames()
+	sort.Strings(aff.libraryFeatureKeys)
 }
 
 // Render renders the feature list and form
@@ -201,6 +225,9 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 		Class("ability-add-form").
 		Body(
 			app.H4().Text(formTitle),
+			app.If(aff.editingIndex < 0 && len(aff.libraryFeatureKeys) > 0, func() app.UI {
+				return aff.renderLibraryPicker()
+			}),
 			app.Div().
 				Class("form-row").
 				Body(
@@ -623,6 +650,83 @@ func (aff *AdversaryFeatureForm) renderSummonPoolPicker() app.UI {
 
 
 
+func (aff *AdversaryFeatureForm) renderLibraryPicker() app.UI {
+	options := make([]app.UI, 0, len(aff.libraryFeatureKeys)+1)
+	options = append(options,
+		app.Option().
+			Value(customLibraryOption).
+			Text("-- Custom Feature --").
+			Selected(aff.selectedLibraryKey == "" || aff.selectedLibraryKey == customLibraryOption),
+	)
+	for _, key := range aff.libraryFeatureKeys {
+		k := key
+		options = append(options,
+			app.Option().Value(k).Text(k).Selected(aff.selectedLibraryKey == k),
+		)
+	}
+
+	return app.Div().
+		Class("form-subsection").
+		Body(
+			app.H5().Text("Feature Library"),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text(fmt.Sprintf("Start from template (%d available):", len(aff.libraryFeatureKeys))),
+					app.Select().
+						OnChange(func(ctx app.Context, e app.Event) {
+							key := ctx.JSSrc().Get("value").String()
+							aff.selectedLibraryKey = key
+							aff.populateFromLibrary(key)
+							ctx.Update()
+						}).
+						Body(options...),
+				),
+		)
+}
+
+func (aff *AdversaryFeatureForm) populateFromLibrary(key string) {
+	if key == "" || key == customLibraryOption || aff.featureLibrary == nil {
+		return
+	}
+	feat := aff.featureLibrary.ParseFeature(key, "")
+	if feat == nil {
+		return
+	}
+
+	aff.newName = feat.Name
+	aff.newDescription = feat.Description
+	aff.newPassive = feat.Passive
+	aff.newFearCost = feat.FearCost
+	aff.newStressCost = feat.StressCost
+	aff.newSpotlightLim = feat.SpotlightLimit
+	aff.newUsageType = feat.UsageType
+	aff.newMaxUses = feat.MaxUses
+	aff.newDCType = feat.DCType
+	aff.newFixedDC = feat.FixedDC
+	aff.newUsesTokens = feat.UsesTokens
+	aff.newTokenName = feat.TokenName
+	aff.newTokensMax = feat.TokensMax
+
+	switch {
+	case feat.FearCost > 0:
+		aff.newCostType = "fear"
+	case feat.StressCost > 0:
+		aff.newCostType = "stress"
+	default:
+		aff.newCostType = "free"
+	}
+
+	if len(feat.Effects) > 0 {
+		eff := feat.Effects[0]
+		aff.newEffectType = reverseEffectCategory(eff.Category)
+		aff.newDiceFormula = eff.DiceFormula
+		aff.newDamageType = eff.DamageType
+		aff.newMagnitude = eff.Magnitude
+		aff.newDuration = eff.Duration
+	}
+}
+
 func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
 	if idx < 0 || idx >= len(aff.Features) {
 		return
@@ -805,4 +909,5 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newUsesTokens = false
 	aff.newTokenName = ""
 	aff.newTokensMax = 0
+	aff.selectedLibraryKey = customLibraryOption
 }

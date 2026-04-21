@@ -112,6 +112,26 @@ func TestParseFeaturePassive(t *testing.T) {
 	}
 }
 
+func TestFeatureNamesReturnsAllMappedKeys(t *testing.T) {
+	fp, err := NewFeatureParserFromBytes([]byte(testMappingJSON))
+	if err != nil {
+		t.Fatalf("failed to create parser: %v", err)
+	}
+
+	names := fp.FeatureNames()
+	if len(names) != 2 {
+		t.Errorf("FeatureNames len = %d, want 2", len(names))
+	}
+
+	got := map[string]bool{}
+	for _, n := range names {
+		got[n] = true
+	}
+	if !got["Savage Strike"] || !got["Thick Hide"] {
+		t.Errorf("FeatureNames = %v, want to include Savage Strike and Thick Hide", names)
+	}
+}
+
 func TestParseFeatureUnmapped(t *testing.T) {
 	fp, err := NewFeatureParserFromBytes([]byte(testMappingJSON))
 	if err != nil {
