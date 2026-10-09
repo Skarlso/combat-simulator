@@ -633,6 +633,8 @@ func TestResolveEffectApplyConditionPassives(t *testing.T) {
 		{"ignite", models.FeatureEffectApplyIgnite, target, models.ConditionBurning},
 		{"taunt", models.FeatureEffectApplyTaunt, target, models.ConditionTaunted},
 		{"hidden_on_actor", models.FeatureEffectApplyHidden, actor, models.ConditionHidden},
+		{"stunned", models.FeatureEffectApplyStunned, target, models.ConditionStunned},
+		{"restrained", models.FeatureEffectApplyRestrained, target, models.ConditionRestrained},
 	}
 
 	for _, c := range cases {
@@ -645,5 +647,52 @@ func TestResolveEffectApplyConditionPassives(t *testing.T) {
 				t.Errorf("%s: target missing condition %v", c.name, c.expected)
 			}
 		})
+	}
+}
+
+func TestResolveDirectDamageUsesThresholdsAndSkipsArmor(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{})
+	actor := tPlayer("p1", "Hero")
+	target := tEnemy("e1", "Ogre", 10)
+	target.ArmorSlots = 1
+	state := newStateWith([]*models.Combatant{actor}, []*models.Combatant{target}, 0, 0)
+
+	result := &DCCheckResult{}
+	effect := models.FeatureEffect{Category: models.FeatureEffectDirectDamage, Magnitude: 12}
+	if err := fr.ResolveEffect(effect, actor, target, state, result); err != nil {
+		t.Fatal(err)
+	}
+
+	if target.HP != 7 {
+		t.Errorf("HP = %d, want 7 (severe = 3 HP, not raw damage)", target.HP)
+	}
+	if target.ArmorSlots != 1 {
+		t.Errorf("ArmorSlots = %d, want 1 (direct damage bypasses armor)", target.ArmorSlots)
+	}
+	if result.DamageDealt != 3 || result.Threshold != models.ThresholdSevere {
+		t.Errorf("result = %d HP / %v, want 3 HP / Severe", result.DamageDealt, result.Threshold)
+	}
+}
+
+func TestIgniteAndPoisonDealDamageEachTurn(t *testing.T) {
+	dice := &mockDiceRoller{}
+	fr := newTestFR(dice)
+	resolver := NewCombatResolver(dice, fr)
+	actor := tEnemy("e1", "Imp", 10)
+
+	for _, cat := range []models.FeatureEffectCategory{models.FeatureEffectApplyIgnite, models.FeatureEffectApplyPoison} {
+		target := tPlayer("p1", "Hero")
+		state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+		effect := models.FeatureEffect{Category: cat, Magnitude: 2, Duration: "until_cleared"}
+		if err := fr.ResolveEffect(effect, actor, target, state, nil); err != nil {
+			t.Fatal(err)
+		}
+
+		resolver.ProcessConditionTicks(target, models.TriggerTurnStart)
+		resolver.ProcessConditionTicks(target, models.TriggerTurnStart)
+		if target.HP != target.HPMax-2 {
+			t.Errorf("%s: HP = %d, want %d after two ticks", cat, target.HP, target.HPMax-2)
+		}
 	}
 }

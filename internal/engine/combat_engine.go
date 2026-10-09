@@ -54,9 +54,23 @@ func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decisio
 	// Process start-of-turn triggered features
 	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerStartTurn, false)
 
+	// Burning/poison ticks can defeat the actor before they act
+	if !actor.IsAlive() {
+		return
+	}
+
 	// Check if stunned or otherwise unable to act
 	if actor.HasCondition(models.ConditionStunned) {
 		state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionPass, Result: "Stunned", SpotlightShift: true})
+		// A stun costs exactly one turn, whatever its duration
+		actor.RemoveCondition(models.ConditionStunned)
+		ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
+		return
+	}
+
+	if decision.ClearCondition {
+		ce.executeClearCondition(actor, state)
+		ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
 		return
 	}
 
@@ -138,6 +152,16 @@ func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.C
 	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
 	ce.recordActivation(actor, target, feature.Name, true, err, dcResult, state)
 	return err
+}
+
+// executeClearCondition spends the actor's turn removing one harmful condition
+func (ce *CombatEngine) executeClearCondition(actor *models.Combatant, state *models.CombatState) {
+	result := "Nothing to clear"
+	if condType, ok := actor.ClearableCondition(); ok {
+		actor.RemoveCondition(condType)
+		result = fmt.Sprintf("Cleared %s", condType)
+	}
+	state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionClearCondition, Result: result})
 }
 
 // executeAttack handles basic attack action

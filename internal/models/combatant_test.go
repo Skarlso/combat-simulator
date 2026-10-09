@@ -243,6 +243,37 @@ func TestTakeDamageArmor(t *testing.T) {
 	}
 }
 
+func TestTakeDirectDamageIgnoresArmor(t *testing.T) {
+	c := newTestAdversary()
+	c.ArmorSlots = 2
+
+	result := c.TakeDirectDamage(12, DamagePhysical, nil)
+
+	if result.ArmorUsed || c.ArmorSlots != 2 {
+		t.Errorf("ArmorSlots = %d, want 2 (direct damage bypasses armor)", c.ArmorSlots)
+	}
+	if result.HPDamage != 3 {
+		t.Errorf("HPDamage = %d, want 3 (severe)", result.HPDamage)
+	}
+}
+
+func TestClearableCondition(t *testing.T) {
+	c := newTestPlayer()
+	if _, ok := c.ClearableCondition(); ok {
+		t.Error("no conditions should mean nothing to clear")
+	}
+
+	c.AddStress(c.StressMax)
+	if _, ok := c.ClearableCondition(); ok {
+		t.Error("Vulnerable from full Stress should not be clearable by an action")
+	}
+
+	c.AddCondition(&ActiveCondition{Type: ConditionBurning, Duration: DurationUntilCleared})
+	if cond, ok := c.ClearableCondition(); !ok || cond != ConditionBurning {
+		t.Errorf("ClearableCondition = %v, %v, want burning, true", cond, ok)
+	}
+}
+
 func TestTakeDamageArmorMinor(t *testing.T) {
 	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
 	c.ArmorSlots = 1

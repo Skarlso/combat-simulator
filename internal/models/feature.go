@@ -15,6 +15,8 @@ const (
 	FeatureEffectApplyIgnite     FeatureEffectCategory = "apply_ignite"
 	FeatureEffectApplyTaunt      FeatureEffectCategory = "apply_taunt"
 	FeatureEffectApplyHidden     FeatureEffectCategory = "apply_hidden"
+	FeatureEffectApplyStunned    FeatureEffectCategory = "apply_stunned"
+	FeatureEffectApplyRestrained FeatureEffectCategory = "apply_restrained"
 
 	// Resource manipulation
 	FeatureEffectStressInflict FeatureEffectCategory = "stress_inflict"

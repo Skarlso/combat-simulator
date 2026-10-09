@@ -52,19 +52,18 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 		damage += notation.Roll(fr.dice)
 	}
 
-	target.HP -= damage
-	if target.HP <= 0 {
-		target.HP = 0
-		target.IsDefeated = true
-	}
+	damageType := models.ParseDamageType(effect.DamageType)
+	damageRes := target.TakeDirectDamage(damage, damageType, fr.dice)
 
 	if activationResult != nil {
 		activationResult.DamageRoll = damage
-		activationResult.DamageDealt = damage
-		activationResult.Threshold = models.ThresholdSevere
+		activationResult.ProcessedDamage = damageRes.ProcessedDamage
+		activationResult.DamageDealt = damageRes.HPDamage
+		activationResult.Threshold = damageRes.Threshold
+		activationResult.DamageResult = &damageRes
 	}
 
-	if damage > 0 {
+	if damageRes.HPDamage > 0 {
 		fr.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnDamageTaken, false)
 	}
 

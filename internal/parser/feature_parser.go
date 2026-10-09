@@ -120,6 +120,8 @@ var effectCategoryMap = map[string]models.FeatureEffectCategory{
 	"FeatureEffectApplyIgnite":         models.FeatureEffectApplyIgnite,
 	"FeatureEffectApplyTaunt":          models.FeatureEffectApplyTaunt,
 	"FeatureEffectApplyHidden":         models.FeatureEffectApplyHidden,
+	"FeatureEffectApplyStunned":        models.FeatureEffectApplyStunned,
+	"FeatureEffectApplyRestrained":     models.FeatureEffectApplyRestrained,
 	"FeatureEffectStressInflict":       models.FeatureEffectStressInflict,
 	"FeatureEffectStressClear":         models.FeatureEffectStressClear,
 	"FeatureEffectHPHeal":              models.FeatureEffectHPHeal,

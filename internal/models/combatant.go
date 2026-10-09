@@ -160,6 +160,15 @@ type DamageResult struct {
 // Returns damage result with processed damage and HP damage
 // roller can be nil if no dice rolling is needed
 func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
+	return c.takeDamage(rawDamage, damageType, roller, true)
+}
+
+// TakeDirectDamage applies damage that cannot be reduced by armor slots
+func (c *Combatant) TakeDirectDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
+	return c.takeDamage(rawDamage, damageType, roller, false)
+}
+
+func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller DiceRoller, useArmor bool) DamageResult {
 	// Capture state before damage
 	hpBefore := c.HP
 	armorBefore := c.ArmorSlots
@@ -221,7 +230,7 @@ func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller Dice
 
 	armorReducedMinor := false
 	armorUsed := false
-	if threshold != ThresholdNone && c.ArmorSlots > 0 {
+	if useArmor && threshold != ThresholdNone && c.ArmorSlots > 0 {
 		c.ArmorSlots--
 		armorUsed = true
 		// Reduce threshold by one level: Severe→Major→Minor→None (0 HP)
@@ -385,6 +394,22 @@ func (c *Combatant) HasCondition(condType ConditionType) bool {
 		}
 	}
 	return false
+}
+
+// ClearableCondition returns the first harmful condition an action can clear
+func (c *Combatant) ClearableCondition() (ConditionType, bool) {
+	for _, cond := range c.Conditions {
+		switch cond.Type {
+		case ConditionBurning, ConditionPoisoned, ConditionRestrained:
+			return cond.Type, true
+		case ConditionVulnerable:
+			// Vulnerable from full Stress only ends by clearing Stress
+			if !c.IsFullyStressed {
+				return cond.Type, true
+			}
+		}
+	}
+	return "", false
 }
 
 // IsAlive returns whether combatant is still in the fight

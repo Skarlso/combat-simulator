@@ -3,6 +3,15 @@ package engine
 import "github.com/skarlso/daggerheart-combat-simulator/internal/models"
 
 func (fr *FeatureResolver) applyCondition(target *models.Combatant, condType models.ConditionType, duration string) error {
+	return fr.addCondition(target, condType, duration, 0, models.DamagePhysical)
+}
+
+// applyDamagingCondition applies a condition that deals effect.Magnitude damage each turn
+func (fr *FeatureResolver) applyDamagingCondition(target *models.Combatant, condType models.ConditionType, effect models.FeatureEffect) error {
+	return fr.addCondition(target, condType, effect.Duration, effect.Magnitude, models.ParseDamageType(effect.DamageType))
+}
+
+func (fr *FeatureResolver) addCondition(target *models.Combatant, condType models.ConditionType, duration string, damagePerTick int, damageType models.DamageType) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
@@ -22,8 +31,10 @@ func (fr *FeatureResolver) applyCondition(target *models.Combatant, condType mod
 	}
 
 	target.AddCondition(&models.ActiveCondition{
-		Type:     condType,
-		Duration: durationType,
+		Type:          condType,
+		Duration:      durationType,
+		DamagePerTick: damagePerTick,
+		DamageType:    damageType,
 	})
 	return nil
 }

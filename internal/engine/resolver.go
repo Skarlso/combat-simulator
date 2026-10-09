@@ -105,15 +105,11 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 			state.AddHope(1)
 			result.GeneratedHope = true
 			if dualityRoll.IsCritical {
-				state.AddHope(1)        // Critical Hope generates extra
 				attacker.ClearStress(1) // Critical success clears a Stress
 			}
 		} else {
 			state.AddFear(1)
 			result.GeneratedFear = true
-			if dualityRoll.IsCritical {
-				state.AddFear(1) // Critical Fear generates extra
-			}
 		}
 
 		// Critical success = auto-hit regardless of roll vs defense

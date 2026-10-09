@@ -428,3 +428,62 @@ func TestCombatEndsCleanlyMidGMTurn(t *testing.T) {
 		t.Errorf("enemy actions = %d, want 1 (combat ends after player death)", goblin+orc)
 	}
 }
+
+func TestClearConditionDoesNotAttackSelf(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 20}, &firstPicker{})
+	player := tPlayer("p1", "Hero")
+	player.AddCondition(&models.ActiveCondition{Type: models.ConditionBurning, Duration: models.DurationUntilCleared})
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{tEnemy("e1", "Ogre", 10)}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: player, ClearCondition: true}, state)
+
+	if player.HP != player.HPMax {
+		t.Errorf("HP = %d, want %d (clearing must not damage the actor)", player.HP, player.HPMax)
+	}
+	if player.HasCondition(models.ConditionBurning) {
+		t.Error("burning should be cleared")
+	}
+	last := state.ActionHistory[len(state.ActionHistory)-1]
+	if last.ActionType != models.ActionClearCondition {
+		t.Errorf("ActionType = %v, want Clear Condition", last.ActionType)
+	}
+}
+
+func TestStunnedSkipsExactlyOneTurn(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	player := tPlayer("p1", "Hero")
+	enemy := tEnemy("e1", "Ogre", 10)
+	player.AddCondition(&models.ActiveCondition{Type: models.ConditionStunned, Duration: models.DurationUntilCleared})
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{enemy}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: enemy}, state)
+	if enemy.HP != enemy.HPMax {
+		t.Error("stunned actor should not attack")
+	}
+	if player.HasCondition(models.ConditionStunned) {
+		t.Error("stun should end after the skipped turn")
+	}
+
+	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: enemy}, state)
+	if enemy.HP == enemy.HPMax {
+		t.Error("actor should attack on the turn after the stun")
+	}
+}
+
+func TestDefeatedByConditionTickDoesNotAct(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	player := tPlayer("p1", "Hero")
+	player.HP = 1
+	enemy := tEnemy("e1", "Ogre", 10)
+	player.AddCondition(&models.ActiveCondition{Type: models.ConditionBurning, Duration: models.DurationUntilCleared, DamagePerTick: 2})
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{enemy}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: enemy}, state)
+
+	if player.IsAlive() {
+		t.Fatal("burning tick should defeat the player")
+	}
+	if enemy.HP != enemy.HPMax {
+		t.Error("defeated actor should not attack")
+	}
+}

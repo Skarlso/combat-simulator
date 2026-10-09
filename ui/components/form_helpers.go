@@ -45,6 +45,9 @@ var uiEffectCategoryMap = map[string]models.FeatureEffectCategory{
 	"stress_clear":     models.FeatureEffectStressClear,
 	"apply_vulnerable": models.FeatureEffectApplyVulnerable,
 	"apply_poison":     models.FeatureEffectApplyPoison,
+	"apply_ignite":     models.FeatureEffectApplyIgnite,
+	"apply_stunned":    models.FeatureEffectApplyStunned,
+	"apply_restrained": models.FeatureEffectApplyRestrained,
 	"armor_damage":     models.FeatureEffectArmorDamage,
 	"grant_armor":      models.FeatureEffectGrantArmor,
 	"damage_reduction": models.FeatureEffectDamageReduction,
@@ -90,7 +93,11 @@ func needsDamageType(effectType string) bool {
 }
 
 func needsDuration(effectType string) bool {
-	return effectType == "apply_vulnerable" || effectType == "apply_poison"
+	return effectType == "apply_vulnerable" ||
+		effectType == "apply_poison" ||
+		effectType == "apply_ignite" ||
+		effectType == "apply_stunned" ||
+		effectType == "apply_restrained"
 }
 
 func needsDiceFormula(effectType string) bool {
@@ -104,6 +111,8 @@ func needsDiceFormula(effectType string) bool {
 func needsMagnitude(effectType string) bool {
 	return effectType == "stress_inflict" ||
 		effectType == "stress_clear" ||
+		effectType == "apply_poison" ||
+		effectType == "apply_ignite" ||
 		effectType == "armor_damage" ||
 		effectType == "grant_armor" ||
 		effectType == "token_place" ||

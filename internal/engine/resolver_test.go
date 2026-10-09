@@ -160,3 +160,26 @@ func TestProcessConditionTicksDoNotExpirePrematurely(t *testing.T) {
 		t.Error("end_of_turn condition should not expire on turn start")
 	}
 }
+
+func TestResolveAttackCriticalGeneratesOneHope(t *testing.T) {
+	dice := &mockDiceRoller{damage: 3, dualityQueue: []DualityRollResult{
+		{HopeDie: 6, FearDie: 6, Result: models.ResultCriticalHope, WithSpirit: 12, IsCritical: true},
+	}}
+	resolver := NewCombatResolver(dice, newTestFR(dice))
+	attacker := tPlayer("p1", "Hero")
+	attacker.Stress = 2
+	defender := tEnemy("e1", "Ogre", 10)
+	state := newStateWith([]*models.Combatant{attacker}, []*models.Combatant{defender}, 0, 0)
+
+	result := resolver.ResolveAttack(attacker, defender, "1d6", state)
+
+	if !result.Hit || !result.CriticalResult {
+		t.Fatal("matching dice should be a critical hit")
+	}
+	if state.HopePool != 1 {
+		t.Errorf("HopePool = %d, want 1", state.HopePool)
+	}
+	if attacker.Stress != 1 {
+		t.Errorf("Stress = %d, want 1 (critical clears a Stress)", attacker.Stress)
+	}
+}

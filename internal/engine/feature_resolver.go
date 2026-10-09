@@ -66,9 +66,13 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectApplyVulnerable:
 		return fr.applyCondition(target, models.ConditionVulnerable, effect.Duration)
 	case models.FeatureEffectApplyPoison:
-		return fr.applyCondition(target, models.ConditionPoisoned, effect.Duration)
+		return fr.applyDamagingCondition(target, models.ConditionPoisoned, effect)
 	case models.FeatureEffectApplyIgnite:
-		return fr.applyCondition(target, models.ConditionBurning, effect.Duration)
+		return fr.applyDamagingCondition(target, models.ConditionBurning, effect)
+	case models.FeatureEffectApplyStunned:
+		return fr.applyCondition(target, models.ConditionStunned, effect.Duration)
+	case models.FeatureEffectApplyRestrained:
+		return fr.applyCondition(target, models.ConditionRestrained, effect.Duration)
 	case models.FeatureEffectApplyTaunt:
 		return fr.applyCondition(target, models.ConditionTaunted, effect.Duration)
 	case models.FeatureEffectApplyHidden:

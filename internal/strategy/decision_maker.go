@@ -9,6 +9,7 @@ import (
 // ActionDecision represents the AI's choice for a turn
 type ActionDecision struct {
 	Target           *models.Combatant
+	ClearCondition   bool                     // spend the turn clearing a harmful condition on Target
 	DomainAbility    *models.DomainAbility    // nil = use basic attack
 	AdversaryFeature *models.AdversaryFeature // nil = use basic attack
 }
@@ -101,7 +102,7 @@ func DefaultRandomConfig() StrategyConfig {
 
 func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {
 	if ai.shouldClearCondition(actor) {
-		return &ActionDecision{Target: actor}
+		return &ActionDecision{Target: actor, ClearCondition: true}
 	}
 
 	target := ai.selectTarget(state, actor)
@@ -114,16 +115,7 @@ func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models
 }
 
 func (ai *AIDecisionMaker) shouldClearCondition(actor *models.Combatant) bool {
-	if len(actor.Conditions) == 0 {
-		return false
-	}
-
-	hasHarmful := actor.HasCondition(models.ConditionBurning) ||
-		actor.HasCondition(models.ConditionPoisoned) ||
-		actor.HasCondition(models.ConditionVulnerable) ||
-		actor.HasCondition(models.ConditionRestrained)
-
-	if !hasHarmful {
+	if _, ok := actor.ClearableCondition(); !ok {
 		return false
 	}
 
@@ -443,6 +435,12 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 		if target.HP > target.HPMax/2 {
 			return 5.0
 		}
+		return 2.0
+
+	case models.FeatureEffectApplyStunned:
+		return 4.0
+
+	case models.FeatureEffectApplyRestrained:
 		return 2.0
 
 	case models.FeatureEffectStressInflict:

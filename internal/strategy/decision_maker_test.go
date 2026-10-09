@@ -257,6 +257,9 @@ func TestConditionClearingImmediate(t *testing.T) {
 	if decision.Target != state.Players[0] {
 		t.Error("ClearImmediately should target self to clear harmful condition")
 	}
+	if !decision.ClearCondition {
+		t.Error("ClearImmediately should flag the decision as a clear-condition action")
+	}
 }
 
 func TestEnemyFeatureSelectedOverBasicAttack(t *testing.T) {

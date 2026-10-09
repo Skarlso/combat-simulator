@@ -313,6 +313,10 @@
           "category": "FeatureEffectDamage",
           "dice_formula": "1d6",
           "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
         }
       ]
     },
@@ -346,7 +350,12 @@
     "Web": {
       "category": "restrain",
       "fear_cost": 1,
-      "effects": []
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
     },
     "Stunning Blow": {
       "category": "stun",
@@ -356,6 +365,10 @@
           "category": "FeatureEffectDamage",
           "dice_formula": "2d6+3",
           "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyStunned",
+          "duration": "1_turn"
         }
       ]
     },
@@ -402,6 +415,10 @@
           "category": "FeatureEffectDamage",
           "dice_formula": "1d8+4",
           "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyStunned",
+          "duration": "1_turn"
         }
       ]
     }
