@@ -598,14 +598,15 @@ func TestResolveEffectStressInflictAndClear(t *testing.T) {
 
 func TestResolveEffectHopeDrainAndFearGenerate(t *testing.T) {
 	fr := newTestFR(&mockDiceRoller{})
-	actor := tPlayer("p1", "Hero")
-	state := newStateWith([]*models.Combatant{actor}, nil, 4, 1)
+	actor := tEnemy("e1", "Hexer", 10)
+	target := tPlayer("p1", "Hero")
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 4, 1)
 
-	if err := fr.ResolveEffect(models.FeatureEffect{Category: models.FeatureEffectHopeDrain, Magnitude: 2}, actor, nil, state, nil); err != nil {
+	if err := fr.ResolveEffect(models.FeatureEffect{Category: models.FeatureEffectHopeDrain, Magnitude: 2}, actor, target, state, nil); err != nil {
 		t.Fatalf("hope drain: %v", err)
 	}
-	if state.HopePool != 2 {
-		t.Errorf("HopePool = %d, want 2 (4 - 2)", state.HopePool)
+	if target.Hope != 2 {
+		t.Errorf("Hope = %d, want 2 (4 - 2)", target.Hope)
 	}
 
 	if err := fr.ResolveEffect(models.FeatureEffect{Category: models.FeatureEffectFearGenerate, Magnitude: 3}, actor, nil, state, nil); err != nil {
@@ -694,5 +695,344 @@ func TestIgniteAndPoisonDealDamageEachTurn(t *testing.T) {
 		if target.HP != target.HPMax-2 {
 			t.Errorf("%s: HP = %d, want %d after two ticks", cat, target.HP, target.HPMax-2)
 		}
+	}
+}
+
+func TestDomainAbilitySpendsOnlyTheActorsHope(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{})
+	actor := tPlayer("p1", "Hero")
+	ally := tPlayer("p2", "Friend")
+	target := tEnemy("e1", "Ogre", 10)
+	state := newStateWith([]*models.Combatant{actor, ally}, []*models.Combatant{target}, 0, 0)
+	ally.Hope = 6
+
+	ability := &models.DomainAbility{Name: "Flourish", HopeCost: 2}
+	if fr.CanActivateDomainAbility(*ability, actor, state) {
+		t.Error("an ally's Hope should not pay for the actor's ability")
+	}
+
+	actor.Hope = 3
+	if err, _ := fr.ActivateDomainAbility(ability, actor, target, state); err != nil {
+		t.Fatal(err)
+	}
+	if actor.Hope != 1 || ally.Hope != 6 {
+		t.Errorf("Hope = %d / %d, want 1 / 6", actor.Hope, ally.Hope)
+	}
+}
+
+func TestAppliedConditionRemembersSourceDifficulty(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{})
+	actor := tEnemy("e1", "Spider", 10)
+	actor.Difficulty = 14
+	target := tPlayer("p1", "Hero")
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+	effect := models.FeatureEffect{Category: models.FeatureEffectApplyRestrained, Duration: "until_cleared"}
+	if err := fr.ResolveEffect(effect, actor, target, state, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if cond := target.ClearableCondition(); cond == nil || cond.ClearDifficulty != 14 {
+		t.Errorf("ClearableCondition = %+v, want ClearDifficulty 14", cond)
+	}
+}
+
+func TestOnHitArmorShredFallsBackToHP(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	ooze := tEnemy("e1", "Ooze", 10)
+	ooze.AdversaryFeatures = []models.AdversaryFeature{{
+		Name:    "Acidic Form",
+		Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnHit},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectArmorDamage, Magnitude: 1}},
+	}}
+	target := tPlayer("p1", "Hero")
+	target.CustomThresholds = []int{4, 7}
+	target.ArmorSlots = 2
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{ooze}, 0, 0)
+
+	// Major damage: one slot reduces it to Minor (1 HP), the acid marks the other
+	ce.executeAttack(ooze, target, state)
+	if target.ArmorSlots != 0 || target.HP != target.HPMax-1 {
+		t.Errorf("ArmorSlots=%d HP=%d, want 0 / %d", target.ArmorSlots, target.HP, target.HPMax-1)
+	}
+
+	// No slots left: Major damage (2 HP) plus an additional HP for the acid
+	ce.executeAttack(ooze, target, state)
+	if target.HP != target.HPMax-4 {
+		t.Errorf("HP=%d, want %d", target.HP, target.HPMax-4)
+	}
+}
+
+func TestDamageEffectArmorCost(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{})
+	actor := tEnemy("e1", "Tormentor", 10)
+	target := tPlayer("p1", "Hero")
+	target.CustomThresholds = []int{4, 7}
+	target.ArmorSlots = 3
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+	effect := models.FeatureEffect{Category: models.FeatureEffectDamage, Magnitude: 9, ArmorCost: 2}
+	if err := fr.ResolveEffect(effect, actor, target, state, nil); err != nil {
+		t.Fatal(err)
+	}
+	if target.ArmorSlots != 1 {
+		t.Errorf("ArmorSlots = %d, want 1 (this damage costs 2 slots to reduce)", target.ArmorSlots)
+	}
+}
+
+func TestAreaArmorDamageFallbackGrantsFear(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{})
+	burrower := tEnemy("e1", "Acid Burrower", 10)
+	armored := tPlayer("p1", "Knight")
+	armored.ArmorSlots = 1
+	bare := tPlayer("p2", "Mage")
+	state := newStateWith([]*models.Combatant{armored, bare}, []*models.Combatant{burrower}, 0, 0)
+
+	effect := models.FeatureEffect{
+		Category:     models.FeatureEffectArmorDamage,
+		Magnitude:    1,
+		TargetType:   models.FeatureTargetAOE,
+		FallbackFear: 1,
+	}
+	if err := fr.ResolveEffect(effect, burrower, armored, state, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if armored.ArmorSlots != 0 || armored.HP != armored.HPMax {
+		t.Errorf("armored: ArmorSlots=%d HP=%d, want 0 / %d", armored.ArmorSlots, armored.HP, armored.HPMax)
+	}
+	if bare.HP != bare.HPMax-1 {
+		t.Errorf("bare: HP=%d, want %d (no slot to mark)", bare.HP, bare.HPMax-1)
+	}
+	if state.FearPool != 1 {
+		t.Errorf("FearPool = %d, want 1 (one target could not mark a slot)", state.FearPool)
+	}
+}
+
+func TestAttackerMarksArmorAfterHittingTheSnake(t *testing.T) {
+	// Zero damage: the hit alone triggers the shards
+	ce := newMockEngine(&mockDiceRoller{damage: 0}, &firstPicker{})
+	snake := tEnemy("e1", "Glass Snake", 10)
+	snake.AdversaryFeatures = []models.AdversaryFeature{{
+		Name:    "Armor-Shredding Shards",
+		Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnHitTaken},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectArmorDamage, Magnitude: 1}},
+	}}
+	attacker := tPlayer("p1", "Hero")
+	attacker.ArmorSlots = 1
+	state := newStateWith([]*models.Combatant{attacker}, []*models.Combatant{snake}, 0, 0)
+
+	ce.executeAttack(attacker, snake, state)
+	if attacker.ArmorSlots != 0 || attacker.HP != attacker.HPMax {
+		t.Errorf("first hit: ArmorSlots=%d HP=%d, want 0 / %d", attacker.ArmorSlots, attacker.HP, attacker.HPMax)
+	}
+
+	ce.executeAttack(attacker, snake, state)
+	if attacker.HP != attacker.HPMax-1 {
+		t.Errorf("second hit: HP=%d, want %d", attacker.HP, attacker.HPMax-1)
+	}
+	if snake.HP != snake.HPMax {
+		t.Errorf("snake HP=%d, want %d (the attacks dealt no damage)", snake.HP, snake.HPMax)
+	}
+}
+
+func TestAreaAttackComparesRollToEachTarget(t *testing.T) {
+	// Mock d20 is 15, +5 ATK = 20
+	fr := newTestFR(&mockDiceRoller{damage: 9})
+	actor := tEnemy("e1", "Warlord", 10)
+	nimble := tPlayer("p1", "Rogue")
+	nimble.Evasion = 25
+	slow := tPlayer("p2", "Knight")
+	slow.Evasion = 12
+	state := newStateWith([]*models.Combatant{nimble, slow}, []*models.Combatant{actor}, 0, 0)
+
+	feature := &models.AdversaryFeature{
+		Name:    "Sweep",
+		DCType:  "target",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectAreaDamage, DiceFormula: "1d8"}},
+	}
+
+	// The chosen target is the one the roll misses; the other is still hit
+	if err, _ := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err != nil {
+		t.Fatalf("should succeed against the target it beats: %v", err)
+	}
+	if nimble.HP != nimble.HPMax {
+		t.Errorf("nimble HP=%d, want %d (20 misses Evasion 25)", nimble.HP, nimble.HPMax)
+	}
+	if slow.HP == slow.HPMax {
+		t.Error("slow should be hit (20 beats Evasion 12)")
+	}
+
+	slow.Evasion = 25
+	hpBefore := slow.HP
+	if err, _ := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err == nil {
+		t.Error("should fail when the roll beats nobody")
+	}
+	if slow.HP != hpBefore {
+		t.Error("nobody should take damage on a total miss")
+	}
+}
+
+func TestStandardAttackEffectUsesActorDamageDice(t *testing.T) {
+	// Mock dice roll 3 per term, so "2d6+6" totals 9 and "1d4" would total 3
+	fr := newTestFR(&mockDiceRoller{damage: 3})
+	actor := tEnemy("e1", "Warlord", 10)
+	actor.DamageDice = "2d6+6"
+	target := tPlayer("p1", "Hero")
+	target.CustomThresholds = []int{4, 7}
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+	result := &DCCheckResult{Success: true}
+	effect := models.FeatureEffect{Category: models.FeatureEffectDamage, StandardAttack: true, DiceFormula: "1d4"}
+	if err := fr.ResolveEffect(effect, actor, target, state, result); err != nil {
+		t.Fatal(err)
+	}
+	if result.DamageRoll != 9 {
+		t.Errorf("DamageRoll = %d, want 9 (the actor's standard attack, not the effect formula)", result.DamageRoll)
+	}
+}
+
+func TestAreaEffectReachesLimitedTargets(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{damage: 9})
+	fr.SetAreaTargetLimit(2)
+	actor := tEnemy("e1", "Warlord", 10)
+	players := []*models.Combatant{tPlayer("p1", "A"), tPlayer("p2", "B"), tPlayer("p3", "C"), tPlayer("p4", "D")}
+	state := newStateWith(players, []*models.Combatant{actor}, 0, 0)
+
+	feature := &models.AdversaryFeature{
+		Name: "Spit Acid",
+		Effects: []models.FeatureEffect{
+			{Category: models.FeatureEffectArmorDamage, Magnitude: 1, TargetType: models.FeatureTargetAOE},
+			{Category: models.FeatureEffectAreaDamage, DiceFormula: "1d8"},
+		},
+	}
+	chosen := players[2]
+	if err, _ := fr.ActivateAdversaryFeature(feature, actor, chosen, state); err != nil {
+		t.Fatal(err)
+	}
+
+	hit := 0
+	for _, p := range players {
+		switch p.HPMax - p.HP {
+		case 0:
+		case 4:
+			// 1 HP for the missing Armor Slot plus 3 HP of Severe damage: both effects, same targets
+			hit++
+		default:
+			t.Errorf("%s lost %d HP, want 0 or 4 (effects must agree on who is in the area)", p.Name, p.HPMax-p.HP)
+		}
+	}
+	if hit != 2 {
+		t.Errorf("%d targets hit, want 2", hit)
+	}
+	if chosen.HP == chosen.HPMax {
+		t.Error("the chosen target is always inside the area")
+	}
+}
+
+func hellfire() *models.AdversaryFeature {
+	return &models.AdversaryFeature{
+		Name: "Hellfire",
+		Effects: []models.FeatureEffect{{
+			Category:      models.FeatureEffectAreaDamage,
+			DiceFormula:   "1d20",
+			ReactionTrait: "agility",
+			HalfOnSuccess: true,
+		}},
+	}
+}
+
+func TestReactionRollHalvesOrNegatesDamage(t *testing.T) {
+	cases := []struct {
+		name    string
+		roll    DualityRollResult
+		half    bool
+		wantHit int // raw damage 9 against thresholds 4/7
+	}{
+		{"failure takes it all", hopeDuality(5), true, 3},
+		{"success takes half, rounded up", hopeDuality(20), true, 2},
+		{"success takes nothing when not a half effect", hopeDuality(20), false, 0},
+		{"critical ignores the effect", DualityRollResult{HopeDie: 3, FearDie: 3, IsCritical: true, WithSpirit: 6}, true, 0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			fr := newTestFR(&mockDiceRoller{damage: 9, dualityQueue: []DualityRollResult{c.roll}})
+			actor := tEnemy("e1", "Demon", 10)
+			actor.Difficulty = 14
+			target := tPlayer("p1", "Hero")
+			target.CustomThresholds = []int{4, 7}
+			state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 2, 3)
+
+			feature := hellfire()
+			feature.Effects[0].HalfOnSuccess = c.half
+			if err, _ := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
+				t.Fatal(err)
+			}
+
+			if lost := target.HPMax - target.HP; lost != c.wantHit {
+				t.Errorf("lost %d HP, want %d", lost, c.wantHit)
+			}
+			if target.Hope != 2 || state.FearPool != 3 {
+				t.Errorf("Hope=%d Fear=%d, want 2 / 3 (reaction rolls generate neither)", target.Hope, state.FearPool)
+			}
+		})
+	}
+}
+
+func TestReactionRollUsesTheNamedTrait(t *testing.T) {
+	dice := &traitRecorder{mockDiceRoller: &mockDiceRoller{damage: 9}}
+	fr := newTestFR(dice.mockDiceRoller)
+	fr.dice = dice
+	actor := tEnemy("e1", "Demon", 10)
+	target := tPlayer("p1", "Hero")
+	target.Traits = models.Traits{Agility: 2, Instinct: -1}
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+	if err, _ := fr.ActivateAdversaryFeature(hellfire(), actor, target, state); err != nil {
+		t.Fatal(err)
+	}
+	if dice.lastModifier != 2 {
+		t.Errorf("reaction roll modifier = %d, want 2 (Agility)", dice.lastModifier)
+	}
+}
+
+type traitRecorder struct {
+	*mockDiceRoller
+	lastModifier int
+}
+
+func (r *traitRecorder) RollDuality(hopeModifier, fearModifier int) DualityRollResult {
+	r.lastModifier = hopeModifier
+	return r.mockDiceRoller.RollDuality(hopeModifier, fearModifier)
+}
+
+func TestTargetRollsOneReactionPerActivation(t *testing.T) {
+	// First roll fails; a second roll would succeed and wrongly dodge the condition
+	dice := &mockDiceRoller{damage: 9, dualityQueue: []DualityRollResult{hopeDuality(5)}}
+	fr := newTestFR(dice)
+	actor := tEnemy("e1", "Burrower", 10)
+	actor.Difficulty = 14
+	target := tPlayer("p1", "Hero")
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
+
+	feature := &models.AdversaryFeature{
+		Name: "Eruption",
+		Effects: []models.FeatureEffect{
+			{Category: models.FeatureEffectAreaDamage, DiceFormula: "1d8", ReactionTrait: "agility"},
+			{Category: models.FeatureEffectApplyVulnerable, Duration: "until_cleared", TargetType: models.FeatureTargetAOE, ReactionTrait: "agility"},
+		},
+	}
+	if err, _ := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
+		t.Fatal(err)
+	}
+
+	if target.HP == target.HPMax || !target.HasCondition(models.ConditionVulnerable) {
+		t.Errorf("HP=%d vulnerable=%v, want damage and Vulnerable from the one failed roll", target.HP, target.HasCondition(models.ConditionVulnerable))
+	}
+	if dice.dualityIdx != 1 {
+		t.Errorf("rolled %d reaction rolls, want 1", dice.dualityIdx)
 	}
 }

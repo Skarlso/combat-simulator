@@ -8,10 +8,11 @@ Built with Go and WebAssembly ([go-app/v10](https://github.com/maxence-charriere
 
 ### Combat Engine
 - **Duality Dice** -- Players roll 2d12 (Hope + Fear), adversaries roll d20
-- **Hope/Fear Pools** -- Shared resource pools (Hope capped at 6, Fear at 12)
+- **Hope/Fear** -- Hope per PC (starts at 2, capped at 6), GM Fear pool (starts at 1 per PC, capped at 12)
 - **Damage Thresholds** -- Minor/Major/Severe tiers with level/tier scaling and custom thresholds
 - **Armor System** -- Slot-based threshold reduction (Severe->Major->Minor->None)
-- **Stress** -- Overflow to HP damage, fully stressed applies Vulnerable
+- **Stress** -- Stress that can't be marked costs 1 HP, fully stressed applies Vulnerable
+- **Death Moves** -- Avoid Death, Risk It All, or Blaze of Glory when a PC marks their last HP
 - **Spotlight System** -- Player phase / GM turn loop with Fear spending and Relentless(X)
 - **Conditions** -- Burning, poisoned, vulnerable, resistant, stunned, restrained, advantage, disadvantage, taunted, hidden
 - **Resistances/Immunities** -- Physical and magic damage types, feature-based
@@ -22,7 +23,7 @@ Built with Go and WebAssembly ([go-app/v10](https://github.com/maxence-charriere
 - **24 Effect Types** -- Damage, healing, conditions, AOE, summoning, tokens, armor, stress, and more
 - **DC Checks** -- None, target defense, or fixed DC with success probability
 - **Token Mechanics** -- Place/spend tokens on abilities (e.g. Unleash Chaos pattern)
-- **Trigger System** -- on_attack, on_hit, on_critical, on_damage_taken, start_turn, end_turn
+- **Trigger System** -- on_attack, on_hit, on_hit_taken, on_critical, on_damage_taken, start_turn, end_turn
 - **Usage Limits** -- Per-scene, per-session, per-rest tracking
 
 ### AI Strategies

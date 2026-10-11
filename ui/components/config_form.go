@@ -85,14 +85,14 @@ func (cf *ConfigForm) renderResourcePools() app.UI {
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("Initial Hope Pool:"),
+							app.Label().Text("Initial Hope (per PC):"),
 							app.Input().
 								Type("number").
-								Value(cf.Config.InitialHopePool).
+								Value(cf.Config.InitialHope).
 								Min(0).
-								Max(20).
+								Max(6).
 								OnInput(func(ctx app.Context, e app.Event) {
-									cf.Config.InitialHopePool = ctx.JSSrc().Get("valueAsNumber").Int()
+									cf.Config.InitialHope = ctx.JSSrc().Get("valueAsNumber").Int()
 									if cf.OnChange != nil {
 										cf.OnChange()
 									}
@@ -101,12 +101,12 @@ func (cf *ConfigForm) renderResourcePools() app.UI {
 					app.Div().
 						Class("form-group").
 						Body(
-							app.Label().Text("Initial Fear Pool:"),
+							app.Label().Text("Initial Fear Pool (-1 = 1 per PC):"),
 							app.Input().
 								Type("number").
 								Value(cf.Config.InitialFearPool).
-								Min(0).
-								Max(20).
+								Min(-1).
+								Max(12).
 								OnInput(func(ctx app.Context, e app.Event) {
 									cf.Config.InitialFearPool = ctx.JSSrc().Get("valueAsNumber").Int()
 									if cf.OnChange != nil {
@@ -142,6 +142,25 @@ func (cf *ConfigForm) renderSpotlightSettings() app.UI {
 					app.Span().
 						Class("form-help").
 						Text("Tokens required to force selection"),
+				),
+			app.Div().
+				Class("form-group").
+				Body(
+					app.Label().Text("Area Attack Targets:"),
+					app.Input().
+						Type("number").
+						Value(cf.Config.AreaTargets).
+						Min(0).
+						Max(10).
+						OnInput(func(ctx app.Context, e app.Event) {
+							cf.Config.AreaTargets = ctx.JSSrc().Get("valueAsNumber").Int()
+							if cf.OnChange != nil {
+								cf.OnChange()
+							}
+						}),
+					app.Span().
+						Class("form-help").
+						Text("How many targets an area effect catches, since ranges are not modeled (0 = everyone)"),
 				),
 		)
 }

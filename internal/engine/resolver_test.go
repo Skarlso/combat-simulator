@@ -176,8 +176,8 @@ func TestResolveAttackCriticalGeneratesOneHope(t *testing.T) {
 	if !result.Hit || !result.CriticalResult {
 		t.Fatal("matching dice should be a critical hit")
 	}
-	if state.HopePool != 1 {
-		t.Errorf("HopePool = %d, want 1", state.HopePool)
+	if attacker.Hope != 1 {
+		t.Errorf("Hope = %d, want 1", attacker.Hope)
 	}
 	if attacker.Stress != 1 {
 		t.Errorf("Stress = %d, want 1 (critical clears a Stress)", attacker.Stress)

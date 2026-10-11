@@ -60,20 +60,83 @@
         }
       ]
     },
-    "Armor-Shredding Shards": {
+    "Acidic Form": {
       "category": "armor_damage",
-      "fear_cost": 1,
+      "passive": true,
+      "trigger": "on_hit",
       "effects": [
         {
           "category": "FeatureEffectArmorDamage",
           "magnitude": 1,
-          "description": "Target marks 1 Armor Slot"
+          "description": "Target marks an Armor Slot without its benefit, or an HP if they can't"
+        }
+      ]
+    },
+    "Rending Bite": {
+      "category": "armor_damage",
+      "passive": true,
+      "trigger": "on_hit",
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Target marks an Armor Slot without its benefit, or an HP if they can't"
+        }
+      ]
+    },
+    "Crushing Blows": {
+      "category": "armor_damage",
+      "passive": true,
+      "trigger": "on_hit",
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Target marks an Armor Slot without its benefit, or an HP if they can't"
+        }
+      ]
+    },
+    "Armor-Shredding Shards": {
+      "category": "armor_damage",
+      "passive": true,
+      "trigger": "on_hit_taken",
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "The attacker marks an Armor Slot, or an HP if they can't"
+        }
+      ]
+    },
+    "Spit Acid": {
+      "category": "area_damage",
+      "dc_type": "target",
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "fallback_fear": 1,
+          "description": "Targets mark an Armor Slot without its benefit, or an HP if they can't and the GM gains a Fear"
         },
         {
-          "category": "FeatureEffectDamage",
-          "dice_formula": "1d8",
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d6",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Tormenting Lash": {
+      "category": "area_damage",
+      "stress_cost": 1,
+      "dc_type": "target",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
           "damage_type": "physical",
-          "description": "Deal 1d8 physical damage"
+          "armor_cost": 2,
+          "description": "Standard attack against all targets; reducing it with armor marks 2 Armor Slots"
         }
       ]
     },
@@ -124,20 +187,15 @@
     },
     "Hellfire": {
       "category": "area_damage",
-      "fear_cost": 2,
+      "fear_cost": 1,
       "effects": [
         {
-          "category": "FeatureEffectDamage",
-          "dice_formula": "3d8",
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d20+3",
           "damage_type": "magic",
-          "target_type": "aoe",
-          "description": "3d8 magic damage to all in area"
-        },
-        {
-          "category": "FeatureEffectApplyIgnite",
-          "duration": "3_rounds",
-          "magnitude": 2,
-          "target_type": "aoe"
+          "reaction_trait": "agility",
+          "half_on_success": true,
+          "description": "1d20+3 magic damage to all in the area, half on a successful Agility Reaction Roll"
         }
       ]
     },
@@ -161,7 +219,8 @@
           "category": "FeatureEffectApplyVulnerable",
           "duration": "until_next_turn",
           "target_type": "aoe",
-          "description": "All targets Very Close are knocked over (Vulnerable)"
+          "reaction_trait": "agility",
+          "description": "All targets in the area are knocked over (Vulnerable) unless they succeed on an Agility Reaction Roll"
         }
       ]
     },
@@ -425,9 +484,9 @@
   },
   "metadata": {
     "version": "1.1",
-    "mapped_features": 33,
+    "mapped_features": 38,
     "total_features": 340,
-    "coverage": "9.7%",
+    "coverage": "11.2%",
     "last_updated": "2026-01-07"
   }
 }

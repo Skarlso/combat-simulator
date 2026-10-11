@@ -1,6 +1,8 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
@@ -117,4 +119,29 @@ func needsMagnitude(effectType string) bool {
 		effectType == "grant_armor" ||
 		effectType == "token_place" ||
 		effectType == "token_spend"
+}
+
+func needsArmorCost(effectType string) bool {
+	return effectType == "damage" || effectType == "area_damage"
+}
+
+func isDamageEffect(effectType string) bool {
+	return effectType == "damage" || effectType == "direct_damage" || effectType == "area_damage"
+}
+
+// needsReaction reports whether the target can be given a reaction roll against the effect
+func needsReaction(effectType string) bool {
+	return isDamageEffect(effectType) ||
+		effectType == "stress_inflict" ||
+		effectType == "armor_damage" ||
+		needsDuration(effectType)
+}
+
+var reactionTraits = []string{"agility", "strength", "finesse", "instinct", "presence", "knowledge"}
+
+func traitLabel(trait string) string {
+	if trait == "" {
+		return "None"
+	}
+	return strings.ToUpper(trait[:1]) + trait[1:]
 }

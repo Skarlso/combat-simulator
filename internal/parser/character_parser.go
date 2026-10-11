@@ -19,12 +19,24 @@ type CharacterJSON struct {
 	Level           int                 `json:"level"`
 	Evasion         int                 `json:"evasion"`
 	Proficiency     int                 `json:"proficiency"`
+	AttackTrait     int                 `json:"attack_trait,omitempty"`
+	Traits          CharacterTraits     `json:"traits"`
 	HP              int                 `json:"hp"`
 	Stress          int                 `json:"stress"`
 	Armor           int                 `json:"armor,omitempty"`
 	DamageDice      string              `json:"damage_dice,omitempty"`
 	Thresholds      CharacterThresholds `json:"thresholds"`
 	DomainAbilities []DomainAbilityJSON `json:"domain_abilities,omitempty"`
+}
+
+// CharacterTraits maps to Combatant.Traits.
+type CharacterTraits struct {
+	Agility   int `json:"agility,omitempty"`
+	Strength  int `json:"strength,omitempty"`
+	Finesse   int `json:"finesse,omitempty"`
+	Instinct  int `json:"instinct,omitempty"`
+	Presence  int `json:"presence,omitempty"`
+	Knowledge int `json:"knowledge,omitempty"`
 }
 
 // CharacterThresholds maps to Combatant.CustomThresholds.
@@ -53,12 +65,15 @@ type DomainAbilityJSON struct {
 
 // DomainAbilityEffectJS is the import schema for a single effect.
 type DomainAbilityEffectJS struct {
-	Category    string `json:"category"`
-	Magnitude   int    `json:"magnitude,omitempty"`
-	DiceFormula string `json:"dice_formula,omitempty"`
-	Duration    string `json:"duration,omitempty"`
-	TargetType  string `json:"target_type,omitempty"`
-	DamageType  string `json:"damage_type,omitempty"`
+	Category      string `json:"category"`
+	Magnitude     int    `json:"magnitude,omitempty"`
+	DiceFormula   string `json:"dice_formula,omitempty"`
+	Duration      string `json:"duration,omitempty"`
+	TargetType    string `json:"target_type,omitempty"`
+	DamageType    string `json:"damage_type,omitempty"`
+	ReactionTrait string `json:"reaction_trait,omitempty"`
+	ReactionDC    int    `json:"reaction_dc,omitempty"`
+	HalfOnSuccess bool   `json:"half_on_success,omitempty"`
 }
 
 // LoadCharactersFromBytes parses a CharacterFile JSON blob and returns combatants.
@@ -88,6 +103,8 @@ func parseCharacter(c CharacterJSON, idx int) (*models.Combatant, error) {
 	id := fmt.Sprintf("%s_%d", strings.ToLower(strings.ReplaceAll(c.Name, " ", "_")), idx)
 
 	combatant := models.NewCombatant(id, c.Name, models.SidePlayer, c.Level, c.Evasion, c.Proficiency, c.HP, c.Stress)
+	combatant.AttackTrait = c.AttackTrait
+	combatant.Traits = models.Traits(c.Traits)
 	combatant.ArmorSlots = c.Armor
 	combatant.DamageDice = c.DamageDice
 
@@ -107,12 +124,15 @@ func buildDomainAbility(a DomainAbilityJSON) models.DomainAbility {
 	effects := make([]models.FeatureEffect, 0, len(a.Effects))
 	for _, e := range a.Effects {
 		effects = append(effects, models.FeatureEffect{
-			Category:    stringToEffectCategory(e.Category),
-			Magnitude:   e.Magnitude,
-			DiceFormula: e.DiceFormula,
-			Duration:    e.Duration,
-			TargetType:  stringToTargetType(e.TargetType),
-			DamageType:  e.DamageType,
+			Category:      stringToEffectCategory(e.Category),
+			Magnitude:     e.Magnitude,
+			DiceFormula:   e.DiceFormula,
+			Duration:      e.Duration,
+			TargetType:    stringToTargetType(e.TargetType),
+			DamageType:    e.DamageType,
+			ReactionTrait: e.ReactionTrait,
+			ReactionDC:    e.ReactionDC,
+			HalfOnSuccess: e.HalfOnSuccess,
 		})
 	}
 

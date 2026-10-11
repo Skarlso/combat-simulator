@@ -91,9 +91,6 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		} else if hasDisadv && !hasAdv {
 			hopeModifier -= cr.dice.RollDice(1, 6, 0)
 		}
-		if attacker.IsFullyStressed {
-			hopeModifier -= 2
-		}
 
 		dualityRoll := cr.dice.RollDuality(hopeModifier, fearModifier)
 		result.DualityResult = dualityRoll
@@ -102,7 +99,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 
 		// Handle Hope/Fear generation based on duality result
 		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
-			state.AddHope(1)
+			attacker.GainHope(1)
 			result.GeneratedHope = true
 			if dualityRoll.IsCritical {
 				attacker.ClearStress(1) // Critical success clears a Stress
@@ -124,15 +121,9 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 			result.Hit = true
 		}
 	} else {
-		attackModifier := attacker.GetAttackBonus()
 		hasAdv := defender.HasCondition(models.ConditionVulnerable)
 		hasDisadv := defender.HasCondition(models.ConditionHidden)
-		if hasAdv && !hasDisadv {
-			attackModifier += cr.dice.RollDice(1, 6, 0)
-		} else if hasDisadv && !hasAdv {
-			attackModifier -= cr.dice.RollDice(1, 6, 0)
-		}
-		d20Roll := cr.dice.RollD20Attack(attackModifier)
+		d20Roll := rollAdversaryD20(cr.dice, attacker.GetAttackBonus(), hasAdv, hasDisadv)
 		result.D20Result = d20Roll
 		result.AttackRoll = d20Roll.Total
 		result.CriticalResult = d20Roll.IsCritical

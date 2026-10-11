@@ -7,7 +7,12 @@ type ActiveCondition struct {
 	RoundsLeft    int // For DurationRounds type
 	DamagePerTick int // For burning, poison, etc.
 	DamageType    DamageType
+	// Difficulty of the action roll a PC makes to clear this (0 = DefaultClearDifficulty)
+	ClearDifficulty int
 }
+
+// DefaultClearDifficulty is the SRD Tier 1 adversary Difficulty benchmark
+const DefaultClearDifficulty = 11
 
 // Tick decrements duration for round-based conditions
 func (c *ActiveCondition) Tick() bool {

@@ -25,8 +25,8 @@ func TestNewCombatState(t *testing.T) {
 	if len(state.Enemies) != 2 {
 		t.Errorf("Enemies = %d, want 2", len(state.Enemies))
 	}
-	if state.HopePool != 0 {
-		t.Errorf("HopePool = %d, want 0", state.HopePool)
+	if state.TotalHope() != 0 {
+		t.Errorf("TotalHope = %d, want 0", state.TotalHope())
 	}
 	if state.FearPool != 3 {
 		t.Errorf("FearPool = %d, want 3", state.FearPool)
@@ -148,28 +148,57 @@ func TestEnemyVictory(t *testing.T) {
 	}
 }
 
-func TestHopePool(t *testing.T) {
+func TestHopeIsPerPC(t *testing.T) {
 	state := newTestState()
+	pc, other := state.Players[0], state.Players[1]
 
-	state.AddHope(3)
-	if state.HopePool != 3 {
-		t.Errorf("HopePool = %d, want 3", state.HopePool)
+	pc.GainHope(3)
+	if pc.Hope != 3 || other.Hope != 0 {
+		t.Errorf("Hope = %d / %d, want 3 / 0 (Hope is not shared)", pc.Hope, other.Hope)
 	}
 
-	ok := state.SpendHope(2)
-	if !ok {
+	if !pc.SpendHope(2) {
 		t.Error("SpendHope should succeed")
 	}
-	if state.HopePool != 1 {
-		t.Errorf("HopePool = %d, want 1", state.HopePool)
+	if pc.Hope != 1 {
+		t.Errorf("Hope = %d, want 1", pc.Hope)
 	}
 
-	ok = state.SpendHope(5)
-	if ok {
+	if pc.SpendHope(5) {
 		t.Error("SpendHope should fail (insufficient)")
 	}
-	if state.HopePool != 1 {
-		t.Errorf("HopePool = %d, want 1 (unchanged after failed spend)", state.HopePool)
+	if pc.Hope != 1 {
+		t.Errorf("Hope = %d, want 1 (unchanged after failed spend)", pc.Hope)
+	}
+
+	other.GainHope(2)
+	if state.TotalHope() != 3 {
+		t.Errorf("TotalHope = %d, want 3", state.TotalHope())
+	}
+}
+
+func TestNewCombatStateGivesEachPCStartingHope(t *testing.T) {
+	players := []*Combatant{newTestPlayer(), newTestPlayer()}
+	NewCombatState(players, nil, 2, 0, 3)
+
+	for _, p := range players {
+		if p.Hope != 2 {
+			t.Errorf("Hope = %d, want 2", p.Hope)
+		}
+	}
+}
+
+func TestCombatOverWhenBothSidesFall(t *testing.T) {
+	state := newTestState()
+	for _, c := range state.GetAllCombatants() {
+		c.IsDefeated = true
+	}
+
+	if !state.IsCombatOver() {
+		t.Error("combat should be over when nobody is left standing")
+	}
+	if state.IsPlayerVictory() || state.IsEnemyVictory() {
+		t.Error("a mutual wipe is a draw")
 	}
 }
 
@@ -190,11 +219,11 @@ func TestFearPool(t *testing.T) {
 	}
 }
 
-func TestHopePoolCap(t *testing.T) {
-	state := newTestState()
-	state.AddHope(100)
-	if state.HopePool != MaxHopePool {
-		t.Errorf("HopePool = %d, want %d (capped)", state.HopePool, MaxHopePool)
+func TestHopeCap(t *testing.T) {
+	pc := newTestPlayer()
+	pc.GainHope(100)
+	if pc.Hope != MaxHope {
+		t.Errorf("Hope = %d, want %d (capped)", pc.Hope, MaxHope)
 	}
 }
 

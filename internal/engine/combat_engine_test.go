@@ -487,3 +487,168 @@ func TestDefeatedByConditionTickDoesNotAct(t *testing.T) {
 		t.Error("defeated actor should not attack")
 	}
 }
+
+func TestPlayerFailsToClearCondition(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{dualityQueue: []DualityRollResult{fearDuality(8)}}, &firstPicker{})
+	player := tPlayer("p1", "Hero")
+	player.AddCondition(&models.ActiveCondition{Type: models.ConditionRestrained, Duration: models.DurationUntilCleared, ClearDifficulty: 12})
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{tEnemy("e1", "Ogre", 10)}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: player, ClearCondition: true}, state)
+
+	if !player.HasCondition(models.ConditionRestrained) {
+		t.Error("a failed action roll should leave the condition in place")
+	}
+	last := state.ActionHistory[len(state.ActionHistory)-1]
+	if !last.SpotlightShift {
+		t.Error("a failed roll should pass the spotlight to the GM")
+	}
+	if state.FearPool != 1 {
+		t.Errorf("FearPool = %d, want 1 (rolled with Fear)", state.FearPool)
+	}
+}
+
+func TestAdversaryClearsConditionWithoutRoll(t *testing.T) {
+	dice := &mockDiceRoller{dualityQueue: []DualityRollResult{fearDuality(1)}}
+	ce := newMockEngine(dice, &firstPicker{})
+	enemy := tEnemy("e1", "Ogre", 10)
+	enemy.AddCondition(&models.ActiveCondition{Type: models.ConditionRestrained, Duration: models.DurationUntilCleared})
+	state := newStateWith([]*models.Combatant{tPlayer("p1", "Hero")}, []*models.Combatant{enemy}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(enemy, &strategy.ActionDecision{Target: enemy, ClearCondition: true}, state)
+
+	if enemy.HasCondition(models.ConditionRestrained) {
+		t.Error("an adversary clears a condition by spending its spotlight")
+	}
+	if dice.dualityIdx != 0 {
+		t.Error("an adversary should not roll to clear a condition")
+	}
+}
+
+func fallenPlayerState(deathMove strategy.DeathMoveStrategy, dice *mockDiceRoller) (*CombatEngine, *models.Combatant, *models.Combatant, *models.CombatState) {
+	ce := newMockEngine(dice, &firstPicker{})
+	ce.SetDeathMove(deathMove)
+	player := tPlayer("p1", "Hero")
+	player.DamageDice = "1d8"
+	player.Stress = 3
+	player.HP = 0
+	player.IsDefeated = true
+	enemy := tEnemy("e1", "Ogre", 10)
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{enemy}, 0, 0)
+	return ce, player, enemy, state
+}
+
+func TestDeathMoveAvoidDeath(t *testing.T) {
+	ce, player, enemy, state := fallenPlayerState(strategy.DeathMoveAvoidDeath, &mockDiceRoller{damage: 5})
+
+	ce.resolveDeathMoves(state)
+
+	if player.IsAlive() || !player.Fallen {
+		t.Error("Avoid Death should leave the PC out of the fight")
+	}
+	if enemy.HP != enemy.HPMax {
+		t.Error("Avoid Death should not attack")
+	}
+
+	ce.resolveDeathMoves(state)
+	if len(state.ActionHistory) != 1 {
+		t.Errorf("death move recorded %d times, want 1", len(state.ActionHistory))
+	}
+}
+
+func TestDeathMoveRiskItAll(t *testing.T) {
+	cases := []struct {
+		name       string
+		roll       DualityRollResult
+		wantAlive  bool
+		wantHP     int
+		wantStress int
+	}{
+		{"hope higher stays up", DualityRollResult{HopeDie: 12, FearDie: 4, Result: models.ResultHope}, true, 10, 1},
+		{"fear higher dies", DualityRollResult{HopeDie: 4, FearDie: 9, Result: models.ResultFear}, false, 0, 3},
+		{"matching clears everything", DualityRollResult{HopeDie: 2, FearDie: 2, Result: models.ResultCriticalHope, IsCritical: true}, true, 10, 0},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dice := &mockDiceRoller{dualityQueue: []DualityRollResult{c.roll}}
+			ce, player, _, state := fallenPlayerState(strategy.DeathMoveRiskItAll, dice)
+
+			ce.resolveDeathMoves(state)
+
+			if player.IsAlive() != c.wantAlive {
+				t.Fatalf("IsAlive = %v, want %v", player.IsAlive(), c.wantAlive)
+			}
+			if player.HP != c.wantHP || player.Stress != c.wantStress {
+				t.Errorf("HP / Stress = %d / %d, want %d / %d", player.HP, player.Stress, c.wantHP, c.wantStress)
+			}
+		})
+	}
+}
+
+func TestDeathMoveBlazeOfGlory(t *testing.T) {
+	// A roll that would miss on its own: Blaze of Glory still crits
+	dice := &mockDiceRoller{damage: 3, dualityQueue: []DualityRollResult{fearDuality(1)}}
+	ce, player, enemy, state := fallenPlayerState(strategy.DeathMoveBlazeOfGlory, dice)
+
+	ce.resolveDeathMoves(state)
+
+	if player.IsAlive() || !player.Fallen {
+		t.Error("the PC dies after a Blaze of Glory")
+	}
+	if enemy.HP == enemy.HPMax {
+		t.Error("the final action should hit automatically")
+	}
+	last := state.ActionHistory[len(state.ActionHistory)-1]
+	if last.ActionType != models.ActionDeathMove || !last.IsCritical {
+		t.Errorf("last action = %v critical=%v, want a critical Death Move", last.ActionType, last.IsCritical)
+	}
+}
+
+func TestMutualWipeEndsCombat(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	player := tPlayer("p1", "Hero")
+	enemy := tEnemy("e1", "Ogre", 10)
+	player.IsDefeated, player.Fallen, enemy.IsDefeated = true, true, true
+	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{enemy}, 0, 0)
+
+	outcome := ce.RunCombat(state, &mockDecisionMaker{}, 50, strategy.ResourceGreedy)
+
+	if outcome.PlayerVictory || outcome.EnemyVictory {
+		t.Error("nobody wins a mutual wipe")
+	}
+}
+
+func TestReactionRollsAppearInTheLog(t *testing.T) {
+	dice := &mockDiceRoller{damage: 9, dualityQueue: []DualityRollResult{hopeDuality(5), hopeDuality(20)}}
+	ce := newMockEngine(dice, &firstPicker{})
+	demon := tEnemy("e1", "Demon", 10)
+	demon.Difficulty = 14
+	feature := hellfire()
+	demon.AdversaryFeatures = []models.AdversaryFeature{*feature}
+	players := []*models.Combatant{tPlayer("p1", "Rogue"), tPlayer("p2", "Knight")}
+	state := newStateWith(players, []*models.Combatant{demon}, 0, 0)
+
+	ce.ExecuteTurnWithDecision(demon, &strategy.ActionDecision{Target: players[0], AdversaryFeature: &demon.AdversaryFeatures[0]}, state)
+
+	var log []models.ActionRecord
+	for _, a := range state.ActionHistory {
+		if a.ActionType == models.ActionUseAbility || a.ActionType == models.ActionReactionRoll {
+			log = append(log, a)
+		}
+	}
+	if len(log) != 3 || log[0].ActionType != models.ActionUseAbility {
+		t.Fatalf("log = %+v, want the feature followed by two reaction rolls", log)
+	}
+
+	rogue, knight := log[1], log[2]
+	if rogue.Actor != "Rogue" || rogue.Result != "Failed" || rogue.TotalRoll != 5 || rogue.TargetDefense != 14 {
+		t.Errorf("first reaction = %+v, want Rogue failing 5 vs 14", rogue)
+	}
+	if knight.Actor != "Knight" || knight.Result != "Success: half damage" || knight.FeatureName != "Hellfire" {
+		t.Errorf("second reaction = %+v, want Knight halving Hellfire", knight)
+	}
+	if rogue.SpotlightShift || knight.SpotlightShift {
+		t.Error("reaction rolls never move the spotlight")
+	}
+}

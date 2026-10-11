@@ -18,6 +18,7 @@ type CombatEngine struct {
 	spotlight       SpotlightSelector
 	resolver        *CombatResolver
 	featureResolver *FeatureResolver
+	deathMove       strategy.DeathMoveStrategy
 }
 
 // NewCombatEngine creates a combat engine with all components
@@ -46,8 +47,23 @@ func (ce *CombatEngine) SetAdversaryRegistry(registry AdversaryRegistry) {
 	ce.featureResolver.SetAdversaryRegistry(registry)
 }
 
+// SetAreaTargetLimit caps how many targets a single area effect reaches (0 = everyone)
+func (ce *CombatEngine) SetAreaTargetLimit(limit int) {
+	ce.featureResolver.SetAreaTargetLimit(limit)
+}
+
+// SetDeathMove sets which death move PCs make when they mark their last Hit Point
+func (ce *CombatEngine) SetDeathMove(deathMove strategy.DeathMoveStrategy) {
+	ce.deathMove = deathMove
+}
+
 // ExecuteTurnWithDecision runs a single combatant's turn based on AI decision
 func (ce *CombatEngine) ExecuteTurnWithDecision(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) {
+	ce.executeTurn(actor, decision, state)
+	ce.resolveDeathMoves(state)
+}
+
+func (ce *CombatEngine) executeTurn(actor *models.Combatant, decision *strategy.ActionDecision, state *models.CombatState) {
 	// Process start-of-turn conditions
 	ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnStart)
 
@@ -140,6 +156,7 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 		FearGenerated:   dcResult.FearGenerated,
 		DamageResult:    dcResult.DamageResult,
 	})
+	recordReactions(state, name, dcResult)
 }
 
 func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
@@ -154,14 +171,134 @@ func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.C
 	return err
 }
 
-// executeClearCondition spends the actor's turn removing one harmful condition
+// executeClearCondition spends the actor's turn clearing one harmful condition.
+// PCs need a successful action roll; adversaries only spend their spotlight.
 func (ce *CombatEngine) executeClearCondition(actor *models.Combatant, state *models.CombatState) {
-	result := "Nothing to clear"
-	if condType, ok := actor.ClearableCondition(); ok {
-		actor.RemoveCondition(condType)
-		result = fmt.Sprintf("Cleared %s", condType)
+	cond := actor.ClearableCondition()
+	if cond == nil {
+		state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionClearCondition, Result: "Nothing to clear"})
+		return
 	}
-	state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionClearCondition, Result: result})
+
+	if actor.Side != models.SidePlayer {
+		actor.RemoveCondition(cond.Type)
+		state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionClearCondition, Result: fmt.Sprintf("Cleared %s", cond.Type)})
+		return
+	}
+
+	difficulty := cond.ClearDifficulty
+	if difficulty == 0 {
+		difficulty = models.DefaultClearDifficulty
+	}
+	roll := ce.featureResolver.rollDCCheck(actor, nil, "fixed", difficulty, state)
+
+	result := fmt.Sprintf("Failed to clear %s", cond.Type)
+	if roll.Success {
+		actor.RemoveCondition(cond.Type)
+		result = fmt.Sprintf("Cleared %s", cond.Type)
+	}
+	state.RecordAction(models.ActionParams{
+		Actor:          actor,
+		ActionType:     models.ActionClearCondition,
+		Result:         result,
+		HopeDie:        roll.HopeDie,
+		FearDie:        roll.FearDie,
+		TotalRoll:      roll.TotalRoll,
+		TargetDefense:  roll.DC,
+		SpotlightShift: roll.SpotlightShift,
+		HopeGenerated:  roll.HopeGenerated,
+		FearGenerated:  roll.FearGenerated,
+	})
+}
+
+// resolveDeathMoves makes a death move for every PC who just marked their last Hit Point
+func (ce *CombatEngine) resolveDeathMoves(state *models.CombatState) {
+	for _, pc := range state.Players {
+		if pc.IsAlive() || pc.Fallen {
+			continue
+		}
+
+		switch ce.deathMove {
+		case strategy.DeathMoveRiskItAll:
+			ce.riskItAll(pc, state)
+		case strategy.DeathMoveBlazeOfGlory:
+			ce.blazeOfGlory(pc, state)
+		default:
+			pc.Fallen = true
+			state.RecordAction(models.ActionParams{Actor: pc, ActionType: models.ActionDeathMove, Result: "Avoid Death: unconscious"})
+		}
+	}
+}
+
+// riskItAll rolls the Duality Dice: Hope higher keeps the PC up, Fear higher kills them
+func (ce *CombatEngine) riskItAll(pc *models.Combatant, state *models.CombatState) {
+	roll := ce.dice.RollDuality(0, 0)
+
+	result := "Risk It All: dies"
+	switch {
+	case roll.IsCritical:
+		pc.IsDefeated = false
+		pc.HP = pc.HPMax
+		pc.ClearStress(pc.Stress)
+		result = "Risk It All: clears all Hit Points and Stress"
+	case roll.Result == models.ResultHope:
+		// The Hope Die value is split between Hit Points and Stress, Hit Points first
+		healed := min(roll.HopeDie, pc.HPMax)
+		pc.IsDefeated = false
+		pc.HP = healed
+		pc.ClearStress(roll.HopeDie - healed)
+		result = fmt.Sprintf("Risk It All: stays up, clears %d", roll.HopeDie)
+	default:
+		pc.Fallen = true
+	}
+
+	state.RecordAction(models.ActionParams{
+		Actor:      pc,
+		ActionType: models.ActionDeathMove,
+		Result:     result,
+		HopeDie:    roll.HopeDie,
+		FearDie:    roll.FearDie,
+	})
+}
+
+// blazeOfGlory gives the PC one final attack that automatically crits, then they die
+func (ce *CombatEngine) blazeOfGlory(pc *models.Combatant, state *models.CombatState) {
+	pc.Fallen = true
+
+	var target *models.Combatant
+	for _, e := range state.GetAliveEnemies() {
+		if target == nil || e.HP < target.HP {
+			target = e
+		}
+	}
+	if target == nil {
+		state.RecordAction(models.ActionParams{Actor: pc, ActionType: models.ActionDeathMove, Result: "Blaze of Glory"})
+		return
+	}
+
+	damageDice := pc.DamageDice
+	if damageDice == "" {
+		damageDice = "1d6"
+	}
+	resolver := NewCombatResolver(critRoller{ce.dice}, ce.featureResolver)
+	attack := resolver.ResolveAttack(pc, target, damageDice, state)
+
+	state.RecordAction(models.ActionParams{
+		Actor:           pc,
+		ActionType:      models.ActionDeathMove,
+		Target:          target,
+		Result:          "Blaze of Glory",
+		DamageRoll:      attack.DamageRoll,
+		ProcessedDamage: attack.ProcessedDamage,
+		DamageDice:      attack.DamageDice,
+		DamageBonus:     attack.DamageBonus,
+		HPDamage:        attack.HPDamage,
+		Threshold:       attack.Threshold,
+		HopeDie:         attack.DualityResult.HopeDie,
+		FearDie:         attack.DualityResult.FearDie,
+		TotalRoll:       attack.AttackRoll,
+		DamageResult:    attack.DamageResult,
+	})
 }
 
 // executeAttack handles basic attack action
@@ -192,6 +329,7 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		resultStr = "Hit"
 		// Process on_hit triggered features (e.g., spend Hope/Fear/Stress for bonus effects)
 		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnHit, false)
+		ce.featureResolver.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnHitTaken, false)
 	} else {
 		// Miss causes spotlight to shift
 		spotlightShift = true
@@ -430,7 +568,7 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		EnemyVictory:  state.IsEnemyVictory(),
 		Turns:         turnCount,
 		Rounds:        roundCount,
-		FinalHopePool: state.HopePool,
+		FinalHopePool: state.TotalHope(),
 		FinalFearPool: state.FearPool,
 		ActionHistory: state.ActionHistory,
 	}

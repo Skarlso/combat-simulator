@@ -188,7 +188,7 @@ func TestResourceConservativeHoardsHope(t *testing.T) {
 	})
 
 	state := newTestCombatState()
-	state.HopePool = 2
+	state.Players[0].Hope = 2
 	state.Players[0].DomainAbilities = []models.DomainAbility{
 		{
 			Name:     "Costly Spell",
@@ -216,7 +216,7 @@ func TestResourceDesperateOnlyWhenLowHP(t *testing.T) {
 	})
 
 	state := newTestCombatState()
-	state.HopePool = 5
+	state.Players[0].Hope = 5
 	state.Players[0].DomainAbilities = []models.DomainAbility{
 		{
 			Name:     "Desperation Move",
@@ -364,5 +364,27 @@ func TestConditionClearingNever(t *testing.T) {
 	decision := ai.ChooseAction(state, state.Players[0])
 	if decision.Target == state.Players[0] {
 		t.Error("ClearNever should not target self for condition clearing")
+	}
+}
+
+func TestPassiveFeaturesAreNeverChosenAsActions(t *testing.T) {
+	ai := newTestAI(StrategyConfig{
+		TargetSelection: TargetLowestHP,
+		AbilityUsage:    AbilityAlways,
+		ResourceUsage:   ResourceGreedy,
+	})
+
+	state := newTestCombatState()
+	enemy := state.Enemies[0]
+	enemy.AdversaryFeatures = []models.AdversaryFeature{{
+		Name:    "Acidic Form",
+		Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnHit},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDamage, DiceFormula: "10d6"}},
+	}}
+
+	decision := ai.ChooseAction(state, enemy)
+	if decision.AdversaryFeature != nil {
+		t.Error("a passive feature should not be picked as the turn's action")
 	}
 }

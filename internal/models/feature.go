@@ -62,6 +62,7 @@ const (
 	TriggerOnAttack      FeatureTriggerType = "on_attack"
 	TriggerOnHit         FeatureTriggerType = "on_hit"
 	TriggerOnDamageTaken FeatureTriggerType = "on_damage_taken"
+	TriggerOnHitTaken    FeatureTriggerType = "on_hit_taken" // a successful attack against this combatant, damage or not
 	TriggerOnCritical    FeatureTriggerType = "on_critical"
 	TriggerStartTurn     FeatureTriggerType = "start_turn"
 	TriggerEndTurn       FeatureTriggerType = "end_turn"
@@ -77,11 +78,23 @@ type FeatureEffect struct {
 	Category    FeatureEffectCategory
 	Magnitude   int    // Flat value (damage bonus, stress amount, etc.)
 	DiceFormula string // "2d6+3" for variable effects
-	Duration    string // "instant", "1_turn", "until_cleared", "permanent", "scene"
-	TargetType  FeatureTargetType
-	DamageType  string       // "physical", "magic", empty for non-damage effects
-	SummonType  string       // Adversary name to summon (for FeatureEffectSummonAllies) - registry lookup
-	SummonPool  []*Combatant // Inline summon templates (preferred over registry)
+	// Roll the actor's standard attack damage instead of DiceFormula
+	StandardAttack bool
+	Duration       string // "instant", "1_turn", "until_cleared", "permanent", "scene"
+	TargetType     FeatureTargetType
+	DamageType     string // "physical", "magic", empty for non-damage effects
+	ArmorCost      int    // Armor Slots a target marks to reduce this damage (0 = the usual 1)
+	// Fear the GM gains per target that has no Armor Slot left for armor_damage to mark
+	FallbackFear int
+
+	// Reaction roll the target makes to avoid this effect ("" = none): the trait
+	// they roll, the Difficulty (0 = the actor's own), and whether success halves
+	// damage instead of negating it.
+	ReactionTrait string
+	ReactionDC    int
+	HalfOnSuccess bool
+	SummonType    string       // Adversary name to summon (for FeatureEffectSummonAllies) - registry lookup
+	SummonPool    []*Combatant // Inline summon templates (preferred over registry)
 }
 
 // AdversaryFeature represents passive or AI-triggered abilities for enemies
@@ -133,4 +146,3 @@ type DomainAbility struct {
 
 	Effects []FeatureEffect
 }
-

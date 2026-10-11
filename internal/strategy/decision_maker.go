@@ -25,6 +25,9 @@ type AIDecisionMaker struct {
 	AbilityUsage      AbilityUsageStrategy
 
 	// Thresholds
+	// Most targets an area effect is assumed to reach (0 = everyone)
+	AreaTargets int
+
 	LowHPThreshold      int // Percentage (e.g., 30 = below 30% HP)
 	HighThreatThreshold int // Damage threshold to consider enemy "high threat"
 }
@@ -48,6 +51,7 @@ type StrategyConfig struct {
 	ConditionClearing   ConditionClearStrategy
 	TargetSelection     TargetSelectionStrategy
 	AbilityUsage        AbilityUsageStrategy
+	DeathMove           DeathMoveStrategy
 	LowHPThreshold      int
 	HighThreatThreshold int
 }
@@ -56,9 +60,10 @@ type StrategyConfig struct {
 func DefaultGreedyConfig() StrategyConfig {
 	return StrategyConfig{
 		ResourceUsage:       ResourceGreedy,
-		ConditionClearing:   ClearNever,
+		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetLowestHP,
 		AbilityUsage:        AbilityAlways,
+		DeathMove:           DeathMoveBlazeOfGlory,
 		LowHPThreshold:      30,
 		HighThreatThreshold: 10,
 	}
@@ -71,6 +76,7 @@ func DefaultConservativeConfig() StrategyConfig {
 		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetHighestThreat,
 		AbilityUsage:        AbilitySparingly,
+		DeathMove:           DeathMoveAvoidDeath,
 		LowHPThreshold:      50,
 		HighThreatThreshold: 8,
 	}
@@ -80,9 +86,10 @@ func DefaultConservativeConfig() StrategyConfig {
 func DefaultDesperateConfig() StrategyConfig {
 	return StrategyConfig{
 		ResourceUsage:       ResourceDesperate,
-		ConditionClearing:   ClearProbabilistic,
+		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetLowestHP,
 		AbilityUsage:        AbilityContextual,
+		DeathMove:           DeathMoveRiskItAll,
 		LowHPThreshold:      40,
 		HighThreatThreshold: 12,
 	}
@@ -92,9 +99,10 @@ func DefaultDesperateConfig() StrategyConfig {
 func DefaultRandomConfig() StrategyConfig {
 	return StrategyConfig{
 		ResourceUsage:       ResourceRandom,
-		ConditionClearing:   ClearProbabilistic,
+		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetRandom,
 		AbilityUsage:        AbilityContextual,
+		DeathMove:           DeathMoveRiskItAll,
 		LowHPThreshold:      35,
 		HighThreatThreshold: 10,
 	}
@@ -114,8 +122,10 @@ func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models
 	return decision
 }
 
+// Every preset clears immediately for now: without ranges there is no way to
+// judge when a condition like Restrained is harmless enough to ignore.
 func (ai *AIDecisionMaker) shouldClearCondition(actor *models.Combatant) bool {
-	if _, ok := actor.ClearableCondition(); !ok {
+	if actor.ClearableCondition() == nil {
 		return false
 	}
 
@@ -218,6 +228,10 @@ func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *
 	if actor.Side == models.SidePlayer {
 		for i := range actor.DomainAbilities {
 			ability := &actor.DomainAbilities[i]
+			// Passives fire on their trigger; they are not actions to choose
+			if ability.Passive {
+				continue
+			}
 			if !ai.canAffordAbility(state, actor, ability) {
 				continue
 			}
@@ -237,6 +251,9 @@ func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *
 	if actor.Side == models.SideEnemy {
 		for i := range actor.AdversaryFeatures {
 			feature := &actor.AdversaryFeatures[i]
+			if feature.Passive {
+				continue
+			}
 			if !ai.canAffordFeature(state, feature) {
 				continue
 			}
@@ -286,7 +303,7 @@ func (ai *AIDecisionMaker) shouldSpendResources(state *models.CombatState, actor
 		return true
 	case ResourceConservative:
 		if actor.Side == models.SidePlayer {
-			return state.HopePool > hopeFearCost+2
+			return actor.Hope > hopeFearCost+2
 		}
 		return state.FearPool > hopeFearCost+2
 	case ResourceDesperate:
@@ -335,8 +352,8 @@ func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, t
 	// Estimate success probability based on actor's stats
 	if actor.Side == models.SidePlayer {
 		// Player uses duality dice (2d12 + modifiers)
-		// Average duality roll is about 13 + proficiency
-		avgRoll := 13 + actor.Proficiency
+		// Average duality roll is about 13 + trait
+		avgRoll := 13 + actor.GetAttackBonus()
 
 		// Rough probability estimate based on difference
 		diff := avgRoll - dc
@@ -408,6 +425,24 @@ func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *mod
 
 // evaluateEffect estimates the value of a single effect
 func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *models.Combatant, target *models.Combatant, state *models.CombatState) float64 {
+	value := ai.evaluateUnopposedEffect(effect, actor, target, state)
+
+	// Rough discount for effects the target can react against
+	switch {
+	case effect.ReactionTrait == "":
+		return value
+	case effect.HalfOnSuccess:
+		return value * 0.75
+	default:
+		return value * 0.5
+	}
+}
+
+func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, actor *models.Combatant, target *models.Combatant, state *models.CombatState) float64 {
+	if effect.StandardAttack {
+		effect.DiceFormula = actor.DamageDice
+	}
+
 	switch effect.Category {
 	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage:
 		// Direct damage value
@@ -418,8 +453,8 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 		// AOE hits multiple targets
 		avgDamage := ai.estimateAverageDamage(effect.DiceFormula)
 		enemyCount := float64(len(state.GetEnemiesOf(actor)))
-		if enemyCount > 3 {
-			enemyCount = 3 // Cap at 3 targets
+		if ai.AreaTargets > 0 && enemyCount > float64(ai.AreaTargets) {
+			enemyCount = float64(ai.AreaTargets)
 		}
 		return (avgDamage + float64(effect.Magnitude)) * enemyCount
 
@@ -468,7 +503,8 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 		if target.ArmorSlots > 0 {
 			return 2.0
 		}
-		return 0.0
+		// With no slot left to mark, the target marks a Hit Point instead
+		return 3.0
 
 	case models.FeatureEffectGrantArmor:
 		// Grant armor is valuable when actor is low on armor
@@ -533,7 +569,7 @@ func (ai *AIDecisionMaker) estimateAverageDamage(diceFormula string) float64 {
 
 // canAffordAbility checks if actor can pay costs for ability
 func (ai *AIDecisionMaker) canAffordAbility(state *models.CombatState, actor *models.Combatant, ability *models.DomainAbility) bool {
-	if ability.HopeCost > state.HopePool {
+	if ability.HopeCost > actor.Hope {
 		return false
 	}
 	if ability.StressCost+actor.Stress > actor.StressMax {
@@ -557,6 +593,12 @@ func NewUnifiedDecisionMaker(rng *rand.Rand, playerConfig, enemyConfig StrategyC
 		playerStrategy: NewAIDecisionMaker(rng, playerConfig),
 		enemyStrategy:  NewAIDecisionMaker(rng, enemyConfig),
 	}
+}
+
+// SetAreaTargets tells both sides how many targets an area effect is assumed to reach
+func (udm *UnifiedDecisionMaker) SetAreaTargets(limit int) {
+	udm.playerStrategy.AreaTargets = limit
+	udm.enemyStrategy.AreaTargets = limit
 }
 
 func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {

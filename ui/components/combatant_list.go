@@ -25,6 +25,8 @@ type CombatantList struct {
 	newLevel           int
 	newEvasion         int
 	newProficiency     int
+	newAttackTrait     int
+	newTraits          models.Traits
 	newHP              int
 	newStress          int
 	newArmor           int
@@ -85,7 +87,7 @@ func (cl *CombatantList) renderImportPanel() app.UI {
 		Class("add-form").
 		Body(
 			app.H4().Text("Import Characters from JSON"),
-			app.P().Text(`Paste a JSON document matching {"characters":[...]}. Each entry requires a name; level, evasion, proficiency, hp, stress, thresholds, and domain_abilities are optional.`),
+			app.P().Text(`Paste a JSON document matching {"characters":[...]}. Each entry requires a name; level, evasion, proficiency, attack_trait, traits, hp, stress, thresholds, and domain_abilities are optional.`),
 			app.Div().
 				Class("form-group").
 				Body(
@@ -182,8 +184,8 @@ func (cl *CombatantList) renderList() app.UI {
 					Class("combatant-info").
 					Body(
 						app.Strong().Text(combatant.Name),
-						app.Span().Text(fmt.Sprintf(" | HP: %d | Evasion: %d | Prof: %d",
-							combatant.HPMax, combatant.Evasion, combatant.Proficiency)),
+						app.Span().Text(fmt.Sprintf(" | HP: %d | Evasion: %d | Prof: %d | Trait: %+d",
+							combatant.HPMax, combatant.Evasion, combatant.Proficiency, combatant.AttackTrait)),
 						app.If(combatant.ArmorSlots > 0, func() app.UI {
 							return app.Span().Text(fmt.Sprintf(" | Armor: %d", combatant.ArmorSlots))
 						}),
@@ -298,6 +300,31 @@ func (cl *CombatantList) renderAddForm() app.UI {
 										Max(5).
 										OnInput(handleIntInput(&cl.newProficiency)),
 								),
+							app.Div().
+								Class("form-group").
+								Body(
+									app.Label().Text("Attack Trait:"),
+									app.Input().
+										Type("number").
+										Value(cl.newAttackTrait).
+										Min(-5).
+										Max(10).
+										OnInput(handleIntInput(&cl.newAttackTrait)),
+								),
+						),
+					app.Div().
+						Class("form-row-3").
+						Body(
+							cl.renderTraitInput("Agility:", &cl.newTraits.Agility),
+							cl.renderTraitInput("Strength:", &cl.newTraits.Strength),
+							cl.renderTraitInput("Finesse:", &cl.newTraits.Finesse),
+						),
+					app.Div().
+						Class("form-row-3").
+						Body(
+							cl.renderTraitInput("Instinct:", &cl.newTraits.Instinct),
+							cl.renderTraitInput("Presence:", &cl.newTraits.Presence),
+							cl.renderTraitInput("Knowledge:", &cl.newTraits.Knowledge),
 						),
 					app.Div().
 						Class("form-row-3").
@@ -433,6 +460,8 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		cl.newHP,
 		cl.newStress,
 	)
+	combatant.AttackTrait = cl.newAttackTrait
+	combatant.Traits = cl.newTraits
 	combatant.ArmorSlots = cl.newArmor
 	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
@@ -460,6 +489,8 @@ func (cl *CombatantList) resetForm() {
 	cl.newLevel = 1
 	cl.newEvasion = 10
 	cl.newProficiency = 1
+	cl.newAttackTrait = 2
+	cl.newTraits = models.Traits{}
 	cl.newHP = 5
 	cl.newStress = 6
 	cl.newArmor = 0
@@ -473,4 +504,19 @@ func (cl *CombatantList) resetForm() {
 		"combat":    false,
 		"abilities": false,
 	}
+}
+
+// renderTraitInput renders one trait modifier, used for reaction rolls
+func (cl *CombatantList) renderTraitInput(label string, target *int) app.UI {
+	return app.Div().
+		Class("form-group").
+		Body(
+			app.Label().Text(label),
+			app.Input().
+				Type("number").
+				Value(*target).
+				Min(-5).
+				Max(10).
+				OnInput(handleIntInput(target)),
+		)
 }

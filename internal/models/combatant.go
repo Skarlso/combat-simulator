@@ -15,7 +15,10 @@ type Combatant struct {
 	// Player-specific stats
 	Level       int // PC level for threshold calculation
 	Evasion     int
-	Proficiency int
+	Proficiency int // number of weapon damage dice
+	AttackTrait int // trait modifier added to attack and action rolls
+	Traits      Traits
+	Hope        int
 
 	// Adversary-specific stats
 	IsAdversary   bool
@@ -61,6 +64,41 @@ type Combatant struct {
 	IsDefeated        bool
 	IsFullyStressed   bool
 	IsSummonTemplate  bool
+	// Fallen PCs have resolved their death move and are out of the fight
+	Fallen bool
+}
+
+// MaxHope is the most Hope a single PC can hold
+const MaxHope = 6
+
+// Traits are a PC's six trait modifiers, used for reaction rolls
+type Traits struct {
+	Agility   int
+	Strength  int
+	Finesse   int
+	Instinct  int
+	Presence  int
+	Knowledge int
+}
+
+// Modifier returns the modifier for a trait name such as "agility" (0 if unknown)
+func (t Traits) Modifier(trait string) int {
+	switch trait {
+	case "agility":
+		return t.Agility
+	case "strength":
+		return t.Strength
+	case "finesse":
+		return t.Finesse
+	case "instinct":
+		return t.Instinct
+	case "presence":
+		return t.Presence
+	case "knowledge":
+		return t.Knowledge
+	default:
+		return 0
+	}
 }
 
 // Resistance reduces incoming damage to specific type
@@ -160,15 +198,21 @@ type DamageResult struct {
 // Returns damage result with processed damage and HP damage
 // roller can be nil if no dice rolling is needed
 func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
-	return c.takeDamage(rawDamage, damageType, roller, true)
+	return c.takeDamage(rawDamage, damageType, roller, 1)
 }
 
 // TakeDirectDamage applies damage that cannot be reduced by armor slots
 func (c *Combatant) TakeDirectDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
-	return c.takeDamage(rawDamage, damageType, roller, false)
+	return c.takeDamage(rawDamage, damageType, roller, 0)
 }
 
-func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller DiceRoller, useArmor bool) DamageResult {
+// TakeDamageWithArmorCost applies damage where using armor marks armorCost slots instead of 1
+func (c *Combatant) TakeDamageWithArmorCost(rawDamage int, damageType DamageType, roller DiceRoller, armorCost int) DamageResult {
+	return c.takeDamage(rawDamage, damageType, roller, max(armorCost, 1))
+}
+
+// armorCost is how many slots reducing this damage marks; 0 means armor can't be used
+func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller DiceRoller, armorCost int) DamageResult {
 	// Capture state before damage
 	hpBefore := c.HP
 	armorBefore := c.ArmorSlots
@@ -230,8 +274,8 @@ func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller Dice
 
 	armorReducedMinor := false
 	armorUsed := false
-	if useArmor && threshold != ThresholdNone && c.ArmorSlots > 0 {
-		c.ArmorSlots--
+	if armorCost > 0 && threshold != ThresholdNone && c.ArmorSlots >= armorCost {
+		c.ArmorSlots -= armorCost
 		armorUsed = true
 		// Reduce threshold by one level: Severe→Major→Minor→None (0 HP)
 		switch threshold {
@@ -261,11 +305,7 @@ func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller Dice
 		hpDamage = 3
 	}
 
-	c.HP -= hpDamage
-	if c.HP <= 0 {
-		c.HP = 0
-		c.IsDefeated = true
-	}
+	c.markHP(hpDamage)
 
 	return DamageResult{
 		ProcessedDamage:  processedDamage,
@@ -319,6 +359,27 @@ func (c *Combatant) calculateDamageReduction(roller DiceRoller) int {
 	return totalReduction
 }
 
+func (c *Combatant) markHP(amount int) {
+	if amount <= 0 {
+		return
+	}
+	c.HP -= amount
+	if c.HP <= 0 {
+		c.HP = 0
+		c.IsDefeated = true
+	}
+}
+
+// LoseArmorSlots marks Armor Slots without their benefit. Each slot that
+// can't be marked costs 1 HP instead. Returns the HP marked.
+func (c *Combatant) LoseArmorSlots(amount int) int {
+	marked := min(amount, c.ArmorSlots)
+	c.ArmorSlots -= marked
+	hpMarked := max(amount-marked, 0)
+	c.markHP(hpMarked)
+	return hpMarked
+}
+
 // Heal restores HP
 func (c *Combatant) Heal(amount int) {
 	c.HP += amount
@@ -329,32 +390,47 @@ func (c *Combatant) Heal(amount int) {
 
 // AddStress increases stress level
 func (c *Combatant) AddStress(amount int) {
-	if c.Stress >= c.StressMax {
-		c.HP -= amount
-		if c.HP <= 0 {
-			c.HP = 0
-			c.IsDefeated = true
-		}
+	if amount <= 0 {
+		return
+	}
+
+	// SRD: Stress that can't be marked costs 1 HP, however much is left over
+	free := max(c.StressMax-c.Stress, 0)
+	if amount > free {
+		amount = free
+		c.markHP(1)
+	}
+	if amount == 0 {
 		return
 	}
 
 	c.Stress += amount
 	if c.Stress >= c.StressMax {
-		overflow := c.Stress - c.StressMax
-		c.Stress = c.StressMax
 		c.IsFullyStressed = true
 		c.AddCondition(&ActiveCondition{
 			Type:     ConditionVulnerable,
 			Duration: DurationUntilCleared,
 		})
-		if overflow > 0 {
-			c.HP -= overflow
-			if c.HP <= 0 {
-				c.HP = 0
-				c.IsDefeated = true
-			}
-		}
 	}
+}
+
+// GainHope adds Hope up to MaxHope
+func (c *Combatant) GainHope(amount int) {
+	c.Hope = min(c.Hope+amount, MaxHope)
+}
+
+// SpendHope deducts Hope if the combatant has enough
+func (c *Combatant) SpendHope(amount int) bool {
+	if c.Hope >= amount {
+		c.Hope -= amount
+		return true
+	}
+	return false
+}
+
+// LoseHope removes up to amount Hope
+func (c *Combatant) LoseHope(amount int) {
+	c.Hope = max(c.Hope-amount, 0)
 }
 
 func (c *Combatant) ClearStress(amount int) {
@@ -396,20 +472,20 @@ func (c *Combatant) HasCondition(condType ConditionType) bool {
 	return false
 }
 
-// ClearableCondition returns the first harmful condition an action can clear
-func (c *Combatant) ClearableCondition() (ConditionType, bool) {
+// ClearableCondition returns the first harmful condition an action can clear, or nil
+func (c *Combatant) ClearableCondition() *ActiveCondition {
 	for _, cond := range c.Conditions {
 		switch cond.Type {
 		case ConditionBurning, ConditionPoisoned, ConditionRestrained:
-			return cond.Type, true
+			return cond
 		case ConditionVulnerable:
 			// Vulnerable from full Stress only ends by clearing Stress
 			if !c.IsFullyStressed {
-				return cond.Type, true
+				return cond
 			}
 		}
 	}
-	return "", false
+	return nil
 }
 
 // IsAlive returns whether combatant is still in the fight
@@ -440,7 +516,7 @@ func (c *Combatant) GetAttackBonus() int {
 	if c.IsAdversary {
 		return c.ATK
 	}
-	return c.Proficiency
+	return c.AttackTrait
 }
 
 // AddAdversaryFeature attaches a feature to an adversary
@@ -507,6 +583,8 @@ func CloneCombatant(template *Combatant, uniqueID string) *Combatant {
 		Level:             template.Level,
 		Evasion:           template.Evasion,
 		Proficiency:       template.Proficiency,
+		AttackTrait:       template.AttackTrait,
+		Traits:            template.Traits,
 		IsAdversary:       template.IsAdversary,
 		Tier:              template.Tier,
 		AdversaryType:     template.AdversaryType,

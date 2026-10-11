@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"os"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -188,5 +189,60 @@ func TestStringToTargetType(t *testing.T) {
 				t.Errorf("stringToTargetType(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseFeatureTriggerAndArmorCost(t *testing.T) {
+	fp, err := NewFeatureParserFromBytes([]byte(`{"mappings": {
+		"Acidic Form": {"passive": true, "trigger": "on_hit", "effects": [{"category": "FeatureEffectArmorDamage", "magnitude": 1}]},
+		"Tormenting Lash": {"stress_cost": 1, "effects": [{"category": "FeatureEffectAreaDamage", "dice_formula": "2d8", "armor_cost": 2}]}
+	}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	acid := fp.ParseFeature("Acidic Form", "")
+	if !acid.Passive || acid.Trigger.Type != models.TriggerOnHit {
+		t.Errorf("Acidic Form passive=%v trigger=%q, want true / on_hit", acid.Passive, acid.Trigger.Type)
+	}
+
+	lash := fp.ParseFeature("Tormenting Lash", "")
+	if lash.Effects[0].ArmorCost != 2 {
+		t.Errorf("ArmorCost = %d, want 2", lash.Effects[0].ArmorCost)
+	}
+}
+
+func TestEmbeddedArmorFeatureMappings(t *testing.T) {
+	data, err := os.ReadFile("../../data/feature_mappings.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fp, err := NewFeatureParserFromBytes(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	acid := fp.ParseFeature("Spit Acid", "")
+	if acid.DCType != "target" {
+		t.Errorf("Spit Acid DCType = %q, want target (it is an attack)", acid.DCType)
+	}
+	shred := acid.Effects[0]
+	if shred.Category != models.FeatureEffectArmorDamage || shred.TargetType != models.FeatureTargetAOE || shred.FallbackFear != 1 {
+		t.Errorf("Spit Acid shred effect = %+v", shred)
+	}
+
+	lash := fp.ParseFeature("Tormenting Lash", "")
+	if lash.StressCost != 1 || lash.Effects[0].ArmorCost != 2 || !lash.Effects[0].StandardAttack {
+		t.Errorf("Tormenting Lash stress=%d effect=%+v, want stress 1, armor cost 2, standard attack damage", lash.StressCost, lash.Effects[0])
+	}
+
+	hellfire := fp.ParseFeature("Hellfire", "").Effects[0]
+	if hellfire.Category != models.FeatureEffectAreaDamage || hellfire.ReactionTrait != "agility" || !hellfire.HalfOnSuccess {
+		t.Errorf("Hellfire effect = %+v, want area damage halved by an Agility reaction roll", hellfire)
+	}
+
+	shards := fp.ParseFeature("Armor-Shredding Shards", "")
+	if !shards.Passive || shards.Trigger.Type != models.TriggerOnHitTaken || shards.FearCost != 0 {
+		t.Errorf("Armor-Shredding Shards = passive %v, trigger %q, fear %d", shards.Passive, shards.Trigger.Type, shards.FearCost)
 	}
 }

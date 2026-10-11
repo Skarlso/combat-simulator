@@ -146,3 +146,24 @@ func TestRunSimulationWithStrategies(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultFearIsOnePerPC(t *testing.T) {
+	config := newTestConfig()
+	config.RunCount = 1
+	config.MaxTurnsPerCombat = 0
+	config.PlayerTemplates = append(config.PlayerTemplates,
+		models.NewCombatant("p2", "Mage", models.SidePlayer, 3, 10, 2, 10, 8))
+
+	result, err := NewSimulationRunner(config).Run()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	outcome := result.CombatOutcomes[0]
+	if outcome.FinalFearPool != 2 {
+		t.Errorf("FinalFearPool = %d, want 2 (1 per PC)", outcome.FinalFearPool)
+	}
+	if outcome.FinalHopePool != 4 {
+		t.Errorf("FinalHopePool = %d, want 4 (2 per PC)", outcome.FinalHopePool)
+	}
+}

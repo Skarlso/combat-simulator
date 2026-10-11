@@ -2,18 +2,24 @@ package engine
 
 import "github.com/skarlso/daggerheart-combat-simulator/internal/models"
 
-func (fr *FeatureResolver) applyCondition(target *models.Combatant, condType models.ConditionType, duration string) error {
-	return fr.addCondition(target, condType, duration, 0, models.DamagePhysical)
+func (fr *FeatureResolver) applyCondition(source, target *models.Combatant, condType models.ConditionType, duration string) error {
+	return fr.addCondition(source, target, condType, duration, 0, models.DamagePhysical)
 }
 
 // applyDamagingCondition applies a condition that deals effect.Magnitude damage each turn
-func (fr *FeatureResolver) applyDamagingCondition(target *models.Combatant, condType models.ConditionType, effect models.FeatureEffect) error {
-	return fr.addCondition(target, condType, effect.Duration, effect.Magnitude, models.ParseDamageType(effect.DamageType))
+func (fr *FeatureResolver) applyDamagingCondition(source, target *models.Combatant, condType models.ConditionType, effect models.FeatureEffect) error {
+	return fr.addCondition(source, target, condType, effect.Duration, effect.Magnitude, models.ParseDamageType(effect.DamageType))
 }
 
-func (fr *FeatureResolver) addCondition(target *models.Combatant, condType models.ConditionType, duration string, damagePerTick int, damageType models.DamageType) error {
+func (fr *FeatureResolver) addCondition(source, target *models.Combatant, condType models.ConditionType, duration string, damagePerTick int, damageType models.DamageType) error {
 	if target == nil || !target.IsAlive() {
 		return nil
+	}
+
+	// A PC clears the condition by rolling against whoever applied it
+	clearDifficulty := 0
+	if source != nil && source != target {
+		clearDifficulty = source.GetDefense()
 	}
 
 	var durationType models.DurationType
@@ -31,10 +37,11 @@ func (fr *FeatureResolver) addCondition(target *models.Combatant, condType model
 	}
 
 	target.AddCondition(&models.ActiveCondition{
-		Type:          condType,
-		Duration:      durationType,
-		DamagePerTick: damagePerTick,
-		DamageType:    damageType,
+		Type:            condType,
+		Duration:        durationType,
+		DamagePerTick:   damagePerTick,
+		DamageType:      damageType,
+		ClearDifficulty: clearDifficulty,
 	})
 	return nil
 }
@@ -83,13 +90,14 @@ func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *mod
 	return nil
 }
 
-func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant) error {
+func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant, state *models.CombatState) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
 
-	damage := min(effect.Magnitude, target.ArmorSlots)
-	target.ArmorSlots -= damage
+	if hpMarked := target.LoseArmorSlots(effect.Magnitude); hpMarked > 0 && effect.FallbackFear > 0 {
+		state.AddFear(effect.FallbackFear)
+	}
 	return nil
 }
 
@@ -101,8 +109,11 @@ func (fr *FeatureResolver) resolveGrantArmor(effect models.FeatureEffect, target
 	return nil
 }
 
-func (fr *FeatureResolver) resolveHopeDrain(effect models.FeatureEffect, state *models.CombatState) error {
-	state.SpendHope(effect.Magnitude)
+func (fr *FeatureResolver) resolveHopeDrain(effect models.FeatureEffect, target *models.Combatant) error {
+	if target == nil {
+		return nil
+	}
+	target.LoseHope(effect.Magnitude)
 	return nil
 }
 

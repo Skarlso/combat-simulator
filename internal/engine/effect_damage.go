@@ -6,22 +6,38 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
 
+// rollEffectDamage rolls an effect's damage: its own formula, or the actor's standard attack
+func (fr *FeatureResolver) rollEffectDamage(effect models.FeatureEffect, actor *models.Combatant) (int, error) {
+	formula := effect.DiceFormula
+	if effect.StandardAttack && actor != nil {
+		formula = actor.DamageDice
+	}
+
+	damage := effect.Magnitude
+	if formula != "" {
+		notation, err := models.ParseDiceNotation(formula)
+		if err != nil {
+			return 0, fmt.Errorf("invalid dice formula %s: %w", formula, err)
+		}
+		damage += notation.Roll(fr.dice)
+	}
+	return damage, nil
+}
+
 func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
 
-	damage := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return fmt.Errorf("invalid dice formula %s: %w", effect.DiceFormula, err)
-		}
-		damage += notation.Roll(fr.dice)
+	damage, err := fr.rollEffectDamage(effect, actor)
+	if err != nil {
+		return err
 	}
 
+	damage = fr.damageAfterReaction(effect, actor, target, damage, activationResult)
+
 	damageType := models.ParseDamageType(effect.DamageType)
-	damageRes := target.TakeDamage(damage, damageType, fr.dice)
+	damageRes := target.TakeDamageWithArmorCost(damage, damageType, fr.dice, effect.ArmorCost)
 
 	if activationResult != nil {
 		activationResult.DamageRoll = damage
@@ -43,14 +59,12 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 		return nil
 	}
 
-	damage := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return fmt.Errorf("invalid dice formula %s: %w", effect.DiceFormula, err)
-		}
-		damage += notation.Roll(fr.dice)
+	damage, err := fr.rollEffectDamage(effect, actor)
+	if err != nil {
+		return err
 	}
+
+	damage = fr.damageAfterReaction(effect, actor, target, damage, activationResult)
 
 	damageType := models.ParseDamageType(effect.DamageType)
 	damageRes := target.TakeDirectDamage(damage, damageType, fr.dice)
@@ -70,18 +84,14 @@ func (fr *FeatureResolver) resolveDirectDamage(effect models.FeatureEffect, acto
 	return nil
 }
 
-func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
-	damage := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return fmt.Errorf("invalid dice formula %s: %w", effect.DiceFormula, err)
-		}
-		damage += notation.Roll(fr.dice)
+func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor, target *models.Combatant, state *models.CombatState, activationResult *DCCheckResult) error {
+	damage, err := fr.rollEffectDamage(effect, actor)
+	if err != nil {
+		return err
 	}
 
 	damageType := models.ParseDamageType(effect.DamageType)
-	enemies := state.GetEnemiesOf(actor)
+	enemies := fr.areaTargets(actor, target, state, activationResult)
 	if len(enemies) == 0 {
 		return nil
 	}
@@ -94,7 +104,8 @@ func (fr *FeatureResolver) resolveAreaDamage(effect models.FeatureEffect, actor 
 			continue
 		}
 
-		damageRes := target.TakeDamage(damage, damageType, fr.dice)
+		taken := fr.damageAfterReaction(effect, actor, target, damage, activationResult)
+		damageRes := target.TakeDamageWithArmorCost(taken, damageType, fr.dice, effect.ArmorCost)
 		totalProcessedDamage += damageRes.ProcessedDamage
 		totalHPDamage += damageRes.HPDamage
 

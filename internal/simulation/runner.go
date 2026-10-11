@@ -20,8 +20,9 @@ type SimulationConfig struct {
 	PlayerTemplates []*models.Combatant
 	EnemyTemplates  []*models.Combatant
 
-	// Resource pools
-	InitialHopePool int
+	// Hope each PC starts with
+	InitialHope int
+	// GM's starting Fear; FearPerPC means 1 Fear per PC
 	InitialFearPool int
 
 	// Spotlight configuration
@@ -31,6 +32,10 @@ type SimulationConfig struct {
 	// Strategy configurations
 	PlayerStrategy strategy.StrategyConfig
 	EnemyStrategy  strategy.StrategyConfig
+
+	// Most targets one area effect reaches. There are no ranges, so this stands in
+	// for "everyone within Very Close of a point" (0 = everyone).
+	AreaTargets int
 
 	// Combat limits
 	MaxTurnsPerCombat int
@@ -42,12 +47,16 @@ type SimulationConfig struct {
 	AdversaryRegistry *parser.AdversaryRegistry
 }
 
+// FearPerPC makes the GM start with 1 Fear per PC, the SRD campaign start
+const FearPerPC = -1
+
 // DefaultSimulationConfig returns sensible defaults
 func DefaultSimulationConfig() SimulationConfig {
 	return SimulationConfig{
 		RunCount:              100,
-		InitialHopePool:       2,
-		InitialFearPool:       5,
+		InitialHope:           2,
+		InitialFearPool:       FearPerPC,
+		AreaTargets:           2,
 		SpotlightThreshold:    3,
 		SpotlightWeightFactor: 0.2,
 		PlayerStrategy:        strategy.DefaultDesperateConfig(),
@@ -143,12 +152,17 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	players := sr.cloneCombatants(sr.config.PlayerTemplates)
 	enemies := sr.cloneCombatants(sr.config.EnemyTemplates)
 
+	initialFear := sr.config.InitialFearPool
+	if initialFear < 0 {
+		initialFear = len(players)
+	}
+
 	// Create combat state
 	state := models.NewCombatState(
 		players,
 		enemies,
-		sr.config.InitialHopePool,
-		sr.config.InitialFearPool,
+		sr.config.InitialHope,
+		initialFear,
 		sr.config.SpotlightThreshold,
 	)
 
@@ -156,6 +170,8 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	dice := engine.NewStandardDiceRoller(sr.rng)
 	spotlight := engine.NewHybridSpotlightSelector(sr.rng, sr.config.SpotlightWeightFactor)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
+	combatEngine.SetDeathMove(sr.config.PlayerStrategy.DeathMove)
+	combatEngine.SetAreaTargetLimit(sr.config.AreaTargets)
 
 	// Set adversary registry if provided (enables summoning)
 	if sr.config.AdversaryRegistry != nil {
@@ -163,6 +179,7 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	}
 
 	decisionMaker := strategy.NewUnifiedDecisionMaker(sr.rng, sr.config.PlayerStrategy, sr.config.EnemyStrategy)
+	decisionMaker.SetAreaTargets(sr.config.AreaTargets)
 
 	// Run combat (pass enemy Fear usage strategy for aggressive spotlight grabs)
 	outcome := combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)

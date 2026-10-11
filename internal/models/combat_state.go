@@ -11,8 +11,7 @@ type CombatState struct {
 	Players []*Combatant
 	Enemies []*Combatant
 
-	// Resource pools
-	HopePool int
+	// Fear is the GM's pool; Hope is tracked per PC on the Combatant
 	FearPool int
 
 	// Turn tracking
@@ -64,12 +63,15 @@ type ActionRecord struct {
 	IsCritical       bool   // Was this a critical success?
 	HopeGenerated    int    // Hope tokens generated this action
 	FearGenerated    int    // Fear tokens generated this action
-	HopePoolAfter    int    // Hope pool after this action
+	HopePoolAfter    int    // Party's total Hope after this action
 	FearPoolAfter    int    // Fear pool after this action
 }
 
 // NewCombatState initializes combat
-func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlightThreshold int) *CombatState {
+func NewCombatState(players, enemies []*Combatant, startingHope, fearPool, spotlightThreshold int) *CombatState {
+	for _, p := range players {
+		p.Hope = min(startingHope, MaxHope)
+	}
 	activeEnemies := make([]*Combatant, 0, len(enemies))
 	for _, e := range enemies {
 		if !e.IsSummonTemplate {
@@ -79,7 +81,6 @@ func NewCombatState(players, enemies []*Combatant, hopePool, fearPool, spotlight
 	return &CombatState{
 		Players:                players,
 		Enemies:                activeEnemies,
-		HopePool:               hopePool,
 		FearPool:               fearPool,
 		RoundNumber:            0,
 		TurnNumber:             0,
@@ -157,30 +158,20 @@ func (cs *CombatState) IsEnemyVictory() bool {
 	return len(cs.GetAlivePlayers()) == 0 && len(cs.GetAliveEnemies()) > 0
 }
 
-// IsCombatOver returns true if one side is eliminated
+// IsCombatOver returns true if either side is eliminated (both at once is a draw)
 func (cs *CombatState) IsCombatOver() bool {
-	return cs.IsPlayerVictory() || cs.IsEnemyVictory()
+	return len(cs.GetAlivePlayers()) == 0 || len(cs.GetAliveEnemies()) == 0
 }
 
-const (
-	MaxHopePool = 6
-	MaxFearPool = 12
-)
+const MaxFearPool = 12
 
-func (cs *CombatState) AddHope(amount int) {
-	cs.HopePool += amount
-	if cs.HopePool > MaxHopePool {
-		cs.HopePool = MaxHopePool
+// TotalHope sums the Hope held by all PCs
+func (cs *CombatState) TotalHope() int {
+	total := 0
+	for _, p := range cs.Players {
+		total += p.Hope
 	}
-}
-
-// SpendHope deducts from Hope pool
-func (cs *CombatState) SpendHope(amount int) bool {
-	if cs.HopePool >= amount {
-		cs.HopePool -= amount
-		return true
-	}
-	return false
+	return total
 }
 
 func (cs *CombatState) AddFear(amount int) {
@@ -250,7 +241,7 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 		IsCritical:      isCritical,
 		HopeGenerated:   p.HopeGenerated,
 		FearGenerated:   p.FearGenerated,
-		HopePoolAfter:   cs.HopePool,
+		HopePoolAfter:   cs.TotalHope(),
 		FearPoolAfter:   cs.FearPool,
 	}
 

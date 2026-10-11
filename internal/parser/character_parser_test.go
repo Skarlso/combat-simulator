@@ -13,6 +13,7 @@ const testCharacterJSON = `{
 			"level": 3,
 			"evasion": 12,
 			"proficiency": 2,
+			"attack_trait": 3,
 			"hp": 15,
 			"stress": 8,
 			"armor": 2,
@@ -140,5 +141,31 @@ func TestLoadCharactersFromBytesEmptyArray(t *testing.T) {
 	}
 	if len(combatants) != 0 {
 		t.Errorf("len = %d, want 0", len(combatants))
+	}
+}
+
+func TestLoadCharactersFromBytesAttackTrait(t *testing.T) {
+	combatants, err := LoadCharactersFromBytes([]byte(testCharacterJSON))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if combatants[0].GetAttackBonus() != 3 {
+		t.Errorf("GetAttackBonus = %d, want 3 (attack_trait)", combatants[0].GetAttackBonus())
+	}
+	if combatants[1].GetAttackBonus() != 0 {
+		t.Errorf("GetAttackBonus = %d, want 0 when attack_trait is omitted", combatants[1].GetAttackBonus())
+	}
+}
+
+func TestLoadCharactersFromBytesTraits(t *testing.T) {
+	combatants, err := LoadCharactersFromBytes([]byte(`{"characters": [
+		{"name": "Kira", "traits": {"agility": 2, "knowledge": -1}}
+	]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	traits := combatants[0].Traits
+	if traits.Modifier("agility") != 2 || traits.Modifier("knowledge") != -1 || traits.Modifier("strength") != 0 {
+		t.Errorf("Traits = %+v, want agility 2, knowledge -1, the rest 0", traits)
 	}
 }

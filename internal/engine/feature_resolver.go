@@ -16,6 +16,13 @@ type DCCheckResult struct {
 	TotalRoll      int
 	DC             int
 	SpotlightShift bool // True if roll causes spotlight to shift (Fear result for players)
+	IsCritical     bool
+	VsDefense      bool // True if this was an attack roll against a target's Evasion/Difficulty
+	// Who this activation's area effects can reach, picked once so every effect agrees
+	areaCandidates []*models.Combatant
+	// Reaction rolls made during this activation, one per target, in the order rolled
+	reactions map[*models.Combatant]reactionResult
+	Reactions []ReactionRoll
 	HopeGenerated  int
 	FearGenerated  int
 	// Damage tracking (populated during effect resolution)
@@ -26,10 +33,118 @@ type DCCheckResult struct {
 	DamageResult    *models.DamageResult   // Full damage result with armor/HP tracking
 }
 
+// hits reports whether the roll succeeds against one target of a multi-target attack.
+// SRD: one attack roll, compared to each target separately.
+func (r *DCCheckResult) hits(target *models.Combatant) bool {
+	if r == nil || !r.VsDefense {
+		return true
+	}
+	return r.IsCritical || r.TotalRoll >= target.GetDefense()
+}
+
+func isAreaEffect(effect models.FeatureEffect) bool {
+	return effect.Category == models.FeatureEffectAreaDamage || effect.TargetType == models.FeatureTargetAOE
+}
+
+// pickAreaCandidates chooses who an area effect can reach. There are no ranges, so
+// the area is assumed to catch the chosen target plus random others, up to areaTargetLimit.
+func (fr *FeatureResolver) pickAreaCandidates(actor, target *models.Combatant, state *models.CombatState) []*models.Combatant {
+	pool := make([]*models.Combatant, 0)
+	for _, t := range state.GetEnemiesOf(actor) {
+		if t.IsAlive() {
+			pool = append(pool, t)
+		}
+	}
+	if fr.areaTargetLimit <= 0 || len(pool) <= fr.areaTargetLimit {
+		return pool
+	}
+
+	picked := make([]*models.Combatant, 0, fr.areaTargetLimit)
+	for i, t := range pool {
+		if t == target {
+			picked = append(picked, t)
+			pool = append(pool[:i], pool[i+1:]...)
+			break
+		}
+	}
+	for len(picked) < fr.areaTargetLimit {
+		n := len(pool)
+		i := ((fr.dice.RollDice(1, n, 0)-1)%n + n) % n
+		picked = append(picked, pool[i])
+		pool = append(pool[:i], pool[i+1:]...)
+	}
+	return picked
+}
+
+// areaTargets returns the area candidates that the activation's attack roll hits
+func (fr *FeatureResolver) areaTargets(actor, target *models.Combatant, state *models.CombatState, result *DCCheckResult) []*models.Combatant {
+	var candidates []*models.Combatant
+	if result != nil {
+		if result.areaCandidates == nil {
+			result.areaCandidates = fr.pickAreaCandidates(actor, target, state)
+		}
+		candidates = result.areaCandidates
+	} else {
+		candidates = fr.pickAreaCandidates(actor, target, state)
+	}
+
+	targets := make([]*models.Combatant, 0, len(candidates))
+	for _, t := range candidates {
+		if t.IsAlive() && result.hits(t) {
+			targets = append(targets, t)
+		}
+	}
+	return targets
+}
+
+// resolveEffects applies a feature's effects after its roll. When the roll missed the
+// chosen target, only area effects go ahead, and only if they hit someone else.
+func (fr *FeatureResolver) resolveEffects(
+	name string,
+	effects []models.FeatureEffect,
+	actor, target *models.Combatant,
+	state *models.CombatState,
+	result *DCCheckResult,
+) error {
+	primaryHit := result.Success
+	if !primaryHit {
+		hasArea := false
+		for _, effect := range effects {
+			hasArea = hasArea || isAreaEffect(effect)
+		}
+		if !hasArea || !result.VsDefense || len(fr.areaTargets(actor, target, state, result)) == 0 {
+			return fmt.Errorf("%s failed DC check", name)
+		}
+		// The roll still succeeded against someone, so only a Fear result passes the spotlight
+		result.SpotlightShift = result.FearGenerated > 0
+	}
+
+	for _, effect := range effects {
+		if !primaryHit && !isAreaEffect(effect) {
+			continue
+		}
+		if err := fr.ResolveEffect(effect, actor, target, state, result); err != nil {
+			return err
+		}
+	}
+
+	if primaryHit && result.VsDefense && target != nil {
+		fr.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnHitTaken, false)
+	}
+	return nil
+}
+
 // FeatureResolver handles resolution of adversary features and domain abilities
 type FeatureResolver struct {
 	dice     DiceRoller
 	registry AdversaryRegistry // Optional: for summoning support
+	// Most targets one area effect reaches (0 = everyone)
+	areaTargetLimit int
+}
+
+// SetAreaTargetLimit caps how many targets a single area effect reaches
+func (fr *FeatureResolver) SetAreaTargetLimit(limit int) {
+	fr.areaTargetLimit = limit
 }
 
 // NewFeatureResolver creates a feature resolver
@@ -53,6 +168,27 @@ func (fr *FeatureResolver) ResolveEffect(
 	state *models.CombatState,
 	result *DCCheckResult, // For tracking damage dealt
 ) error {
+	// An effect flagged as area lands on everyone the area catches
+	if effect.TargetType == models.FeatureTargetAOE && effect.Category != models.FeatureEffectAreaDamage {
+		single := effect
+		single.TargetType = models.FeatureTargetSingle
+		for _, t := range fr.areaTargets(actor, target, state, result) {
+			if err := fr.ResolveEffect(single, actor, t, state, result); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	switch effect.Category {
+	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage, models.FeatureEffectAreaDamage:
+		// Damage effects apply the reaction roll themselves, since success may only halve
+	default:
+		if fr.avoidsEffect(effect, actor, target, result) {
+			return nil
+		}
+	}
+
 	switch effect.Category {
 	// Damage categories
 	case models.FeatureEffectDamage:
@@ -60,23 +196,23 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectDirectDamage:
 		return fr.resolveDirectDamage(effect, actor, target, state, result)
 	case models.FeatureEffectAreaDamage:
-		return fr.resolveAreaDamage(effect, actor, state, result)
+		return fr.resolveAreaDamage(effect, actor, target, state, result)
 
 	// Status application
 	case models.FeatureEffectApplyVulnerable:
-		return fr.applyCondition(target, models.ConditionVulnerable, effect.Duration)
+		return fr.applyCondition(actor, target, models.ConditionVulnerable, effect.Duration)
 	case models.FeatureEffectApplyPoison:
-		return fr.applyDamagingCondition(target, models.ConditionPoisoned, effect)
+		return fr.applyDamagingCondition(actor, target, models.ConditionPoisoned, effect)
 	case models.FeatureEffectApplyIgnite:
-		return fr.applyDamagingCondition(target, models.ConditionBurning, effect)
+		return fr.applyDamagingCondition(actor, target, models.ConditionBurning, effect)
 	case models.FeatureEffectApplyStunned:
-		return fr.applyCondition(target, models.ConditionStunned, effect.Duration)
+		return fr.applyCondition(actor, target, models.ConditionStunned, effect.Duration)
 	case models.FeatureEffectApplyRestrained:
-		return fr.applyCondition(target, models.ConditionRestrained, effect.Duration)
+		return fr.applyCondition(actor, target, models.ConditionRestrained, effect.Duration)
 	case models.FeatureEffectApplyTaunt:
-		return fr.applyCondition(target, models.ConditionTaunted, effect.Duration)
+		return fr.applyCondition(actor, target, models.ConditionTaunted, effect.Duration)
 	case models.FeatureEffectApplyHidden:
-		return fr.applyCondition(actor, models.ConditionHidden, effect.Duration)
+		return fr.applyCondition(actor, actor, models.ConditionHidden, effect.Duration)
 
 	// Resource manipulation
 	case models.FeatureEffectStressInflict:
@@ -86,9 +222,9 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectHPHeal:
 		return fr.resolveHPHeal(effect, actor)
 	case models.FeatureEffectArmorDamage:
-		return fr.resolveArmorDamage(effect, target)
+		return fr.resolveArmorDamage(effect, target, state)
 	case models.FeatureEffectHopeDrain:
-		return fr.resolveHopeDrain(effect, state)
+		return fr.resolveHopeDrain(effect, target)
 	case models.FeatureEffectFearGenerate:
 		return fr.resolveFearGenerate(effect, state)
 
@@ -154,6 +290,7 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 	}
 
 	result.DC = dc
+	result.VsDefense = dcType == "target"
 
 	// Roll based on actor's side
 	if actor.Side == models.SidePlayer {
@@ -171,9 +308,6 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 		} else if hasDisadv && !hasAdv {
 			hopeModifier -= fr.dice.RollDice(1, 6, 0)
 		}
-		if actor.IsFullyStressed {
-			hopeModifier -= 2
-		}
 
 		dualityRoll := fr.dice.RollDuality(hopeModifier, fearModifier)
 
@@ -184,7 +318,7 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 
 		// Handle Hope/Fear generation
 		if dualityRoll.Result == models.ResultHope || dualityRoll.Result == models.ResultCriticalHope {
-			state.AddHope(1)
+			actor.GainHope(1)
 			result.HopeGenerated = 1
 		}
 		if dualityRoll.Result == models.ResultFear {
@@ -195,6 +329,7 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 
 		if dualityRoll.IsCritical {
 			result.Success = true
+			result.IsCritical = true
 			actor.ClearStress(1)
 			return result
 		}
@@ -206,20 +341,14 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 		return result
 
 	} else {
-		roll := fr.dice.RollDice(1, 20, 0)
-		attackBonus := actor.GetAttackBonus()
 		hasAdvEnemy := target != nil && target.HasCondition(models.ConditionVulnerable)
 		hasDisadvEnemy := target != nil && target.HasCondition(models.ConditionHidden)
-		if hasAdvEnemy && !hasDisadvEnemy {
-			attackBonus += fr.dice.RollDice(1, 6, 0)
-		} else if hasDisadvEnemy && !hasAdvEnemy {
-			attackBonus -= fr.dice.RollDice(1, 6, 0)
-		}
-		totalRoll := roll + attackBonus
+		roll := rollAdversaryD20(fr.dice, actor.GetAttackBonus(), hasAdvEnemy, hasDisadvEnemy)
 
-		result.D20Roll = roll
-		result.TotalRoll = totalRoll
-		result.Success = totalRoll >= dc
+		result.D20Roll = roll.D20Roll
+		result.TotalRoll = roll.Total
+		result.IsCritical = roll.IsCritical
+		result.Success = roll.IsCritical || roll.Total >= dc
 		return result
 	}
 }
@@ -252,7 +381,7 @@ func (fr *FeatureResolver) CanActivateAdversaryFeature(feature *models.Adversary
 // CanActivateDomainAbility checks if a player can use an ability
 func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility, actor *models.Combatant, state *models.CombatState) bool {
 	// Check Hope cost
-	if ability.HopeCost > 0 && state.HopePool < ability.HopeCost {
+	if ability.HopeCost > 0 && actor.Hope < ability.HopeCost {
 		return false
 	}
 
@@ -305,10 +434,6 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 	// Check DC if required
 	if feature.DCType != "" && feature.DCType != "none" {
 		dcResult = fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, state)
-		if !dcResult.Success {
-			// Feature failed - costs already spent
-			return fmt.Errorf("feature %s failed DC check", feature.Name), dcResult
-		}
 	}
 
 	for _, effect := range feature.Effects {
@@ -320,10 +445,8 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 		}
 	}
 
-	for _, effect := range feature.Effects {
-		if err := fr.ResolveEffect(effect, actor, target, state, &dcResult); err != nil {
-			return err, dcResult
-		}
+	if err := fr.resolveEffects("feature "+feature.Name, feature.Effects, actor, target, state, &dcResult); err != nil {
+		return err, dcResult
 	}
 
 	for _, effect := range feature.Effects {
@@ -354,7 +477,7 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 
 	// Pay costs BEFORE rolling (Daggerheart rule: pay costs to attempt)
 	if ability.HopeCost > 0 {
-		state.SpendHope(ability.HopeCost)
+		actor.SpendHope(ability.HopeCost)
 	}
 	if ability.StressCost > 0 {
 		actor.AddStress(ability.StressCost)
@@ -368,10 +491,6 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 	// Check DC if required
 	if ability.DCType != "" && ability.DCType != "none" {
 		dcResult = fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, state)
-		if !dcResult.Success {
-			// Ability failed - costs already spent
-			return fmt.Errorf("ability %s failed DC check", ability.Name), dcResult
-		}
 	}
 
 	// Handle token spending BEFORE applying effects
@@ -385,10 +504,8 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 	}
 
 	// Apply effects
-	for _, effect := range ability.Effects {
-		if err := fr.ResolveEffect(effect, actor, target, state, &dcResult); err != nil {
-			return err, dcResult
-		}
+	if err := fr.resolveEffects("ability "+ability.Name, ability.Effects, actor, target, state, &dcResult); err != nil {
+		return err, dcResult
 	}
 
 	// Handle token placement AFTER applying effects
@@ -432,6 +549,7 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		}
 
 		err, dcResult := fr.ActivateAdversaryFeature(feature, actor, target, state)
+		recordReactions(state, feature.Name, dcResult)
 		if err != nil {
 			state.RecordAction(models.ActionParams{
 				Actor:      actor,
@@ -461,6 +579,7 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		}
 
 		err, dcResult := fr.ActivateDomainAbility(ability, actor, target, state)
+		recordReactions(state, ability.Name, dcResult)
 		if err != nil {
 			state.RecordAction(models.ActionParams{
 				Actor:      actor,

@@ -36,6 +36,12 @@ type AdversaryFeatureForm struct {
 	newDamageType     string
 	newEffectType     string
 	newMagnitude      int
+	newArmorCost      int
+	newFallbackFear   int
+	newReactionTrait  string
+	newReactionDC     int
+	newHalfOnSuccess  bool
+	newTrigger        models.FeatureTriggerType
 	newDuration       string
 	newDCType         string
 	newFixedDC        int
@@ -465,6 +471,78 @@ func (aff *AdversaryFeatureForm) renderAddForm() app.UI {
 								OnInput(handleIntInput(&aff.newMagnitude)),
 						)
 				}),
+				app.If(needsArmorCost(aff.newEffectType), func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Armor Slots to Reduce:"),
+							app.Input().
+								Type("number").
+								Value(aff.newArmorCost).
+								Min(1).Max(3).
+								OnInput(handleIntInput(&aff.newArmorCost)),
+						)
+				}),
+				app.If(aff.newEffectType == "armor_damage", func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Fear Gained if No Slot Left:"),
+							app.Input().
+								Type("number").
+								Value(aff.newFallbackFear).
+								Min(0).Max(3).
+								OnInput(handleIntInput(&aff.newFallbackFear)),
+						)
+				}),
+				app.If(needsReaction(aff.newEffectType), func() app.UI {
+					options := []app.UI{
+						app.Option().Value("").Text(traitLabel("")).Selected(aff.newReactionTrait == ""),
+					}
+					for _, trait := range reactionTraits {
+						options = append(options, app.Option().Value(trait).Text(traitLabel(trait)).Selected(aff.newReactionTrait == trait))
+					}
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Reaction Roll to Avoid:"),
+							app.Select().
+								OnChange(func(ctx app.Context, e app.Event) {
+									aff.newReactionTrait = ctx.JSSrc().Get("value").String()
+									ctx.Update()
+								}).
+								Body(options...),
+						)
+				}),
+				app.If(needsReaction(aff.newEffectType) && aff.newReactionTrait != "", func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().Text("Reaction Difficulty (0 = this adversary's Difficulty):"),
+							app.Input().
+								Type("number").
+								Value(aff.newReactionDC).
+								Min(0).Max(30).
+								OnInput(handleIntInput(&aff.newReactionDC)),
+						)
+				}),
+				app.If(isDamageEffect(aff.newEffectType) && aff.newReactionTrait != "", func() app.UI {
+					return app.Div().
+						Class("form-group").
+						Body(
+							app.Label().
+								Class("checkbox-label").
+								Body(
+									app.Input().
+										Type("checkbox").
+										Checked(aff.newHalfOnSuccess).
+										OnChange(func(ctx app.Context, e app.Event) {
+											aff.newHalfOnSuccess = ctx.JSSrc().Get("checked").Bool()
+										}),
+									app.Text(" Success takes half damage (otherwise none)"),
+								),
+						)
+				}),
 				app.If(needsDamageType(aff.newEffectType), func() app.UI {
 					return app.Div().
 						Class("form-group").
@@ -700,6 +778,10 @@ func (aff *AdversaryFeatureForm) populateFromLibrary(key string) {
 	aff.newName = feat.Name
 	aff.newDescription = feat.Description
 	aff.newPassive = feat.Passive
+	aff.newTrigger = feat.Trigger.Type
+	if aff.newTrigger == "" {
+		aff.newTrigger = models.TriggerOnAttack
+	}
 	aff.newFearCost = feat.FearCost
 	aff.newStressCost = feat.StressCost
 	aff.newSpotlightLim = feat.SpotlightLimit
@@ -727,6 +809,11 @@ func (aff *AdversaryFeatureForm) populateFromLibrary(key string) {
 		aff.newDamageType = eff.DamageType
 		aff.newMagnitude = eff.Magnitude
 		aff.newDuration = eff.Duration
+		aff.newArmorCost = max(eff.ArmorCost, 1)
+		aff.newFallbackFear = eff.FallbackFear
+		aff.newReactionTrait = eff.ReactionTrait
+		aff.newReactionDC = eff.ReactionDC
+		aff.newHalfOnSuccess = eff.HalfOnSuccess
 	}
 }
 
@@ -740,6 +827,10 @@ func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
 	aff.newName = feature.Name
 	aff.newDescription = feature.Description
 	aff.newPassive = feature.Passive
+	aff.newTrigger = feature.Trigger.Type
+	if aff.newTrigger == "" {
+		aff.newTrigger = models.TriggerOnAttack
+	}
 	aff.newFearCost = feature.FearCost
 	aff.newStressCost = feature.StressCost
 	aff.newSpotlightLim = feature.SpotlightLimit
@@ -767,6 +858,11 @@ func (aff *AdversaryFeatureForm) startEditing(ctx app.Context, idx int) {
 		aff.newDamageType = eff.DamageType
 		aff.newMagnitude = eff.Magnitude
 		aff.newDuration = eff.Duration
+		aff.newArmorCost = max(eff.ArmorCost, 1)
+		aff.newFallbackFear = eff.FallbackFear
+		aff.newReactionTrait = eff.ReactionTrait
+		aff.newReactionDC = eff.ReactionDC
+		aff.newHalfOnSuccess = eff.HalfOnSuccess
 		if eff.Category == models.FeatureEffectSummonAllies {
 			if eff.DiceFormula != "" {
 				aff.newQuantityType = "dice"
@@ -808,6 +904,17 @@ func (aff *AdversaryFeatureForm) buildFeature() *models.AdversaryFeature {
 		TargetType:  models.FeatureTargetSingle,
 		DamageType:  aff.newDamageType,
 	}
+	if needsArmorCost(aff.newEffectType) {
+		effect.ArmorCost = aff.newArmorCost
+	}
+	if effectCategory == models.FeatureEffectArmorDamage {
+		effect.FallbackFear = aff.newFallbackFear
+	}
+	if needsReaction(aff.newEffectType) && aff.newReactionTrait != "" {
+		effect.ReactionTrait = aff.newReactionTrait
+		effect.ReactionDC = aff.newReactionDC
+		effect.HalfOnSuccess = isDamageEffect(aff.newEffectType) && aff.newHalfOnSuccess
+	}
 
 	if effectCategory == models.FeatureEffectSummonAllies {
 		effect.SummonPool = make([]*models.Combatant, 0)
@@ -839,7 +946,7 @@ func (aff *AdversaryFeatureForm) buildFeature() *models.AdversaryFeature {
 		Description: aff.newDescription,
 		Passive:     aff.newPassive,
 		Trigger: models.FeatureTriggerCondition{
-			Type: models.TriggerOnAttack,
+			Type: aff.newTrigger,
 		},
 		FearCost:       fearCost,
 		StressCost:     stressCost,
@@ -904,6 +1011,12 @@ func (aff *AdversaryFeatureForm) resetForm() {
 	aff.newDamageType = "physical"
 	aff.newEffectType = "damage"
 	aff.newMagnitude = 1
+	aff.newArmorCost = 1
+	aff.newFallbackFear = 0
+	aff.newReactionTrait = ""
+	aff.newReactionDC = 0
+	aff.newHalfOnSuccess = false
+	aff.newTrigger = models.TriggerOnAttack
 	aff.newDuration = "instant"
 	aff.newDCType = "none"
 	aff.newFixedDC = 12

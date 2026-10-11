@@ -118,6 +118,8 @@ const (
 	ActionUseAbility
 	ActionClearCondition
 	ActionPass
+	ActionDeathMove
+	ActionReactionRoll
 )
 
 func (a ActionType) String() string {
@@ -130,6 +132,10 @@ func (a ActionType) String() string {
 		return "Clear Condition"
 	case ActionPass:
 		return "Pass"
+	case ActionDeathMove:
+		return "Death Move"
+	case ActionReactionRoll:
+		return "Reaction Roll"
 	default:
 		return "Unknown"
 	}

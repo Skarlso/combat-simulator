@@ -136,3 +136,43 @@ func TestGetRNG(t *testing.T) {
 		t.Error("GetRNG should return the same rng instance")
 	}
 }
+
+type d20QueueRoller struct {
+	*mockDiceRoller
+	rolls []int
+}
+
+func (d *d20QueueRoller) RollD20Attack(modifier int) D20RollResult {
+	roll := d.rolls[0]
+	d.rolls = d.rolls[1:]
+	return D20RollResult{D20Roll: roll, Modifier: modifier, Total: roll + modifier, IsCritical: roll == 20}
+}
+
+func TestRollAdversaryD20(t *testing.T) {
+	cases := []struct {
+		name      string
+		adv       bool
+		disadv    bool
+		rolls     []int
+		want      int
+		wantRolls int
+	}{
+		{"plain", false, false, []int{7, 15}, 7, 1},
+		{"advantage keeps higher", true, false, []int{7, 15}, 15, 2},
+		{"disadvantage keeps lower", false, true, []int{15, 7}, 7, 2},
+		{"both cancel", true, true, []int{7, 15}, 7, 1},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dice := &d20QueueRoller{mockDiceRoller: &mockDiceRoller{}, rolls: append([]int{}, c.rolls...)}
+			got := rollAdversaryD20(dice, 3, c.adv, c.disadv)
+			if got.D20Roll != c.want || got.Total != c.want+3 {
+				t.Errorf("roll = %d (total %d), want %d (total %d)", got.D20Roll, got.Total, c.want, c.want+3)
+			}
+			if used := len(c.rolls) - len(dice.rolls); used != c.wantRolls {
+				t.Errorf("rolled %d d20s, want %d", used, c.wantRolls)
+			}
+		})
+	}
+}

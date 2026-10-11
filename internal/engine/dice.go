@@ -135,3 +135,31 @@ func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
 	}
 }
 
+// rollAdversaryD20 rolls the GM's d20. With advantage or disadvantage a second
+// d20 is rolled and the higher or lower one is kept.
+func rollAdversaryD20(dice DiceRoller, modifier int, hasAdv, hasDisadv bool) D20RollResult {
+	roll := dice.RollD20Attack(modifier)
+	if hasAdv == hasDisadv {
+		return roll
+	}
+	other := dice.RollD20Attack(modifier)
+	if (hasAdv && other.D20Roll > roll.D20Roll) || (hasDisadv && other.D20Roll < roll.D20Roll) {
+		return other
+	}
+	return roll
+}
+
+// critRoller forces every duality roll to be a critical success
+type critRoller struct {
+	DiceRoller
+}
+
+func (c critRoller) RollDuality(hopeModifier, fearModifier int) DualityRollResult {
+	roll := c.DiceRoller.RollDuality(hopeModifier, fearModifier)
+	roll.FearDie = roll.HopeDie
+	roll.FearTotal = roll.FearDie + fearModifier
+	roll.WithSpirit = roll.HopeTotal + roll.FearTotal
+	roll.Result = models.ResultCriticalHope
+	roll.IsCritical = true
+	return roll
+}

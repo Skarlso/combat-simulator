@@ -60,8 +60,9 @@ func TestGetDefense(t *testing.T) {
 
 func TestGetAttackBonus(t *testing.T) {
 	player := newTestPlayer()
-	if player.GetAttackBonus() != 2 {
-		t.Errorf("player GetAttackBonus() = %d, want 2 (proficiency)", player.GetAttackBonus())
+	player.AttackTrait = 1
+	if player.GetAttackBonus() != 1 {
+		t.Errorf("player GetAttackBonus() = %d, want 1 (trait, not proficiency)", player.GetAttackBonus())
 	}
 
 	adv := newTestAdversary()
@@ -259,18 +260,18 @@ func TestTakeDirectDamageIgnoresArmor(t *testing.T) {
 
 func TestClearableCondition(t *testing.T) {
 	c := newTestPlayer()
-	if _, ok := c.ClearableCondition(); ok {
+	if c.ClearableCondition() != nil {
 		t.Error("no conditions should mean nothing to clear")
 	}
 
 	c.AddStress(c.StressMax)
-	if _, ok := c.ClearableCondition(); ok {
+	if c.ClearableCondition() != nil {
 		t.Error("Vulnerable from full Stress should not be clearable by an action")
 	}
 
 	c.AddCondition(&ActiveCondition{Type: ConditionBurning, Duration: DurationUntilCleared})
-	if cond, ok := c.ClearableCondition(); !ok || cond != ConditionBurning {
-		t.Errorf("ClearableCondition = %v, %v, want burning, true", cond, ok)
+	if cond := c.ClearableCondition(); cond == nil || cond.Type != ConditionBurning {
+		t.Errorf("ClearableCondition = %v, want burning", cond)
 	}
 }
 
@@ -561,8 +562,8 @@ func TestAddStressOverflowMultiple(t *testing.T) {
 
 	hpBefore := c.HP
 	c.AddStress(5)
-	if c.HP != hpBefore-5 {
-		t.Errorf("HP after stress overflow of 5 = %d, want %d", c.HP, hpBefore-5)
+	if c.HP != hpBefore-1 {
+		t.Errorf("HP after stress overflow of 5 = %d, want %d (1 HP whatever the excess)", c.HP, hpBefore-1)
 	}
 }
 
@@ -572,12 +573,12 @@ func TestAddStressPartialOverflow(t *testing.T) {
 	c.Stress = 4
 
 	hpBefore := c.HP
-	c.AddStress(5) // 4+5=9, max=6, overflow=3
+	c.AddStress(5) // 4+5=9, max=6: 2 marked, the rest costs 1 HP
 	if c.Stress != c.StressMax {
 		t.Errorf("Stress = %d, want %d", c.Stress, c.StressMax)
 	}
-	if c.HP != hpBefore-3 {
-		t.Errorf("HP after partial overflow = %d, want %d (3 overflow)", c.HP, hpBefore-3)
+	if c.HP != hpBefore-1 {
+		t.Errorf("HP after partial overflow = %d, want %d", c.HP, hpBefore-1)
 	}
 	if !c.IsFullyStressed {
 		t.Error("should be fully stressed")
@@ -593,11 +594,11 @@ func TestAddStressOverflowDefeatsMultiple(t *testing.T) {
 	c.Stress = c.StressMax
 
 	c.AddStress(5)
-	if c.HP != 0 {
-		t.Errorf("HP = %d, want 0", c.HP)
+	if c.HP != 2 {
+		t.Errorf("HP = %d, want 2", c.HP)
 	}
-	if !c.IsDefeated {
-		t.Error("should be defeated from stress overflow exceeding HP")
+	if c.IsDefeated {
+		t.Error("stress overflow only ever costs 1 HP")
 	}
 }
 
@@ -770,5 +771,40 @@ func TestParseDamageType(t *testing.T) {
 	}
 	if ParseDamageType("anything_else") != DamagePhysical {
 		t.Error("unknown should default to DamagePhysical")
+	}
+}
+
+func TestLoseArmorSlots(t *testing.T) {
+	c := newTestPlayer()
+	c.ArmorSlots = 1
+	hpBefore := c.HP
+
+	if hp := c.LoseArmorSlots(1); hp != 0 || c.ArmorSlots != 0 || c.HP != hpBefore {
+		t.Errorf("with a slot left: hpMarked=%d ArmorSlots=%d HP=%d, want 0 / 0 / %d", hp, c.ArmorSlots, c.HP, hpBefore)
+	}
+
+	if hp := c.LoseArmorSlots(1); hp != 1 || c.HP != hpBefore-1 {
+		t.Errorf("with no slot left: hpMarked=%d HP=%d, want 1 / %d", hp, c.HP, hpBefore-1)
+	}
+
+	c.HP = 1
+	c.LoseArmorSlots(1)
+	if !c.IsDefeated {
+		t.Error("marking the last HP this way should defeat the combatant")
+	}
+}
+
+func TestTakeDamageWithArmorCost(t *testing.T) {
+	c := newTestAdversary()
+	c.ArmorSlots = 3
+
+	result := c.TakeDamageWithArmorCost(12, DamagePhysical, nil, 2)
+	if c.ArmorSlots != 1 || result.HPDamage != 2 {
+		t.Errorf("ArmorSlots=%d HPDamage=%d, want 1 / 2 (two slots for one step)", c.ArmorSlots, result.HPDamage)
+	}
+
+	result = c.TakeDamageWithArmorCost(12, DamagePhysical, nil, 2)
+	if c.ArmorSlots != 1 || result.ArmorUsed || result.HPDamage != 3 {
+		t.Errorf("ArmorSlots=%d ArmorUsed=%v HPDamage=%d, want 1 / false / 3 (can't pay two slots)", c.ArmorSlots, result.ArmorUsed, result.HPDamage)
 	}
 }

@@ -13,6 +13,9 @@ type FeatureMapping struct {
 	FearCost   int                    `json:"fear_cost"`
 	StressCost int                    `json:"stress_cost"`
 	Passive    bool                   `json:"passive"`
+	Trigger    string                 `json:"trigger,omitempty"`
+	DCType     string                 `json:"dc_type,omitempty"`
+	FixedDC    int                    `json:"fixed_dc,omitempty"`
 	UsesTokens bool                   `json:"uses_tokens,omitempty"`
 	TokenName  string                 `json:"token_name,omitempty"`
 	TokensMax  int                    `json:"tokens_max,omitempty"`
@@ -21,15 +24,21 @@ type FeatureMapping struct {
 
 // FeatureMappingEffect represents a single effect in the mapping
 type FeatureMappingEffect struct {
-	Category    string `json:"category"`
-	Magnitude   int    `json:"magnitude"`
-	DiceFormula string `json:"dice_formula"`
-	DamageType  string `json:"damage_type"`
-	Condition   string `json:"condition"`
-	Duration    string `json:"duration"`
-	TargetType  string `json:"target_type"`
-	SummonType  string `json:"summon_type"`
-	Description string `json:"description"`
+	Category       string `json:"category"`
+	Magnitude      int    `json:"magnitude"`
+	DiceFormula    string `json:"dice_formula"`
+	StandardAttack bool   `json:"standard_attack,omitempty"`
+	DamageType     string `json:"damage_type"`
+	ArmorCost      int    `json:"armor_cost,omitempty"`
+	FallbackFear   int    `json:"fallback_fear,omitempty"`
+	ReactionTrait  string `json:"reaction_trait,omitempty"`
+	ReactionDC     int    `json:"reaction_dc,omitempty"`
+	HalfOnSuccess  bool   `json:"half_on_success,omitempty"`
+	Condition      string `json:"condition"`
+	Duration       string `json:"duration"`
+	TargetType     string `json:"target_type"`
+	SummonType     string `json:"summon_type"`
+	Description    string `json:"description"`
 }
 
 // FeatureMappingFile represents the JSON structure of feature_mappings.json
@@ -82,8 +91,11 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 		Name:        name,
 		Description: description,
 		Passive:     mapping.Passive,
+		Trigger:     models.FeatureTriggerCondition{Type: models.FeatureTriggerType(mapping.Trigger)},
 		FearCost:    mapping.FearCost,
 		StressCost:  mapping.StressCost,
+		DCType:      mapping.DCType,
+		FixedDC:     mapping.FixedDC,
 		UsesTokens:  mapping.UsesTokens,
 		TokenName:   mapping.TokenName,
 		TokensMax:   mapping.TokensMax,
@@ -93,12 +105,18 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 	// Convert mapping effects to FeatureEffects
 	for _, mappingEffect := range mapping.Effects {
 		effect := models.FeatureEffect{
-			Category:    stringToEffectCategory(mappingEffect.Category),
-			Magnitude:   mappingEffect.Magnitude,
-			DiceFormula: mappingEffect.DiceFormula,
-			Duration:    mappingEffect.Duration,
-			TargetType:  stringToTargetType(mappingEffect.TargetType),
-			SummonType:  mappingEffect.SummonType,
+			Category:       stringToEffectCategory(mappingEffect.Category),
+			Magnitude:      mappingEffect.Magnitude,
+			DiceFormula:    mappingEffect.DiceFormula,
+			StandardAttack: mappingEffect.StandardAttack,
+			Duration:       mappingEffect.Duration,
+			TargetType:     stringToTargetType(mappingEffect.TargetType),
+			SummonType:     mappingEffect.SummonType,
+			ArmorCost:      mappingEffect.ArmorCost,
+			FallbackFear:   mappingEffect.FallbackFear,
+			ReactionTrait:  mappingEffect.ReactionTrait,
+			ReactionDC:     mappingEffect.ReactionDC,
+			HalfOnSuccess:  mappingEffect.HalfOnSuccess,
 		}
 
 		// Set damage type if specified
