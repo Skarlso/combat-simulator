@@ -65,6 +65,14 @@ func NewFeatureParserFromBytes(data []byte) (*FeatureParser, error) {
 		return nil, fmt.Errorf("failed to parse mapping file: %w", err)
 	}
 
+	for name, mapping := range mappingFile.Mappings {
+		for i, effect := range mapping.Effects {
+			if _, err := convertMappingEffect(effect); err != nil {
+				return nil, fmt.Errorf("mapping %q effect %d: %w", name, i, err)
+			}
+		}
+	}
+
 	return &FeatureParser{
 		mappings: mappingFile.Mappings,
 	}, nil
@@ -102,32 +110,40 @@ func (fp *FeatureParser) ParseFeature(name string, description string) *models.A
 		Effects:     make([]models.FeatureEffect, 0, len(mapping.Effects)),
 	}
 
-	// Convert mapping effects to FeatureEffects
+	// Effects were validated when the mapping file was loaded
 	for _, mappingEffect := range mapping.Effects {
-		effect := models.FeatureEffect{
-			Category:       stringToEffectCategory(mappingEffect.Category),
-			Magnitude:      mappingEffect.Magnitude,
-			DiceFormula:    mappingEffect.DiceFormula,
-			StandardAttack: mappingEffect.StandardAttack,
-			Duration:       mappingEffect.Duration,
-			TargetType:     stringToTargetType(mappingEffect.TargetType),
-			SummonType:     mappingEffect.SummonType,
-			ArmorCost:      mappingEffect.ArmorCost,
-			FallbackFear:   mappingEffect.FallbackFear,
-			ReactionTrait:  mappingEffect.ReactionTrait,
-			ReactionDC:     mappingEffect.ReactionDC,
-			HalfOnSuccess:  mappingEffect.HalfOnSuccess,
-		}
-
-		// Set damage type if specified
-		if mappingEffect.DamageType != "" {
-			effect.DamageType = mappingEffect.DamageType
-		}
-
+		effect, _ := convertMappingEffect(mappingEffect)
 		feature.Effects = append(feature.Effects, effect)
 	}
 
 	return feature
+}
+
+func convertMappingEffect(m FeatureMappingEffect) (models.FeatureEffect, error) {
+	category, err := stringToEffectCategory(m.Category)
+	if err != nil {
+		return models.FeatureEffect{}, err
+	}
+	targetType, err := stringToTargetType(m.TargetType)
+	if err != nil {
+		return models.FeatureEffect{}, err
+	}
+
+	return models.FeatureEffect{
+		Category:       category,
+		Magnitude:      m.Magnitude,
+		DiceFormula:    m.DiceFormula,
+		StandardAttack: m.StandardAttack,
+		Duration:       m.Duration,
+		TargetType:     targetType,
+		SummonType:     m.SummonType,
+		DamageType:     m.DamageType,
+		ArmorCost:      m.ArmorCost,
+		FallbackFear:   m.FallbackFear,
+		ReactionTrait:  m.ReactionTrait,
+		ReactionDC:     m.ReactionDC,
+		HalfOnSuccess:  m.HalfOnSuccess,
+	}, nil
 }
 
 var effectCategoryMap = map[string]models.FeatureEffectCategory{
@@ -158,11 +174,11 @@ var effectCategoryMap = map[string]models.FeatureEffectCategory{
 	"FeatureEffectDamageReduction":     models.FeatureEffectDamageReduction,
 }
 
-func stringToEffectCategory(s string) models.FeatureEffectCategory {
+func stringToEffectCategory(s string) (models.FeatureEffectCategory, error) {
 	if cat, ok := effectCategoryMap[s]; ok {
-		return cat
+		return cat, nil
 	}
-	return models.FeatureEffectDamage
+	return "", fmt.Errorf("unknown effect category %q", s)
 }
 
 var targetTypeMap = map[string]models.FeatureTargetType{
@@ -172,9 +188,12 @@ var targetTypeMap = map[string]models.FeatureTargetType{
 	"allies": models.FeatureTargetAllies,
 }
 
-func stringToTargetType(s string) models.FeatureTargetType {
-	if tt, ok := targetTypeMap[s]; ok {
-		return tt
+func stringToTargetType(s string) (models.FeatureTargetType, error) {
+	if s == "" {
+		return models.FeatureTargetSingle, nil
 	}
-	return models.FeatureTargetSingle
+	if tt, ok := targetTypeMap[s]; ok {
+		return tt, nil
+	}
+	return "", fmt.Errorf("unknown target type %q", s)
 }

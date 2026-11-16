@@ -199,10 +199,9 @@ func (al *AdversaryList) renderList() app.UI {
 					Body(
 						app.Strong().Text(fmt.Sprintf("%s %s - %s%s", adversary.Tier, adversary.AdversaryType, adversary.Name, templateTag)),
 						app.Br(),
-						app.Span().Text(fmt.Sprintf("Difficulty: %d | Thresholds: %d/%d | HP: %d | Stress: %d | ATK: +%d",
+						app.Span().Text(fmt.Sprintf("Difficulty: %d | Thresholds: %s | HP: %d | Stress: %d | ATK: +%d",
 							adversary.Difficulty,
-							adversary.CustomThresholds[0],
-							adversary.CustomThresholds[1],
+							thresholdLabel(adversary.CustomThresholds),
 							adversary.HPMax,
 							adversary.StressMax,
 							adversary.ATK)),
@@ -533,4 +532,18 @@ func (al *AdversaryList) resetForm() {
 		"combat":   false,
 		"features": false,
 	}
+}
+
+// thresholdLabel renders [Major, Severe]; 0 is the stat block's "None"
+func thresholdLabel(thresholds []int) string {
+	if len(thresholds) < 2 {
+		return "default"
+	}
+	one := func(v int) string {
+		if v <= 0 {
+			return "None"
+		}
+		return fmt.Sprintf("%d", v)
+	}
+	return one(thresholds[0]) + "/" + one(thresholds[1])
 }

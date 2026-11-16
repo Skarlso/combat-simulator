@@ -121,6 +121,10 @@ func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
 
 		feature := ap.featureParser.ParseFeature(jsonFeature.Name, jsonFeature.Description)
 		if feature != nil {
+			// Reactions and Passives fire on triggers; the stat block decides, not the mapping
+			if strings.EqualFold(jsonFeature.Type, "Passive") || strings.EqualFold(jsonFeature.Type, "Reaction") {
+				feature.Passive = true
+			}
 			if jsonFeature.Uses > 0 {
 				feature.MaxUses = jsonFeature.Uses
 				feature.UsesLeft = jsonFeature.Uses

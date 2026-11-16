@@ -2,6 +2,8 @@ package parser
 
 import (
 	"testing"
+
+	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
 
 const testAdversaryJSON = `{
@@ -91,6 +93,58 @@ func TestLoadAdversariesMappedFeatures(t *testing.T) {
 	}
 	if c.AdversaryFeatures[0].Name != "Savage Strike" {
 		t.Errorf("Feature name = %q, want %q", c.AdversaryFeatures[0].Name, "Savage Strike")
+	}
+}
+
+func TestLoadAdversariesStatBlockTypeForcesPassive(t *testing.T) {
+	mapping := `{"mappings": {
+		"Momentum": {"effects": [{"category": "FeatureEffectFearGenerate", "magnitude": 1}]},
+		"Thick Hide": {"effects": [{"category": "FeatureEffectDamageResistance", "magnitude": 50}]},
+		"Savage Strike": {"effects": [{"category": "FeatureEffectDamage", "dice_formula": "2d6"}]}
+	}}`
+	adversaries := `{"adversaries": [{"name": "Bear", "tier": 1, "difficulty": 12, "hp": 7, "stress": 3,
+		"thresholds": {"minor": 8, "major": 15}, "attack": {"bonus": 2, "damage": "1d8+3"},
+		"features": [
+			{"name": "Momentum", "type": "Reaction", "description": "gain a Fear"},
+			{"name": "Thick Hide", "type": "Passive", "description": "tough"},
+			{"name": "Savage Strike", "type": "Action", "description": "hit hard"}
+		]}]}`
+	fp, err := NewFeatureParserFromBytes([]byte(mapping))
+	if err != nil {
+		t.Fatalf("feature parser error: %v", err)
+	}
+	ap := &AdversaryParser{featureParser: fp}
+	combatants, err := ap.LoadAdversariesFromBytes([]byte(adversaries))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := map[string]bool{"Momentum": true, "Thick Hide": true, "Savage Strike": false}
+	for _, f := range combatants[0].AdversaryFeatures {
+		if f.Passive != want[f.Name] {
+			t.Errorf("%s Passive = %v, want %v", f.Name, f.Passive, want[f.Name])
+		}
+	}
+}
+
+func TestParseAdversaryNullThresholdsAreUnreachable(t *testing.T) {
+	fp, err := NewFeatureParserFromBytes([]byte(testMappingJSON))
+	if err != nil {
+		t.Fatalf("feature parser error: %v", err)
+	}
+	ap := &AdversaryParser{featureParser: fp}
+	blob := `{"adversaries": [{"name": "Tiny Red Ooze", "tier": 1, "difficulty": 10, "hp": 2, "stress": 1,
+		"thresholds": {"minor": 5, "major": null}, "attack": {"bonus": 1, "damage": "1d4+2"}, "features": []}]}`
+	combatants, err := ap.LoadAdversariesFromBytes([]byte(blob))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	ooze := combatants[0]
+	if got := models.DamageThresholdFromAmount(1, ooze); got != models.ThresholdMinor {
+		t.Errorf("1 damage = %v, want Minor", got)
+	}
+	if got := models.DamageThresholdFromAmount(30, ooze); got != models.ThresholdMajor {
+		t.Errorf("30 damage = %v, want Major (Severe is None)", got)
 	}
 }
 

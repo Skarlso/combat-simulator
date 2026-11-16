@@ -446,6 +446,12 @@ func TestCloneCombatant(t *testing.T) {
 	}
 }
 
+func withThresholds(major, severe int) *Combatant {
+	c := newTestAdversary()
+	c.CustomThresholds = []int{major, severe}
+	return c
+}
+
 func TestDamageThresholdFromAmount(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -460,6 +466,9 @@ func TestDamageThresholdFromAmount(t *testing.T) {
 		{"player major (level 3)", 6, newTestPlayer(), ThresholdMajor},
 		{"player severe (level 3)", 9, newTestPlayer(), ThresholdSevere},
 		{"zero damage", 0, newTestAdversary(), ThresholdNone},
+		{"severe None caps at major", 40, withThresholds(5, 0), ThresholdMajor},
+		{"severe None still minor below major", 4, withThresholds(5, 0), ThresholdMinor},
+		{"both None is always minor", 40, withThresholds(0, 0), ThresholdMinor},
 	}
 
 	for _, tt := range tests {

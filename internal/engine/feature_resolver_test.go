@@ -764,6 +764,47 @@ func TestOnHitArmorShredFallsBackToHP(t *testing.T) {
 	}
 }
 
+func TestMomentumGrantsFearOnHit(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	bear := tEnemy("e1", "Bear", 10)
+	bear.AdversaryFeatures = []models.AdversaryFeature{{
+		Name:    "Momentum",
+		Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnHit},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectFearGenerate, Magnitude: 1}},
+	}}
+	target := tPlayer("p1", "Hero")
+	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{bear}, 0, 2)
+
+	ce.executeAttack(bear, target, state)
+	if state.FearPool != 3 {
+		t.Errorf("FearPool = %d, want 3 (one Fear from Momentum on a hit)", state.FearPool)
+	}
+}
+
+func TestBurningReactionDamagesAttacker(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	ooze := tEnemy("e1", "Tiny Red Ooze", 10)
+	ooze.AdversaryFeatures = []models.AdversaryFeature{{
+		Name:    "Burning",
+		Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnDamageTaken},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDirectDamage, DiceFormula: "1d6", DamageType: "magic"}},
+	}}
+	hero := tPlayer("p1", "Hero")
+	hero.ArmorSlots = 2
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ooze}, 0, 0)
+
+	ce.executeAttack(hero, ooze, state)
+	if ooze.HP == ooze.HPMax {
+		t.Fatal("hero should have damaged the ooze")
+	}
+	// 5 direct damage is Minor for a level 3 PC, and armor cannot reduce it
+	if hero.HP != hero.HPMax-1 || hero.ArmorSlots != 2 {
+		t.Errorf("hero HP=%d armor=%d, want %d / 2", hero.HP, hero.ArmorSlots, hero.HPMax-1)
+	}
+}
+
 func TestDamageEffectArmorCost(t *testing.T) {
 	fr := newTestFR(&mockDiceRoller{})
 	actor := tEnemy("e1", "Tormentor", 10)

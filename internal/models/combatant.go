@@ -31,8 +31,8 @@ type Combatant struct {
 	Experience    []ExperienceSkill
 
 	// Custom damage thresholds (for both Players and Adversaries)
-	CustomThresholds []int // e.g., [8, 16] means: <8=Minor, 8-15=Major, 16+=Severe
-	// Empty = use default [4, 7]
+	CustomThresholds []int // [Major, Severe]; 0 means that tier is unreachable ("None" in the stat block)
+	// Empty = PC default 3+level / 6+level, adversary default [4, 7]
 
 	// Resources
 	HP         int

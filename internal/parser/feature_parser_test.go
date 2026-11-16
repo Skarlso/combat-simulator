@@ -2,6 +2,7 @@ package parser
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -157,16 +158,42 @@ func TestStringToEffectCategory(t *testing.T) {
 		{"FeatureEffectDamageResistance", models.FeatureEffectDamageResistance},
 		{"FeatureEffectTokenPlace", models.FeatureEffectTokenPlace},
 		{"FeatureEffectTokenSpend", models.FeatureEffectTokenSpend},
-		{"unknown", models.FeatureEffectDamage},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := stringToEffectCategory(tt.input)
+			got, err := stringToEffectCategory(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if got != tt.want {
 				t.Errorf("stringToEffectCategory(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+
+	for _, input := range []string{"unknown", "", "FeatureEffectDamageAmplifier"} {
+		if _, err := stringToEffectCategory(input); err == nil {
+			t.Errorf("stringToEffectCategory(%q) should fail", input)
+		}
+	}
+}
+
+func TestNewFeatureParserRejectsUnknownEffectCategory(t *testing.T) {
+	blob := `{"mappings": {"Backstab": {"effects": [{"category": "FeatureEffectDamageAmplifier", "dice_formula": "2d6"}]}}}`
+	_, err := NewFeatureParserFromBytes([]byte(blob))
+	if err == nil {
+		t.Fatal("expected error for unknown effect category")
+	}
+	if !strings.Contains(err.Error(), "Backstab") || !strings.Contains(err.Error(), "FeatureEffectDamageAmplifier") {
+		t.Errorf("error should name the feature and category, got %q", err.Error())
+	}
+}
+
+func TestNewFeatureParserRejectsUnknownTargetType(t *testing.T) {
+	blob := `{"mappings": {"Bite": {"effects": [{"category": "FeatureEffectDamage", "target_type": "everyone"}]}}}`
+	if _, err := NewFeatureParserFromBytes([]byte(blob)); err == nil {
+		t.Fatal("expected error for unknown target type")
 	}
 }
 
@@ -179,12 +206,15 @@ func TestStringToTargetType(t *testing.T) {
 		{"single", models.FeatureTargetSingle},
 		{"aoe", models.FeatureTargetAOE},
 		{"allies", models.FeatureTargetAllies},
-		{"unknown", models.FeatureTargetSingle},
+		{"", models.FeatureTargetSingle},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got := stringToTargetType(tt.input)
+			got, err := stringToTargetType(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if got != tt.want {
 				t.Errorf("stringToTargetType(%q) = %q, want %q", tt.input, got, tt.want)
 			}

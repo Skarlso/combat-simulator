@@ -23,9 +23,9 @@ func (d DamageType) String() string {
 type DamageThreshold int
 
 const (
-	ThresholdMinor  DamageThreshold = iota // 1-3 damage
-	ThresholdMajor                         // 4-6 damage
-	ThresholdSevere                        // 7+ damage
+	ThresholdMinor  DamageThreshold = iota // below the Major threshold
+	ThresholdMajor                         // at or above Major, below Severe
+	ThresholdSevere                        // at or above Severe
 )
 
 // String returns the string representation of the threshold
@@ -65,10 +65,11 @@ func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold
 		}
 	}
 
+	// A threshold of 0 is the stat block's "None": that tier can never be reached
 	switch {
-	case damage >= thresholds[1]:
+	case thresholds[1] > 0 && damage >= thresholds[1]:
 		return ThresholdSevere
-	case damage >= thresholds[0]:
+	case thresholds[0] > 0 && damage >= thresholds[0]:
 		return ThresholdMajor
 	default:
 		return ThresholdMinor

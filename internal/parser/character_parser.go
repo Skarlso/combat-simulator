@@ -113,22 +113,34 @@ func parseCharacter(c CharacterJSON, idx int) (*models.Combatant, error) {
 	}
 
 	for _, a := range c.DomainAbilities {
-		combatant.DomainAbilities = append(combatant.DomainAbilities, buildDomainAbility(a))
+		ability, err := buildDomainAbility(a)
+		if err != nil {
+			return nil, fmt.Errorf("domain ability %q: %w", a.Name, err)
+		}
+		combatant.DomainAbilities = append(combatant.DomainAbilities, ability)
 	}
 
 	combatant.ApplyPassiveResistances()
 	return combatant, nil
 }
 
-func buildDomainAbility(a DomainAbilityJSON) models.DomainAbility {
+func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 	effects := make([]models.FeatureEffect, 0, len(a.Effects))
 	for _, e := range a.Effects {
+		category, err := stringToEffectCategory(e.Category)
+		if err != nil {
+			return models.DomainAbility{}, err
+		}
+		targetType, err := stringToTargetType(e.TargetType)
+		if err != nil {
+			return models.DomainAbility{}, err
+		}
 		effects = append(effects, models.FeatureEffect{
-			Category:      stringToEffectCategory(e.Category),
+			Category:      category,
 			Magnitude:     e.Magnitude,
 			DiceFormula:   e.DiceFormula,
 			Duration:      e.Duration,
-			TargetType:    stringToTargetType(e.TargetType),
+			TargetType:    targetType,
 			DamageType:    e.DamageType,
 			ReactionTrait: e.ReactionTrait,
 			ReactionDC:    e.ReactionDC,
@@ -155,5 +167,5 @@ func buildDomainAbility(a DomainAbilityJSON) models.DomainAbility {
 		TokensHeld:  0,
 		TokensMax:   a.TokensMax,
 		Effects:     effects,
-	}
+	}, nil
 }

@@ -1,6 +1,7 @@
 package parser
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -130,6 +131,18 @@ func TestLoadCharactersFromBytesMissingName(t *testing.T) {
 	_, err := LoadCharactersFromBytes([]byte(blob))
 	if err == nil {
 		t.Error("expected error when name missing")
+	}
+}
+
+func TestLoadCharactersFromBytesUnknownEffectCategory(t *testing.T) {
+	blob := `{"characters": [{"name": "Kira", "level": 1, "evasion": 10, "proficiency": 1, "hp": 6, "stress": 6,
+		"domain_abilities": [{"name": "Mend", "effects": [{"category": "FeatureEffectHeal", "magnitude": 2}]}]}]}`
+	_, err := LoadCharactersFromBytes([]byte(blob))
+	if err == nil {
+		t.Fatal("expected error for unknown effect category")
+	}
+	if !strings.Contains(err.Error(), "Mend") || !strings.Contains(err.Error(), "FeatureEffectHeal") {
+		t.Errorf("error should name the ability and category, got %q", err.Error())
 	}
 }
 

@@ -13,6 +13,8 @@
     "Momentum": {
       "category": "fear_generation",
       "fear_cost": 0,
+      "passive": true,
+      "trigger": "on_hit",
       "effects": [
         {
           "category": "FeatureEffectFearGenerate",
@@ -22,43 +24,11 @@
         }
       ]
     },
-    "Backstab": {
-      "category": "damage_amplifier",
-      "fear_cost": 0,
-      "effects": [
-        {
-          "category": "FeatureEffectDamageAmplifier",
-          "magnitude": 2,
-          "dice_formula": "2d6",
-          "condition": "from_behind",
-          "description": "Extra 2d6 damage when attacking from behind"
-        }
-      ]
-    },
-    "From Above": {
-      "category": "damage_amplifier",
-      "fear_cost": 0,
-      "effects": [
-        {
-          "category": "FeatureEffectDamageAmplifier",
-          "magnitude": 2,
-          "dice_formula": "2d6",
-          "condition": "elevated_position",
-          "description": "Extra 2d6 damage when attacking from above"
-        }
-      ]
-    },
     "Bone Breaker": {
       "category": "direct_damage",
-      "fear_cost": 1,
-      "effects": [
-        {
-          "category": "FeatureEffectDirectDamage",
-          "dice_formula": "2d8",
-          "damage_type": "physical",
-          "description": "2d8 direct damage (bypasses armor)"
-        }
-      ]
+      "fear_cost": 0,
+      "passive": true,
+      "effects": []
     },
     "Acidic Form": {
       "category": "armor_damage",
@@ -141,14 +111,16 @@
       ]
     },
     "Burning": {
-      "category": "status_application",
+      "category": "reaction_damage",
       "fear_cost": 0,
+      "passive": true,
+      "trigger": "on_damage_taken",
       "effects": [
         {
-          "category": "FeatureEffectApplyIgnite",
-          "duration": "until_cleared",
-          "magnitude": 2,
-          "description": "Target takes 2 damage per action while burning"
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "1d6",
+          "damage_type": "magic",
+          "description": "Attacker takes 1d6 direct magic damage"
         }
       ]
     },
@@ -286,24 +258,6 @@
         }
       ]
     },
-    "Pack Tactics": {
-      "category": "damage_amplifier",
-      "fear_cost": 0,
-      "effects": [
-        {
-          "category": "FeatureEffectDamageAmplifier",
-          "dice_formula": "1d6",
-          "damage_type": "physical",
-          "condition": "ally_nearby",
-          "description": "Extra 1d6 damage when ally is near target"
-        },
-        {
-          "category": "FeatureEffectFearGenerate",
-          "magnitude": 1,
-          "description": "Gain 1 Fear on successful use"
-        }
-      ]
-    },
     "Overwhelming Force": {
       "category": "passive_knockback",
       "passive": true,
@@ -356,11 +310,13 @@
     "Bloodsucker": {
       "category": "hp_drain",
       "stress_cost": 1,
+      "passive": true,
+      "trigger": "on_hit",
       "effects": [
         {
-          "category": "FeatureEffectDamage",
+          "category": "FeatureEffectDirectDamage",
           "magnitude": 1,
-          "description": "Force target to mark additional HP"
+          "description": "Target marks 1 additional HP (1 direct damage, on any hit)"
         }
       ]
     },
@@ -431,30 +387,6 @@
         }
       ]
     },
-    "Sneak Attack": {
-      "category": "damage_amplifier",
-      "fear_cost": 0,
-      "effects": [
-        {
-          "category": "FeatureEffectDamageAmplifier",
-          "dice_formula": "2d8",
-          "condition": "hidden",
-          "description": "Extra 2d8 when attacking from hidden"
-        }
-      ]
-    },
-    "Charge": {
-      "category": "damage_amplifier",
-      "fear_cost": 0,
-      "effects": [
-        {
-          "category": "FeatureEffectDamageAmplifier",
-          "dice_formula": "1d10",
-          "condition": "after_movement",
-          "description": "Extra 1d10 after moving"
-        }
-      ]
-    },
     "Reckless Attack": {
       "category": "high_damage",
       "fear_cost": 1,
@@ -484,9 +416,9 @@
   },
   "metadata": {
     "version": "1.1",
-    "mapped_features": 38,
+    "mapped_features": 33,
     "total_features": 340,
-    "coverage": "11.2%",
+    "coverage": "9.7%",
     "last_updated": "2026-01-07"
   }
 }
