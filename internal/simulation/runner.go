@@ -96,18 +96,10 @@ func (sr *SimulationRunner) Run() (*SimulationResult, error) {
 
 	result := &SimulationResult{
 		TotalRuns:      sr.config.RunCount,
-		PlayerWins:     0,
-		EnemyWins:      0,
 		CombatOutcomes: make([]*engine.CombatOutcome, 0, sr.config.RunCount),
-		AverageTurns:   0,
-		AverageRounds:  0,
-		MinTurns:       0,
-		MaxTurns:       0,
 	}
 
-	totalTurns := 0
-	totalRounds := 0
-
+	totalTurns, totalRounds := 0, 0
 	for i := 0; i < sr.config.RunCount; i++ {
 		outcome := sr.runSingleCombat()
 		result.CombatOutcomes = append(result.CombatOutcomes, outcome)
@@ -120,22 +112,14 @@ func (sr *SimulationRunner) Run() (*SimulationResult, error) {
 
 		totalTurns += outcome.Turns
 		totalRounds += outcome.Rounds
-
-		// Track min/max turns
 		if i == 0 {
-			result.MinTurns = outcome.Turns
-			result.MaxTurns = outcome.Turns
+			result.MinTurns, result.MaxTurns = outcome.Turns, outcome.Turns
 		} else {
-			if outcome.Turns < result.MinTurns {
-				result.MinTurns = outcome.Turns
-			}
-			if outcome.Turns > result.MaxTurns {
-				result.MaxTurns = outcome.Turns
-			}
+			result.MinTurns = min(result.MinTurns, outcome.Turns)
+			result.MaxTurns = max(result.MaxTurns, outcome.Turns)
 		}
 	}
 
-	// Calculate averages
 	if result.TotalRuns > 0 {
 		result.AverageTurns = float64(totalTurns) / float64(result.TotalRuns)
 		result.AverageRounds = float64(totalRounds) / float64(result.TotalRuns)
@@ -146,9 +130,8 @@ func (sr *SimulationRunner) Run() (*SimulationResult, error) {
 	return result, nil
 }
 
-// runSingleCombat executes one combat simulation
+// runSingleCombat executes one combat simulation on fresh clones of the templates
 func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
-	// Clone combatants for this run
 	players := sr.cloneCombatants(sr.config.PlayerTemplates)
 	enemies := sr.cloneCombatants(sr.config.EnemyTemplates)
 
@@ -156,24 +139,13 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	if initialFear < 0 {
 		initialFear = len(players)
 	}
+	state := models.NewCombatState(players, enemies, sr.config.InitialHope, initialFear, sr.config.SpotlightThreshold)
 
-	// Create combat state
-	state := models.NewCombatState(
-		players,
-		enemies,
-		sr.config.InitialHope,
-		initialFear,
-		sr.config.SpotlightThreshold,
-	)
-
-	// Create engine components
 	dice := engine.NewStandardDiceRoller(sr.rng)
 	spotlight := engine.NewHybridSpotlightSelector(sr.rng, sr.config.SpotlightWeightFactor)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
 	combatEngine.SetDeathMove(sr.config.PlayerStrategy.DeathMove)
 	combatEngine.SetAreaTargetLimit(sr.config.AreaTargets)
-
-	// Set adversary registry if provided (enables summoning)
 	if sr.config.AdversaryRegistry != nil {
 		combatEngine.SetAdversaryRegistry(sr.config.AdversaryRegistry)
 	}
@@ -181,10 +153,7 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	decisionMaker := strategy.NewUnifiedDecisionMaker(sr.rng, sr.config.PlayerStrategy, sr.config.EnemyStrategy)
 	decisionMaker.SetAreaTargets(sr.config.AreaTargets)
 
-	// Run combat (pass enemy Fear usage strategy for aggressive spotlight grabs)
-	outcome := combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)
-
-	return outcome
+	return combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)
 }
 
 func (sr *SimulationRunner) cloneCombatants(templates []*models.Combatant) []*models.Combatant {

@@ -143,12 +143,16 @@
     },
     "Goading Strike": {
       "category": "status_application",
-      "fear_cost": 1,
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "cost_on_success": true,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
-          "dice_formula": "1d10",
-          "damage_type": "physical"
+          "standard_attack": true,
+          "damage_type": "physical",
+          "description": "Standard attack"
         },
         {
           "category": "FeatureEffectApplyTaunt",
@@ -174,12 +178,18 @@
     "Bite": {
       "category": "damage_plus_status",
       "stress_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
           "dice_formula": "3d4+10",
           "damage_type": "physical",
           "description": "Deal 3d4+10 physical damage"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "description": "Restrained until they break free with a Strength Roll"
         }
       ]
     },
@@ -198,25 +208,31 @@
     },
     "Double Strike": {
       "category": "extra_attack",
-      "fear_cost": 1,
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
-          "dice_formula": "2d6",
+          "standard_attack": true,
           "damage_type": "physical",
-          "description": "Make two attacks"
+          "target_type": "aoe",
+          "description": "Standard attack against two targets"
         }
       ]
     },
     "Deadly Shot": {
       "category": "high_damage",
-      "fear_cost": 1,
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "cost_on_success": true,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
-          "dice_formula": "3d10",
+          "dice_formula": "3d4+8",
           "damage_type": "physical",
-          "description": "3d10 ranged damage"
+          "description": "3d4+8 physical (SRD also requires a Vulnerable target, not modeled)"
         }
       ]
     },
@@ -248,7 +264,7 @@
     },
     "Guards, Seize Them!": {
       "category": "summoning",
-      "fear_cost": 2,
+      "fear_cost": 0,
       "effects": [
         {
           "category": "FeatureEffectSummonAllies",
@@ -256,7 +272,9 @@
           "dice_formula": "1d4",
           "description": "Summon 1d4 Bladed Guards"
         }
-      ]
+      ],
+      "stress_cost": 1,
+      "max_uses": 1
     },
     "Overwhelming Force": {
       "category": "passive_knockback",
@@ -266,6 +284,8 @@
     "Venomous Stinger": {
       "category": "poison_attack",
       "fear_cost": 1,
+      "cost_on_success": true,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -283,6 +303,7 @@
     "Hobbling Strike": {
       "category": "direct_damage_vulnerable",
       "stress_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDirectDamage",
@@ -299,6 +320,8 @@
     "Hobbling Shot": {
       "category": "ranged_hobble",
       "stress_cost": 1,
+      "cost_on_success": true,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -323,15 +346,13 @@
     "Detain": {
       "category": "restrain",
       "stress_cost": 1,
+      "cost_on_success": true,
+      "dc_type": "target",
       "effects": [
         {
-          "category": "FeatureEffectDamage",
-          "dice_formula": "1d6",
-          "damage_type": "physical"
-        },
-        {
           "category": "FeatureEffectApplyRestrained",
-          "duration": "until_cleared"
+          "duration": "until_cleared",
+          "description": "Restrained until they break free"
         }
       ]
     },
@@ -349,6 +370,7 @@
     "Poison Strike": {
       "category": "poison_attack",
       "fear_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -375,6 +397,7 @@
     "Stunning Blow": {
       "category": "stun",
       "fear_cost": 2,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -390,6 +413,7 @@
     "Reckless Attack": {
       "category": "high_damage",
       "fear_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -401,6 +425,7 @@
     "Shield Bash": {
       "category": "damage_stun",
       "stress_cost": 1,
+      "dc_type": "target",
       "effects": [
         {
           "category": "FeatureEffectDamage",
@@ -412,13 +437,5656 @@
           "duration": "1_turn"
         }
       ]
+    },
+    "\"Get Over Here!\"": {
+      "generated": true,
+      "source": "Cursed Merfolk",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_hit",
+      "dc_type": "target"
+    },
+    "Adrenaline Burst": {
+      "generated": true,
+      "source": "Weaponmaster",
+      "category": "hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 2,
+          "target_type": "self"
+        }
+      ],
+      "max_uses": 1
+    },
+    "Arcane Artillery": {
+      "generated": true,
+      "source": "War Wizard",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Arcane Form": {
+      "generated": true,
+      "source": "Minor Chaos Elemental",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Aura of Doom": {
+      "generated": true,
+      "source": "Fallen Shock Troop",
+      "category": "hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Avalanche": {
+      "generated": true,
+      "source": "Young Ice Dragon",
+      "category": "applyvulnerable+feargenerate",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Avalanche Tail": {
+      "generated": true,
+      "source": "Volcanic Dragon: Obsidian Predator",
+      "category": "applyvulnerable+areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6+4",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Backbreaker": {
+      "generated": true,
+      "source": "Redcap Breaker",
+      "category": "applyrestrained+damage+hpheal",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d4+10",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Ball Lightning": {
+      "generated": true,
+      "source": "Storm Titan",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d6",
+          "damage_type": "magic"
+        }
+      ]
+    },
+    "Banshee::Terrifying": {
+      "generated": true,
+      "source": "Banshee",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Bark at the Moon": {
+      "generated": true,
+      "source": "Berserker Alpha",
+      "category": "hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "max_uses": 1
+    },
+    "Beam of Decay": {
+      "generated": true,
+      "source": "Arch-Necromancer",
+      "category": "applyvulnerable+areadamage+feargenerate+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 2,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d20+12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "strength",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Bear Hug": {
+      "generated": true,
+      "source": "Cephilith Abomination",
+      "category": "applyrestrained+applyvulnerable+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Bee-Ruption": {
+      "generated": true,
+      "source": "Hive Walker",
+      "category": "applyrestrained+directdamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "1d8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Blade Fling": {
+      "generated": true,
+      "source": "Dire Pangolati",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+10",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Blade Spin": {
+      "generated": true,
+      "source": "Dire Pangolati",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Blend In": {
+      "generated": true,
+      "source": "Sylvan Soldier",
+      "category": "applyhidden",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyHidden",
+          "duration": "until_cleared",
+          "target_type": "self"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Blizzard Breath": {
+      "generated": true,
+      "source": "Young Ice Dragon",
+      "category": "applyrestrained+areadamage+stressinflict",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6+5",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Blood Honey": {
+      "generated": true,
+      "source": "Hive Walker",
+      "category": "applyrestrained+areadamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Blood in the Water": {
+      "generated": true,
+      "source": "Shark",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Bloodsuckers": {
+      "generated": true,
+      "source": "Vampire Bat Swarm",
+      "category": "directdamage+hpheal",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "magnitude": 1,
+          "description": "Target marks 1 HP"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Boiling Blast": {
+      "generated": true,
+      "source": "Kraken",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6+9",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Bone Whip Strike": {
+      "generated": true,
+      "source": "Dullahan",
+      "category": "applyvulnerable+directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d4+10",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Brain Drain": {
+      "generated": true,
+      "source": "Deep Dweller",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ]
+    },
+    "Bramble Patch": {
+      "generated": true,
+      "source": "Dryad",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d6+2",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Breath of Fire": {
+      "generated": true,
+      "source": "Chimera",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 20
+        }
+      ]
+    },
+    "Broken Magic": {
+      "generated": true,
+      "source": "Soul-Shattered Mage",
+      "category": "applyvulnerable+directdamage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d6",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Burrowing": {
+      "generated": true,
+      "source": "Landshark",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        },
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Call of the Deep": {
+      "generated": true,
+      "source": "Deep Dweller",
+      "category": "summonallies",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Cursed Merfolk",
+          "description": "Summon 1d4 Cursed Merfolk",
+          "dice_formula": "1d4",
+          "spotlight_all": true
+        }
+      ]
+    },
+    "Cavalry Charge": {
+      "generated": true,
+      "source": "Knight of the Realm",
+      "category": "damage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8+4",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Cephilith Priest::Psychic Blast": {
+      "generated": true,
+      "source": "Cephilith Priest",
+      "category": "applyvulnerable+directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d10+5",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        }
+      ]
+    },
+    "Cephilith Titan::Terrifying": {
+      "generated": true,
+      "source": "Cephilith Titan",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Cerebral Incursion": {
+      "generated": true,
+      "source": "Cephilith Priest",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 3,
+          "reaction_trait": "strength"
+        }
+      ]
+    },
+    "Chaos Lash": {
+      "generated": true,
+      "source": "Demon Lord Berzug",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d20",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Chaotic Flux": {
+      "generated": true,
+      "source": "Jagged Knife Hexer",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d6+3",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Chill Touch": {
+      "generated": true,
+      "source": "Entombed Necropriest",
+      "category": "damage+feargenerate+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Chop Happy": {
+      "generated": true,
+      "source": "Redcap Butcher",
+      "category": "areadamage+feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Clear the Decks": {
+      "generated": true,
+      "source": "Pirate Tough",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d4",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Cloaked": {
+      "generated": true,
+      "source": "Jagged Knife Shadow",
+      "category": "applyhidden",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyHidden",
+          "duration": "until_cleared",
+          "target_type": "self"
+        }
+      ]
+    },
+    "Clutch": {
+      "generated": true,
+      "source": "Wyvern",
+      "category": "applyrestrained",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Comatize": {
+      "generated": true,
+      "source": "Cephilith Hatchling",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Concentrate Fire": {
+      "generated": true,
+      "source": "Vault Guardian Turret",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Conflagration": {
+      "generated": true,
+      "source": "Fallen Sorcerer",
+      "category": "directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d10+6",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Constrict": {
+      "generated": true,
+      "source": "Water Mother",
+      "category": "applyrestrained+areadamage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d8+8",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Constriction": {
+      "generated": true,
+      "source": "Lamia",
+      "category": "applyrestrained+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "reaction_trait": "finesse"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "reaction_trait": "finesse"
+        }
+      ]
+    },
+    "Construct::Trample": {
+      "generated": true,
+      "source": "Construct",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Corpse Whisperer": {
+      "generated": true,
+      "source": "Valdenhax",
+      "category": "stressclear",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Coup de Grace": {
+      "generated": true,
+      "source": "Jagged Knife Lieutenant",
+      "category": "damage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+12",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Cracked Scales": {
+      "generated": true,
+      "source": "Volcanic Dragon: Molten Scourge",
+      "category": "feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Crimson Lepus::Terrifying": {
+      "generated": true,
+      "source": "Crimson Lepus",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Crown of Serpents": {
+      "generated": true,
+      "source": "Gorgon",
+      "category": "damage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d10+4",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Crunch!": {
+      "generated": true,
+      "source": "Cephilith Abomination",
+      "category": "directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d12",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Crushing Grasp": {
+      "generated": true,
+      "source": "Roc",
+      "category": "applyrestrained+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Cryptimoth::Terrifying": {
+      "generated": true,
+      "source": "Cryptimoth",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Cut to the Bone": {
+      "generated": true,
+      "source": "Skeleton Knight",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Darkfang Envenomation": {
+      "generated": true,
+      "source": "Darkweave Queen",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Darkweave Venom": {
+      "generated": true,
+      "source": "Darkweave Crawler",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Deadly Companion": {
+      "generated": true,
+      "source": "Giant Beastmaster",
+      "category": "summonallies",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Bear",
+          "description": "Summon a Bear",
+          "magnitude": 1,
+          "spotlight_all": true
+        }
+      ],
+      "max_uses": 2
+    },
+    "Deadly Dive": {
+      "generated": true,
+      "source": "Giant Eagle",
+      "category": "applyvulnerable+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d10+2",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Deadly Drop": {
+      "generated": true,
+      "source": "Giant Eagle",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d20",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Deep Dweller::Psychic Blast": {
+      "generated": true,
+      "source": "Deep Dweller",
+      "category": "applyvulnerable+directdamage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d10+4",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        }
+      ]
+    },
+    "Demon of Hubris::Terrifying": {
+      "generated": true,
+      "source": "Demon of Hubris",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Demonic Rage": {
+      "generated": true,
+      "source": "Shapeshifting Fiend Revealed",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Desperate Rampage": {
+      "generated": true,
+      "source": "Volcanic Dragon: Ashen Tyrant",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d20+2",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Devour": {
+      "generated": true,
+      "source": "Ravenous Mockery",
+      "category": "applyrestrained",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Disgorge Reality Flotsam": {
+      "generated": true,
+      "source": "Outer Realms Corrupter",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "knowledge"
+        }
+      ]
+    },
+    "Dive Bomb": {
+      "generated": true,
+      "source": "Falcon",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Dive-Bomb": {
+      "generated": true,
+      "source": "Volcanic Dragon: Obsidian Predator",
+      "category": "areadamage+hopedrain+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d10+6",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Divine Volley": {
+      "generated": true,
+      "source": "Hallowed Archer",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Doombringer": {
+      "generated": true,
+      "source": "Fallen Warlord: Realm-Breaker",
+      "category": "hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Double Claw": {
+      "generated": true,
+      "source": "Chimera",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Drag and Bag": {
+      "generated": true,
+      "source": "Ahuizotl",
+      "category": "applyrestrained",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
+    },
+    "Dragon Mother Mitera::Tail Swipe": {
+      "generated": true,
+      "source": "Dragon Mother Mitera",
+      "category": "applyvulnerable+areadamage+hpheal+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d20+10",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Draining Bite": {
+      "generated": true,
+      "source": "Vampire",
+      "category": "damage+hopedrain+hpheal+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "5d4",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Dread Honk": {
+      "generated": true,
+      "source": "Fowlbear",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Dreadhowl": {
+      "generated": true,
+      "source": "Demonic Hound Pack",
+      "category": "hopedrain+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Dream Petal Poison": {
+      "generated": true,
+      "source": "Sprite",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "reaction_trait": "presence"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Drin Essence": {
+      "generated": true,
+      "source": "Harbinger of Famine",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Drowning Embrace": {
+      "generated": true,
+      "source": "Greater Water Elemental",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Earth-Shaking Roar": {
+      "generated": true,
+      "source": "Tyrannosaurus",
+      "category": "hopedrain+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Eat the World": {
+      "generated": true,
+      "source": "Water Mother",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        }
+      ]
+    },
+    "Elephant::Trample": {
+      "generated": true,
+      "source": "Elephant",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d10+3",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Empty Husk": {
+      "generated": true,
+      "source": "Entombed Empress",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Enchanting Song": {
+      "generated": true,
+      "source": "Siren",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Enervating Blast": {
+      "generated": true,
+      "source": "Cult Adept",
+      "category": "damage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Entangling Entrails": {
+      "generated": true,
+      "source": "Viscera Sucker",
+      "category": "applyrestrained",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
+    },
+    "Escape Plan": {
+      "generated": true,
+      "source": "Masked Thief",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 13
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 13
+        }
+      ]
+    },
+    "Ethereal Form": {
+      "generated": true,
+      "source": "Guahalan Spirit Beast",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Everyone Has a Price": {
+      "generated": true,
+      "source": "Merchant Baron",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "reaction_trait": "presence",
+          "reaction_dc": 17
+        }
+      ]
+    },
+    "Explosion": {
+      "generated": true,
+      "source": "Minor Fire Elemental",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Eye of the Sage": {
+      "generated": true,
+      "source": "Centaur Warden",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Fascinating": {
+      "generated": true,
+      "source": "Will-o’-the-Wisps",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 13
+        }
+      ]
+    },
+    "Fearsome": {
+      "generated": true,
+      "source": "Dragon Mother Mitera",
+      "category": "feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Feed on Followers": {
+      "generated": true,
+      "source": "Head Vampire",
+      "category": "hpheal",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Fiendish Nature": {
+      "generated": true,
+      "source": "Shapeshifting Fiend",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Fiendish Resistance": {
+      "generated": true,
+      "source": "Shapeshifting Fiend Revealed",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Flail Swipe": {
+      "generated": true,
+      "source": "Mountain Troll",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8+2",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Flame Breath": {
+      "generated": true,
+      "source": "Young Fire Dragon",
+      "category": "applyvulnerable+areadamage+hpheal+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d8+3",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Flesh Ripper": {
+      "generated": true,
+      "source": "Rugaru",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "1d12+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Focused Volley": {
+      "generated": true,
+      "source": "Archer Squadron",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d10+4",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Forceful Eruption": {
+      "generated": true,
+      "source": "Landshark Behemoth",
+      "category": "applyvulnerable+feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Forest Control": {
+      "generated": true,
+      "source": "Sylvan Soldier",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10",
+          "damage_type": "physical",
+          "reaction_trait": "agility",
+          "reaction_dc": 15
+        }
+      ]
+    },
+    "Frenzied Feeding": {
+      "generated": true,
+      "source": "Cipactli",
+      "category": "directdamage+hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d6",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Frog Spawn": {
+      "generated": true,
+      "source": "Harbinger of Pestilence",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Frost Titan::Bull Rush": {
+      "generated": true,
+      "source": "Frost Titan",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d10+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Frozen Scales": {
+      "generated": true,
+      "source": "Young Ice Dragon",
+      "category": "stressclear+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        },
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "trigger": "on_hit_taken"
+    },
+    "Gaze into the Abyss": {
+      "generated": true,
+      "source": "Demon Lord Berzug",
+      "category": "applyrestrained+applyvulnerable+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "reaction_trait": "presence"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "reaction_trait": "presence"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Ghost": {
+      "generated": true,
+      "source": "Spectral Archer",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Ghost Storm": {
+      "generated": true,
+      "source": "Poltergeist",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d12+2",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Giant Brawler::Battering Ram": {
+      "generated": true,
+      "source": "Giant Brawler",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d4+3",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Giant Octopus::Grapple": {
+      "generated": true,
+      "source": "Giant Octopus",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Gigaton Splash": {
+      "generated": true,
+      "source": "Gargantuan Sea Turtle",
+      "category": "applyvulnerable+areadamage+feargenerate+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Gigaton Stomp": {
+      "generated": true,
+      "source": "Xero the Castle Killer",
+      "category": "applyrestrained+areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d12",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "God Rays": {
+      "generated": true,
+      "source": "High Seraph",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6+12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Gore": {
+      "generated": true,
+      "source": "Minotaur Wrecker",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Grab and Drag": {
+      "generated": true,
+      "source": "Deeproot Defender",
+      "category": "applyrestrained+damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d6+2",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Grapple and Drown": {
+      "generated": true,
+      "source": "Kraken",
+      "category": "applyrestrained+applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Grasping Chains": {
+      "generated": true,
+      "source": "Entombed Empress",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Grave Blade": {
+      "generated": true,
+      "source": "Spectral Guardian",
+      "category": "damage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d10+6",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Greater Specter": {
+      "generated": true,
+      "source": "Whisper Wraith",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Green Ooze::Envelop": {
+      "generated": true,
+      "source": "Green Ooze",
+      "category": "damage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Ground Slam": {
+      "generated": true,
+      "source": "Deeproot Defender",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Ground-Breaking": {
+      "generated": true,
+      "source": "Fire Titan Warlord",
+      "category": "directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d10+10",
+          "damage_type": "physical",
+          "reaction_trait": "agility",
+          "reaction_dc": 16
+        }
+      ]
+    },
+    "Ground-Breaking Stomp": {
+      "generated": true,
+      "source": "Gargantuan War Machine",
+      "category": "applyvulnerable+directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d12",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 16
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 16
+        }
+      ]
+    },
+    "Guahalan Sacrifice": {
+      "generated": true,
+      "source": "Guahalan Alebrujo",
+      "category": "hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Guardian": {
+      "generated": true,
+      "source": "Dire Bat",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+2",
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_damage_taken",
+      "dc_type": "target"
+    },
+    "Hail of Boulders": {
+      "generated": true,
+      "source": "Cave Ogre",
+      "category": "areadamage+feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d10+2",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Hammer Smash": {
+      "generated": true,
+      "source": "Stone Titan",
+      "category": "armordamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Mark an Armor Slot without its benefit, or an HP if none is left"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Head Vampire::Terrifying": {
+      "generated": true,
+      "source": "Head Vampire",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Heel Turn": {
+      "generated": true,
+      "source": "Masque Muerte",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Hellsong": {
+      "generated": true,
+      "source": "Fellmounted Shadow King",
+      "category": "feargenerate+hopedrain+stressinflict",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 18
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 18
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 2
+        }
+      ]
+    },
+    "Here Comes the Boom": {
+      "generated": true,
+      "source": "Roc",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 20
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 20
+        }
+      ]
+    },
+    "Hold Them Down": {
+      "generated": true,
+      "source": "Jagged Knife Kneebreaker",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Howl at the Moon": {
+      "generated": true,
+      "source": "Rugaru",
+      "category": "applyvulnerable+hopedrain+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 15
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 15
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 15
+        }
+      ]
+    },
+    "Howl of the Guahala": {
+      "generated": true,
+      "source": "Guahalan Alebrujo",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Huge Green Ooze::Envelop": {
+      "generated": true,
+      "source": "Huge Green Ooze",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Hurl Rock": {
+      "generated": true,
+      "source": "Fire Titan",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d12",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Ignite": {
+      "generated": true,
+      "source": "Red Ooze",
+      "category": "applyignite+damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8",
+          "damage_type": "magic"
+        },
+        {
+          "category": "FeatureEffectApplyIgnite",
+          "duration": "until_cleared",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Impersonte": {
+      "generated": true,
+      "source": "Shapeshifting Fiend",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Incorporeal": {
+      "generated": true,
+      "source": "Phantom",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Iron Dice": {
+      "generated": true,
+      "source": "Harbinger of War",
+      "category": "damage+directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectDirectDamage",
+          "magnitude": 1,
+          "description": "Target marks 1 HP"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Javelin": {
+      "generated": true,
+      "source": "Entombed Elite Guard",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Ka-Chomp": {
+      "generated": true,
+      "source": "Sawtoothed Gillbeast",
+      "category": "armordamage+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Mark an Armor Slot without its benefit, or an HP if none is left"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Kneecapper": {
+      "generated": true,
+      "source": "Redcap Breaker",
+      "category": "applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Knife Thrower": {
+      "generated": true,
+      "source": "Redcap Butcher",
+      "category": "applyhidden+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyHidden",
+          "duration": "until_cleared",
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Last Grasp": {
+      "generated": true,
+      "source": "Entombed Necropriest",
+      "category": "applyrestrained+feargenerate",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Leaping Jugular Strike": {
+      "generated": true,
+      "source": "Crimson Lepus",
+      "category": "applyvulnerable+directdamage+hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d20",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Life Leech": {
+      "generated": true,
+      "source": "Lamia",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
+    },
+    "Lightning Strike": {
+      "generated": true,
+      "source": "Cloud Titan",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d10+14",
+          "damage_type": "magic"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Lock Up": {
+      "generated": true,
+      "source": "Vault Guardian Gaoler",
+      "category": "applyrestrained",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Locking Jaws": {
+      "generated": true,
+      "source": "Manticore",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Locust Swarm": {
+      "generated": true,
+      "source": "Harbinger of Pestilence",
+      "category": "directdamage",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d10",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Maddening Cacophony": {
+      "generated": true,
+      "source": "Flock of Feather Fiends",
+      "category": "applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Magic Burst": {
+      "generated": true,
+      "source": "Chaos Skull",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d6+4",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Mana Bolt": {
+      "generated": true,
+      "source": "Vault Guardian Sentinel",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8+20",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Many Mouths": {
+      "generated": true,
+      "source": "Cipactli",
+      "category": "areadamage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Mark Target": {
+      "generated": true,
+      "source": "Vault Guardian Turret",
+      "category": "applyhidden",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyHidden",
+          "duration": "until_cleared",
+          "target_type": "self"
+        }
+      ]
+    },
+    "Melting Breath": {
+      "generated": true,
+      "source": "Ruby Dragon",
+      "category": "areadamage+armordamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d12+10",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Mark an Armor Slot without its benefit, or an HP if none is left"
+        }
+      ]
+    },
+    "Merely a Projection": {
+      "generated": true,
+      "source": "Cephilith Titan",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        },
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "damage_type": "physical",
+          "description": "Immune to physical damage"
+        }
+      ]
+    },
+    "Mighty Swing": {
+      "generated": true,
+      "source": "Hill Titan",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Mind Dance": {
+      "generated": true,
+      "source": "Juvenile Flickerfly",
+      "category": "feargenerate",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Mockery": {
+      "generated": true,
+      "source": "Courtier",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "reaction_trait": "presence",
+          "reaction_dc": 14
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "reaction_trait": "presence",
+          "reaction_dc": 14
+        }
+      ]
+    },
+    "More Where That Came From": {
+      "generated": true,
+      "source": "Jagged Knife Lieutenant",
+      "category": "summonallies",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Jagged Knife Lackey",
+          "description": "Summon three Jagged Knife Lackeys (SRD has no limit; capped to once per scene so the AI does not spam a free summon)",
+          "magnitude": 3
+        }
+      ],
+      "max_uses": 1
+    },
+    "Mortal Hunter::Terrifying": {
+      "generated": true,
+      "source": "Mortal Hunter",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Mucosal Contamination": {
+      "generated": true,
+      "source": "Deep Dweller",
+      "category": "applyrestrained+directdamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d8",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Necroplasmic": {
+      "generated": true,
+      "source": "Ghastly Legion",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "damage_type": "physical",
+          "description": "Immune to physical damage"
+        }
+      ]
+    },
+    "Neurotoxic Spore Cloud": {
+      "generated": true,
+      "source": "Fungispunj Sporophore",
+      "category": "applypoison+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyPoison",
+          "duration": "until_cleared",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Nightmare Shroud": {
+      "generated": true,
+      "source": "Whisper Wraith",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Nightmare Tableau": {
+      "generated": true,
+      "source": "Fallen Sorcerer",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
+    },
+    "No Quarter": {
+      "generated": true,
+      "source": "Pirate Captain",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Obsidian Scales": {
+      "generated": true,
+      "source": "Volcanic Dragon: Obsidian Predator",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Octopus::Grapple": {
+      "generated": true,
+      "source": "Octopus",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Only Bones": {
+      "generated": true,
+      "source": "Skeleton Warrior",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Open the Gates of Death": {
+      "generated": true,
+      "source": "Arch-Necromancer",
+      "category": "summonallies",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Zombie Legion",
+          "description": "Summon a Zombie Legion",
+          "magnitude": 1,
+          "spotlight_all": true
+        }
+      ]
+    },
+    "Oracle of Doom::Terrifying": {
+      "generated": true,
+      "source": "Oracle of Doom",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Pack Attack": {
+      "generated": true,
+      "source": "Guahalan Shifter",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Paralyzing Shock": {
+      "generated": true,
+      "source": "Electric Eels",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Paralyzing Tail Spike": {
+      "generated": true,
+      "source": "Manticore",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d8",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Perfect Strike": {
+      "generated": true,
+      "source": "Perfected Zombie",
+      "category": "applyvulnerable+areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Perfected Zombie::Terrifying": {
+      "generated": true,
+      "source": "Perfected Zombie",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Petrify": {
+      "generated": true,
+      "source": "Basilisk",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Pick Off the Straggler": {
+      "generated": true,
+      "source": "Cult Fang",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "reaction_trait": "instinct"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Pick Your Target": {
+      "generated": true,
+      "source": "Spectral Archer",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8+12",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Pinning Strike": {
+      "generated": true,
+      "source": "Giant Beastmaster",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Pouncing Attack": {
+      "generated": true,
+      "source": "Manticore",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d20+6",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Pouncing Strike": {
+      "generated": true,
+      "source": "Panther",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Pronounce Fate": {
+      "generated": true,
+      "source": "Oracle of Doom",
+      "category": "directdamage+hopedrain",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d20+4",
+          "damage_type": "magic",
+          "reaction_trait": "knowledge",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 6,
+          "reaction_trait": "knowledge"
+        }
+      ]
+    },
+    "Psychic Scream": {
+      "generated": true,
+      "source": "Cephilith Titan",
+      "category": "directdamage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 22
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 22
+        }
+      ]
+    },
+    "Psychic Screech": {
+      "generated": true,
+      "source": "Cryptimoth",
+      "category": "applyvulnerable+directdamage+stressinflict",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 16,
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 16
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "instinct",
+          "reaction_dc": 16
+        }
+      ]
+    },
+    "Quaking Footfalls": {
+      "generated": true,
+      "source": "Cipactli",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Quick Hands": {
+      "generated": true,
+      "source": "Masked Thief",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Quicker Than She Looks": {
+      "generated": true,
+      "source": "Darkweave Queen",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Ravenous Mockery::Tongue Attack": {
+      "generated": true,
+      "source": "Ravenous Mockery",
+      "category": "applyrestrained",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Reanimator": {
+      "generated": true,
+      "source": "Fungispunj Sporophore",
+      "category": "hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 99,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Regeneration": {
+      "generated": true,
+      "source": "Hydra",
+      "category": "hpheal",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Reinforce": {
+      "generated": true,
+      "source": "Elite Soldier",
+      "category": "damage+stressclear",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d10+2",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Release the Hounds": {
+      "generated": true,
+      "source": "Fire Titan Warlord",
+      "category": "summonallies",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Demonic Hound Pack",
+          "description": "Summon two Demonic Hound Pack",
+          "magnitude": 2,
+          "spotlight_all": true
+        }
+      ]
+    },
+    "Remake Reality": {
+      "generated": true,
+      "source": "Minor Chaos Elemental",
+      "category": "directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "2d6+3",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Rend Asunder": {
+      "generated": true,
+      "source": "Brawny Zombie",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Rending Chomp": {
+      "generated": true,
+      "source": "Landshark",
+      "category": "armordamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Mark an Armor Slot without its benefit, or an HP if none is left"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Retaliation": {
+      "generated": true,
+      "source": "Demon of Wrath",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_damage_taken",
+      "dc_type": "target"
+    },
+    "Rip & Tear": {
+      "generated": true,
+      "source": "Guahalan Alebrujo",
+      "category": "damage+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Rip and Tear": {
+      "generated": true,
+      "source": "Brawny Zombie",
+      "category": "applyrestrained+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Rocket Punch": {
+      "generated": true,
+      "source": "Gargantuan War Machine",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "4d12+10",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Rockslide": {
+      "generated": true,
+      "source": "Greater Earth Elemental",
+      "category": "applyvulnerable+areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d12+5",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 19,
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 19
+        }
+      ]
+    },
+    "Rocky Ambush": {
+      "generated": true,
+      "source": "Stonewraith",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "physical",
+          "reaction_trait": "instinct",
+          "reaction_dc": 15
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "reaction_trait": "instinct",
+          "reaction_dc": 15
+        }
+      ]
+    },
+    "Scare Tactic": {
+      "generated": true,
+      "source": "Banshee",
+      "category": "hopedrain+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1
+        }
+      ],
+      "max_uses": 3
+    },
+    "Scorched Earth": {
+      "generated": true,
+      "source": "Minor Fire Elemental",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Screech": {
+      "generated": true,
+      "source": "Dire Bat",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Seed Barrage": {
+      "generated": true,
+      "source": "Oak Treant",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d10+5",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Shadow Grapple": {
+      "generated": true,
+      "source": "Severed Shadow",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Shadow Shackles": {
+      "generated": true,
+      "source": "Cult Adept",
+      "category": "applyrestrained",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Shadow Strangler": {
+      "generated": true,
+      "source": "Valdenhax",
+      "category": "stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Shadow Swarm": {
+      "generated": true,
+      "source": "Cryptimoth",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Shark::Terrifying": {
+      "generated": true,
+      "source": "Shark",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Shattering Might": {
+      "generated": true,
+      "source": "Volcanic Dragon: Molten Scourge",
+      "category": "damage+hopedrain+stressclear",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d8+1",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1
+        },
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Shattering Strike": {
+      "generated": true,
+      "source": "Fallen Warlord: Undefeated Champion",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Siphon Magic": {
+      "generated": true,
+      "source": "Chaos Skull",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Skeleton Knight::Terrifying": {
+      "generated": true,
+      "source": "Skeleton Knight",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Skilled Opportunist": {
+      "generated": true,
+      "source": "Perfected Zombie",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Skin-Crowling": {
+      "generated": true,
+      "source": "Darkweave Crawler",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Slash and Burn": {
+      "generated": true,
+      "source": "Young Fire Dragon",
+      "category": "feargenerate+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Sleep Toxin": {
+      "generated": true,
+      "source": "Lamia",
+      "category": "applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Smothering Grapple": {
+      "generated": true,
+      "source": "Waxwork Creation",
+      "category": "applyrestrained+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Specter": {
+      "generated": true,
+      "source": "Poltergeist",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Spectral Suplex": {
+      "generated": true,
+      "source": "Masque Muerte",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10+6",
+          "damage_type": "magic"
+        }
+      ]
+    },
+    "Spinning Serpent": {
+      "generated": true,
+      "source": "Glass Snake",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d6+1",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Spinning Strike": {
+      "generated": true,
+      "source": "Fire Titan Warlord",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Spitter": {
+      "generated": true,
+      "source": "Glass Snake",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d4",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Spooky": {
+      "generated": true,
+      "source": "Whisper Wraith",
+      "category": "feargenerate+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Squirt Ink": {
+      "generated": true,
+      "source": "Octopus",
+      "category": "applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Steam Breath": {
+      "generated": true,
+      "source": "Gargantuan Sea Turtle",
+      "category": "applyvulnerable+areadamage+stressinflict",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Stomp": {
+      "generated": true,
+      "source": "Tyrannosaurus",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d12",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Stonestrider": {
+      "generated": true,
+      "source": "Stonewraith",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "damage_type": "physical",
+          "description": "Immune to physical damage"
+        },
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "damage_type": "magic",
+          "description": "Immune to magic damage"
+        }
+      ]
+    },
+    "Storm Bringer": {
+      "generated": true,
+      "source": "Storm Titan",
+      "category": "applyvulnerable+areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d12",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "strength",
+          "half_on_success": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "strength"
+        }
+      ]
+    },
+    "Summon Worshippers": {
+      "generated": true,
+      "source": "Cephilith Titan",
+      "category": "summonallies",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Cephilith Abomination",
+          "description": "Summon 1d4 Cephilith Abomination",
+          "dice_formula": "1d4",
+          "spotlight_count": 1
+        }
+      ]
+    },
+    "Sunsear Arrows": {
+      "generated": true,
+      "source": "Gorgon",
+      "category": "applyhidden",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyHidden",
+          "duration": "until_cleared",
+          "target_type": "self"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Suppressing Blast": {
+      "generated": true,
+      "source": "Spellblade",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Suppressing Fire": {
+      "generated": true,
+      "source": "Archer Squadron",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6+3",
+          "damage_type": "physical",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Supreme Commander": {
+      "generated": true,
+      "source": "Harbinger of War",
+      "category": "summonallies",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Hallowed Soldier",
+          "description": "Summon 1d6 Hallowed Soldier",
+          "dice_formula": "1d6",
+          "spotlight_count": 1
+        }
+      ],
+      "max_uses": 1
+    },
+    "Swooping Attack": {
+      "generated": true,
+      "source": "Harpy",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d6",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Swooping Slash": {
+      "generated": true,
+      "source": "Griffin",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Swooping Strike": {
+      "generated": true,
+      "source": "Gargoyle",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Tag Team": {
+      "generated": true,
+      "source": "Masque Muerte",
+      "category": "applyrestrained",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Tail Bash": {
+      "generated": true,
+      "source": "Gargantuan Sea Turtle",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "standard_attack": true,
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Tail Swat": {
+      "generated": true,
+      "source": "Ahuizotl",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Take Off": {
+      "generated": true,
+      "source": "Giant Eagle",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d4+3",
+          "damage_type": "physical",
+          "reaction_trait": "agility"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Take Root": {
+      "generated": true,
+      "source": "Oak Treant",
+      "category": "applyrestrained",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ]
+    },
+    "Telekinetic Grasp": {
+      "generated": true,
+      "source": "Cephilith Priest",
+      "category": "applyrestrained",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Terrifying Chorus": {
+      "generated": true,
+      "source": "Hydra",
+      "category": "hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 2,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Terror Vision": {
+      "generated": true,
+      "source": "Scarecrow",
+      "category": "applyvulnerable+damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d8",
+          "damage_type": "magic"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn"
+        }
+      ]
+    },
+    "The Hunt Is On": {
+      "generated": true,
+      "source": "Head Vampire",
+      "category": "summonallies",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Vampire",
+          "description": "Summon 1d4 Vampire",
+          "dice_formula": "1d4",
+          "spotlight_all": true
+        }
+      ]
+    },
+    "The Weight of Opulence": {
+      "generated": true,
+      "source": "Catrin",
+      "category": "hopedrain",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "reaction_trait": "instinct"
+        }
+      ]
+    },
+    "Thorny Armor": {
+      "generated": true,
+      "source": "Stag Knight",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10+5",
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Thorny Cage": {
+      "generated": true,
+      "source": "Young Dryad",
+      "category": "applyrestrained+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Thunderclap": {
+      "generated": true,
+      "source": "Storm Titan",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Too Many Mouths": {
+      "generated": true,
+      "source": "Harbinger of Famine",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d6",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Tormented Screams": {
+      "generated": true,
+      "source": "Patchwork Zombie Hulk",
+      "category": "feargenerate+hopedrain+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 13
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence",
+          "reaction_dc": 13
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Triceratops::Bull Rush": {
+      "generated": true,
+      "source": "Triceratops",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d10",
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Triceratops::Tail Swipe": {
+      "generated": true,
+      "source": "Triceratops",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "5d6",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "half_on_success": true
+        }
+      ]
+    },
+    "Unleash Hellfire": {
+      "generated": true,
+      "source": "Vampire Lord",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d6",
+          "damage_type": "magic",
+          "target_type": "aoe"
+        }
+      ]
+    },
+    "Unliving": {
+      "generated": true,
+      "source": "Gargoyle",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Unmasking Death": {
+      "generated": true,
+      "source": "Masque Muerte",
+      "category": "stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "Unparalleled Skill": {
+      "generated": true,
+      "source": "Demon of Hubris",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Unyielding": {
+      "generated": true,
+      "source": "Zombie Legion",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Vampire Lord::Terrifying": {
+      "generated": true,
+      "source": "Vampire Lord",
+      "category": "feargenerate+hopedrain",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1,
+          "target_type": "aoe"
+        },
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": 1
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Vengeful Fate": {
+      "generated": true,
+      "source": "Oracle of Doom",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d10+4",
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Venom Surge": {
+      "generated": true,
+      "source": "Water Mother",
+      "category": "applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Venomous Bite": {
+      "generated": true,
+      "source": "Wyrmfiend",
+      "category": "applypoison+damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d4+4",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyPoison",
+          "duration": "until_cleared",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Venomous Tail Stinger": {
+      "generated": true,
+      "source": "Sandwyrm",
+      "category": "applyrestrained+applyvulnerable+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "3d10+2",
+          "damage_type": "physical",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "reaction_trait": "strength"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "1_turn",
+          "reaction_trait": "strength"
+        }
+      ]
+    },
+    "Vicious Reprisal": {
+      "generated": true,
+      "source": "Entombed Cat Beast",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "standard_attack": true,
+          "damage_type": "physical"
+        }
+      ],
+      "trigger": "on_damage_taken",
+      "dc_type": "target"
+    },
+    "Viscera Sucker::Lifesuck": {
+      "generated": true,
+      "source": "Viscera Sucker",
+      "category": "directdamage+hpheal",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "magnitude": 1,
+          "description": "Target marks 1 HP"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self"
+        }
+      ]
+    },
+    "Volcanic Dragon: Molten Scourge::Eruption": {
+      "generated": true,
+      "source": "Volcanic Dragon: Molten Scourge",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d6+6",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Volcanic Fissure": {
+      "generated": true,
+      "source": "Ruby Dragon",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d8+5",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Wall of Water": {
+      "generated": true,
+      "source": "Plesiosaurus",
+      "category": "areadamage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d10",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 18
+        }
+      ]
+    },
+    "War Horn": {
+      "generated": true,
+      "source": "Frost Titan",
+      "category": "applyvulnerable+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "reaction_trait": "presence"
+        }
+      ]
+    },
+    "War Wizard::Eruption": {
+      "generated": true,
+      "source": "War Wizard",
+      "category": "areadamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d10",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 14,
+          "half_on_success": true
+        }
+      ]
+    },
+    "Warding Sphere": {
+      "generated": true,
+      "source": "War Wizard",
+      "category": "damage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6",
+          "damage_type": "magic"
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Wards": {
+      "generated": true,
+      "source": "Chaos Skull",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Warped Fortitude": {
+      "generated": true,
+      "source": "Failed Experiment",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "physical",
+          "description": "Resistant to physical damage"
+        }
+      ]
+    },
+    "Water Jet": {
+      "generated": true,
+      "source": "Greater Water Elemental",
+      "category": "damage+stressinflict",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d4+7",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Wax Ball": {
+      "generated": true,
+      "source": "Waxwork Creation",
+      "category": "applyrestrained+damage",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12+2",
+          "damage_type": "physical"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Weak Structure": {
+      "generated": true,
+      "source": "Construct",
+      "category": "directdamage",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "magnitude": 1,
+          "description": "Target marks 1 HP"
+        }
+      ],
+      "trigger": "on_damage_taken"
+    },
+    "Whirlwind": {
+      "generated": true,
+      "source": "Adult Flickerfly",
+      "category": "directdamage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDirectDamage",
+          "dice_formula": "3d8",
+          "damage_type": "physical",
+          "target_type": "aoe"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Wind Worker": {
+      "generated": true,
+      "source": "Cloud Titan",
+      "category": "damage",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "4d6+8",
+          "damage_type": "physical"
+        }
+      ]
+    },
+    "Witch Barrier": {
+      "generated": true,
+      "source": "Owl Witch",
+      "category": "resistance",
+      "fear_cost": 0,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 50,
+          "damage_type": "magic",
+          "description": "Resistant to magic damage"
+        }
+      ]
+    },
+    "Withering Touch": {
+      "generated": true,
+      "source": "Harbinger of Famine",
+      "category": "hopedrain+stressinflict",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2
+        },
+        {
+          "category": "FeatureEffectHopeDrain",
+          "magnitude": 1
+        }
+      ]
+    },
+    "Wrap in Shadow-Silk": {
+      "generated": true,
+      "source": "Darkweave Spinner",
+      "category": "applyrestrained+applyvulnerable",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "until_cleared"
+        }
+      ],
+      "dc_type": "target"
+    },
+    "Young Fire Dragon::Eruption": {
+      "generated": true,
+      "source": "Young Fire Dragon",
+      "category": "applyvulnerable",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "target_type": "aoe",
+          "reaction_trait": "agility"
+        }
+      ]
+    },
+    "Arch-Necromancer::Dance of Death": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4 allies; their attacks deal half damage",
+          "dice_formula": "1d4",
+          "half_damage": true
+        }
+      ]
+    },
+    "Knight of the Realm::For the Realm!": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4+1 allies; their attacks deal half damage",
+          "magnitude": 1,
+          "dice_formula": "1d4",
+          "half_damage": true
+        }
+      ]
+    },
+    "Mortal Hunter::Inevitable Death": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4 allies; their attacks deal half damage",
+          "dice_formula": "1d4",
+          "half_damage": true
+        }
+      ]
+    },
+    "Secret-Keeper::Seize Your Moment": {
+      "category": "ally_spotlight",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4 allies; their attacks deal half damage",
+          "dice_formula": "1d4",
+          "half_damage": true
+        }
+      ]
+    },
+    "Young Dryad::Voice of the Forest": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4 allies; their attacks deal half damage",
+          "dice_formula": "1d4",
+          "half_damage": true
+        }
+      ]
+    },
+    "High Seraph::We Are One": {
+      "category": "ally_spotlight",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Once per scene, spotlight all other adversaries; their attacks deal half damage",
+          "spotlight_all": true,
+          "half_damage": true
+        }
+      ],
+      "max_uses": 1
+    },
+    "Demon of Avarice::Money Is Time": {
+      "category": "ally_spotlight",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight 1d4+1 allies",
+          "magnitude": 1,
+          "dice_formula": "1d4"
+        }
+      ]
+    },
+    "Head Guard::Rally Guards": {
+      "category": "ally_spotlight",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight up to 2d4 allies (the Head Guard is already acting)",
+          "dice_formula": "2d4"
+        }
+      ]
+    },
+    "Spellblade::Move as a Unit": {
+      "category": "ally_spotlight",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight up to five allies",
+          "magnitude": 5
+        }
+      ]
+    },
+    "Entombed Empress::Deathless Obedience": {
+      "category": "ally_spotlight",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Up to three times per scene, spotlight any number of allies (combined damage not modelled)",
+          "spotlight_all": true
+        }
+      ],
+      "max_uses": 3
+    },
+    "Jagged Knife Lieutenant::Tactician": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "When spotlighted, mark a Stress to also spotlight two allies",
+          "magnitude": 2
+        }
+      ],
+      "trigger": "start_turn"
+    },
+    "Guahalan Fang Lord::Call of the Guahala": {
+      "category": "ally_spotlight",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight all Guahalan Shifters (combined damage not modelled)",
+          "spotlight_all": true,
+          "ally_name": "Guahalan Shifter"
+        }
+      ]
+    },
+    "Guahalan Spirit Singer::Rage of Spirits": {
+      "category": "ally_spotlight",
+      "fear_cost": 0,
+      "stress_cost": 1,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "Spotlight all Guahalan Spirit Beasts (combined damage not modelled)",
+          "spotlight_all": true,
+          "ally_name": "Guahalan Spirit Beast"
+        }
+      ]
+    },
+    "Sawtoothed Gillbeast::Feeding Frenzy": {
+      "category": "ally_spotlight",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectAllySpotlight",
+          "description": "When this Gillbeast hits, spend a Fear to spotlight all other Gillbeasts (SRD: when any creature marks HP)",
+          "spotlight_all": true,
+          "ally_name": "Sawtoothed Gillbeast"
+        }
+      ],
+      "trigger": "on_hit"
+    },
+    "Dryad::Grow Saplings": {
+      "category": "summoning",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Treant Sapling",
+          "description": "Grow three Treant Saplings, which immediately take the spotlight",
+          "magnitude": 3,
+          "spotlight_all": true
+        }
+      ]
+    },
+    "Darkweave Queen::Den Mother": {
+      "category": "summoning",
+      "fear_cost": 2,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Darkweave Crawler",
+          "description": "Once per scene, summon two Darkweave adversaries, which immediately take the spotlight",
+          "magnitude": 2,
+          "spotlight_all": true
+        }
+      ],
+      "max_uses": 1
+    },
+    "Guahalan Spirit Singer::Beast-Caller": {
+      "category": "summoning",
+      "fear_cost": 1,
+      "stress_cost": 0,
+      "passive": false,
+      "effects": [
+        {
+          "category": "FeatureEffectSummonAllies",
+          "summon_type": "Guahalan Spirit Beast",
+          "description": "Summon 2d4 Guahalan Spirit Beasts and immediately spotlight one",
+          "dice_formula": "2d4",
+          "spotlight_count": 1
+        }
+      ]
     }
   },
   "metadata": {
-    "version": "1.1",
-    "mapped_features": 33,
-    "total_features": 340,
-    "coverage": "9.7%",
-    "last_updated": "2026-01-07"
+    "version": "2.0",
+    "mapped_features": 339,
+    "total_features": 905,
+    "coverage": "47.4%",
+    "last_updated": "2026-11-18",
+    "note": "Keys are feature names, or Adversary::Feature when the same name carries different numbers. Entries with generated=true were derived from SRD 2.0 text by rule; hand-written ones take precedence."
   }
 }

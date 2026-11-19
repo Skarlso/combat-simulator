@@ -7,33 +7,46 @@ import (
 )
 
 func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
-	quantity := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return fmt.Errorf("failed to parse summon dice formula: %w", err)
-		}
-		quantity += notation.Roll(fr.dice)
+	quantity, err := fr.rollAmount(effect)
+	if err != nil {
+		return err
 	}
-
 	if quantity <= 0 {
 		return fmt.Errorf("summon quantity must be positive, got %d", quantity)
 	}
 
-	if len(effect.SummonPool) > 0 {
-		return fr.summonFromPool(effect.SummonPool, quantity, actor, state)
+	var summoned []*models.Combatant
+	switch {
+	case len(effect.SummonPool) > 0:
+		summoned, err = fr.summonFromPool(effect.SummonPool, quantity, actor, state)
+	case effect.SummonType != "" && fr.registry != nil:
+		summoned, err = fr.summonFromRegistry(effect.SummonType, quantity, actor, state)
+	default:
+		return fmt.Errorf("summon effect requires either SummonPool or SummonType with registry")
+	}
+	if err != nil {
+		return err
 	}
 
-	if effect.SummonType != "" && fr.registry != nil {
-		return fr.summonFromRegistry(effect.SummonType, quantity, actor, state)
-	}
-
-	return fmt.Errorf("summon effect requires either SummonPool or SummonType with registry")
+	fr.recordSummon(actor, summoned, state)
+	fr.queueSummonedSpotlights(effect, summoned, state)
+	return nil
 }
 
-func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int, actor *models.Combatant, state *models.CombatState) error {
+// queueSummonedSpotlights hands spotlights to "appear and immediately take the spotlight" arrivals
+func (fr *FeatureResolver) queueSummonedSpotlights(effect models.FeatureEffect, summoned []*models.Combatant, state *models.CombatState) {
+	count := effect.SpotlightCount
+	if effect.SpotlightAll {
+		count = len(summoned)
+	}
+	for i := 0; i < count && i < len(summoned); i++ {
+		state.QueueSpotlight(summoned[i], effect.HalfDamage)
+	}
+}
+
+func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int, actor *models.Combatant, state *models.CombatState) ([]*models.Combatant, error) {
 	if len(pool) == 0 {
-		return fmt.Errorf("summon pool is empty")
+		return nil, fmt.Errorf("summon pool is empty")
 	}
 
 	var summoned []*models.Combatant
@@ -50,11 +63,10 @@ func (fr *FeatureResolver) summonFromPool(pool []*models.Combatant, quantity int
 		summoned = append(summoned, clone)
 	}
 
-	fr.recordSummon(actor, summoned, state)
-	return nil
+	return summoned, nil
 }
 
-func (fr *FeatureResolver) summonFromRegistry(summonType string, quantity int, actor *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) summonFromRegistry(summonType string, quantity int, actor *models.Combatant, state *models.CombatState) ([]*models.Combatant, error) {
 	var summoned []*models.Combatant
 	for range quantity {
 		state.SummonCounter++
@@ -63,7 +75,7 @@ func (fr *FeatureResolver) summonFromRegistry(summonType string, quantity int, a
 
 		clone, err := fr.registry.CloneTemplate(summonType, uniqueID)
 		if err != nil {
-			return fmt.Errorf("failed to summon %s: %w", summonType, err)
+			return nil, fmt.Errorf("failed to summon %s: %w", summonType, err)
 		}
 
 		clone.Name = fmt.Sprintf("%s #%d", summonType, state.SummonedCounts[summonType])
@@ -71,8 +83,7 @@ func (fr *FeatureResolver) summonFromRegistry(summonType string, quantity int, a
 		summoned = append(summoned, clone)
 	}
 
-	fr.recordSummon(actor, summoned, state)
-	return nil
+	return summoned, nil
 }
 
 func (fr *FeatureResolver) recordSummon(actor *models.Combatant, summoned []*models.Combatant, state *models.CombatState) {

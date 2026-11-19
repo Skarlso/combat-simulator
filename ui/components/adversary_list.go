@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/data"
@@ -15,30 +16,34 @@ type AdversaryList struct {
 
 	Title       string
 	Adversaries []*models.Combatant
+	Registry    *parser.AdversaryRegistry
 	OnAdd       func(app.Context, *models.Combatant)
 	OnRemove    func(app.Context, int)
 
-	// Form state for adding new adversary
-	showForm    bool
-	sectionOpen map[string]bool
-	newName     string
-	newTier            string
-	newType            string
-	newDifficulty      int
-	newATK             int
-	newHP              int
-	newStress          int
-	newMinorThreshold  int
-	newMajorThreshold  int
-	newDamageDice      string
-	newMotives         string
-	newFeatures        []*models.AdversaryFeature
+	// Library picker state
+	showLibrary   bool
+	librarySearch string
+	libraryTier   string
+	libraryType   string
+	libraryAdds   int
+
+	showForm            bool
+	sectionOpen         map[string]bool
+	newName             string
+	newTier             string
+	newType             string
+	newDifficulty       int
+	newATK              int
+	newHP               int
+	newStress           int
+	newMinorThreshold   int
+	newMajorThreshold   int
+	newDamageDice       string
+	newMotives          string
+	newFeatures         []*models.AdversaryFeature
 	newIsSummonTemplate bool
 
-	showImport  bool
-	importText  string
-	importError string
-	importInfo  string
+	importer importPanel
 }
 
 // OnMount initializes default values
@@ -48,430 +53,290 @@ func (al *AdversaryList) OnMount(ctx app.Context) {
 
 // Render renders the adversary list
 func (al *AdversaryList) Render() app.UI {
-	return app.Div().
-		Class("adversary-list").
-		Body(
-			app.Div().
-				Class("list-header").
-				Body(
-					app.H3().Text(al.Title),
-					app.Button().
-						Class("btn btn-small").
-						Text("+ Add").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.showForm = !al.showForm
-							ctx.Update()
-						}),
-					app.Button().
-						Class("btn btn-small").
-						Text("Import JSON").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.showImport = !al.showImport
-							al.importError = ""
-							al.importInfo = ""
-							ctx.Update()
-						}),
-				),
-			app.If(al.showImport, func() app.UI {
-				return al.renderImportPanel()
+	return app.Div().Class("adversary-list").Body(
+		app.Div().Class("list-header").Body(
+			app.H3().Text(al.Title),
+			app.Button().Class(toggleClass("btn btn-small", al.showLibrary, "active")).Text("Library").OnClick(func(ctx app.Context, e app.Event) {
+				al.showLibrary = !al.showLibrary
+				ctx.Update()
 			}),
-			app.If(al.showForm, func() app.UI {
-				return al.renderAddForm()
+			app.Button().Class(toggleClass("btn btn-small", al.showForm, "active")).Text("+ Custom").OnClick(func(ctx app.Context, e app.Event) {
+				al.showForm = !al.showForm
+				ctx.Update()
 			}),
-			al.renderList(),
-		)
+			app.Button().Class(toggleClass("btn btn-small", al.importer.show, "active")).Text("Import JSON").OnClick(func(ctx app.Context, e app.Event) {
+				al.importer.toggle(ctx)
+			}),
+		),
+		app.If(al.showLibrary, func() app.UI { return al.renderLibraryPanel() }),
+		app.If(al.importer.show, func() app.UI {
+			return al.importer.render(
+				"Import Adversaries from JSON",
+				`Paste a JSON document matching {"adversaries":[...]} (same schema as data/daggerheart_adversaries-tier-1.json).`,
+				`{"adversaries": [{"name": "...", "tier": 1, ...}]}`,
+				al.runImport,
+			)
+		}),
+		app.If(al.showForm, func() app.UI { return al.renderAddForm() }),
+		al.renderList(),
+	)
 }
 
-func (al *AdversaryList) renderImportPanel() app.UI {
-	return app.Div().
-		Class("add-form").
-		Body(
-			app.H4().Text("Import Adversaries from JSON"),
-			app.P().Text(`Paste a JSON document matching {"adversaries":[...]} (same schema as data/daggerheart_adversaries-tier-1.json).`),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Textarea().
-						Style("width", "100%").
-						Style("min-height", "200px").
-						Style("font-family", "monospace").
-						Placeholder(`{"adversaries": [{"name": "...", "tier": 1, ...}]}`).
-						Rows(12).
-						Text(al.importText).
-						OnInput(func(ctx app.Context, e app.Event) {
-							al.importText = ctx.JSSrc().Get("value").String()
-						}),
-				),
-			app.If(al.importError != "", func() app.UI {
-				return app.Div().Class("validation-error").Text(al.importError)
-			}),
-			app.If(al.importInfo != "", func() app.UI {
-				return app.Div().Class("validation-info").Text(al.importInfo)
-			}),
-			app.Div().
-				Class("form-actions").
-				Body(
-					app.Button().
-						Class("btn btn-primary").
-						Text("Import").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.runImport(ctx)
-						}),
-					app.Button().
-						Class("btn btn-secondary").
-						Text("Close").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.showImport = false
-							ctx.Update()
-						}),
-				),
+var adversaryTypes = []string{"Bruiser", "Horde", "Leader", "Minion", "Ranged", "Skulk", "Social", "Solo", "Standard", "Support"}
+
+// renderLibraryPanel renders the searchable SRD stat block picker
+func (al *AdversaryList) renderLibraryPanel() app.UI {
+	if al.Registry == nil {
+		return app.Div().Class("library-panel").Body(
+			app.P().Class("empty-state").Text("Adversary library failed to load."),
 		)
+	}
+
+	templates := al.Registry.Templates()
+	query := strings.ToLower(strings.TrimSpace(al.librarySearch))
+	rows := make([]app.UI, 0, len(templates))
+	for _, t := range templates {
+		if al.libraryTier != "" && t.Tier != al.libraryTier {
+			continue
+		}
+		if al.libraryType != "" && t.AdversaryType != al.libraryType {
+			continue
+		}
+		if query != "" && !strings.Contains(strings.ToLower(t.Name), query) && !strings.Contains(strings.ToLower(t.Motives), query) {
+			continue
+		}
+		rows = append(rows, al.renderLibraryRow(t))
+	}
+
+	tierChips := []app.UI{al.renderTierChip("", "All")}
+	for i := 1; i <= 4; i++ {
+		tierChips = append(tierChips, al.renderTierChip(fmt.Sprintf("Tier %d", i), fmt.Sprintf("T%d", i)))
+	}
+
+	typeOptions := []selectOption{{"", "All types"}}
+	for _, t := range adversaryTypes {
+		typeOptions = append(typeOptions, selectOption{t, t})
+	}
+
+	var list app.UI = app.Div().Class("empty-state").Text("No stat blocks match.")
+	if len(rows) > 0 {
+		list = app.Div().Class("library-list").Body(rows...)
+	}
+
+	return app.Div().Class("library-panel").Body(
+		app.Div().Class("library-filters").Body(
+			app.Input().
+				Type("search").
+				Placeholder("Search name or tactics").
+				Value(al.librarySearch).
+				OnInput(func(ctx app.Context, e app.Event) {
+					al.librarySearch = ctx.JSSrc().Get("value").String()
+					ctx.Update()
+				}),
+			app.Div().Class("tabs tabs-compact").Body(tierChips...),
+			app.Select().
+				OnChange(func(ctx app.Context, e app.Event) {
+					al.libraryType = ctx.JSSrc().Get("value").String()
+					ctx.Update()
+				}).
+				Body(optionElements(typeOptions, al.libraryType)...),
+		),
+		app.Div().Class("library-count").Text(fmt.Sprintf("%d of %d stat blocks", len(rows), len(templates))),
+		list,
+	)
+}
+
+func (al *AdversaryList) renderTierChip(value, label string) app.UI {
+	return app.Button().
+		Class(toggleClass("tab", al.libraryTier == value, "active")).
+		Text(label).
+		OnClick(func(ctx app.Context, e app.Event) {
+			al.libraryTier = value
+			ctx.Update()
+		}, app.EventScope(value))
+}
+
+func (al *AdversaryList) renderLibraryRow(t *models.Combatant) app.UI {
+	return app.Div().Class("library-row").Body(
+		app.Div().Class("library-main").Body(
+			app.Div().Class("item-title").Body(
+				app.Text(t.Name),
+				app.Span().Class("tag").Text(fmt.Sprintf("%s %s", t.Tier, t.AdversaryType)),
+			),
+			app.Div().Class("chip-row").Body(
+				statChip("Diff", fmt.Sprintf("%d", t.Difficulty)),
+				statChip("HP", fmt.Sprintf("%d", t.HPMax)),
+				statChip("Stress", fmt.Sprintf("%d", t.StressMax)),
+				statChip("ATK", fmt.Sprintf("%+d", t.ATK)),
+				statChip("Dmg", t.DamageDice),
+				statChip("Thresholds", thresholdLabel(t.CustomThresholds)),
+				app.If(len(t.AdversaryFeatures) > 0, func() app.UI {
+					return statChip("Modelled", fmt.Sprintf("%d", len(t.AdversaryFeatures)))
+				}),
+			),
+		),
+		// go-app matches handlers by function pointer, so a captured name goes stale
+		// when filtering reorders rows; the DOM attribute is always current.
+		app.Button().
+			Class("btn btn-small btn-primary").
+			Text("Add").
+			DataSet("name", t.Name).
+			OnClick(func(ctx app.Context, e app.Event) {
+				al.addFromLibrary(ctx, ctx.JSSrc().Get("dataset").Get("name").String())
+			}),
+	)
+}
+
+func (al *AdversaryList) addFromLibrary(ctx app.Context, name string) {
+	al.libraryAdds++
+	clone, err := al.Registry.CloneTemplate(name, fmt.Sprintf("lib-%d-%s", al.libraryAdds, strings.ToLower(strings.ReplaceAll(name, " ", "-"))))
+	if err != nil {
+		app.Log("library add failed:", err)
+		return
+	}
+	if al.OnAdd != nil {
+		al.OnAdd(ctx, clone)
+	}
+	ctx.Update()
 }
 
 func (al *AdversaryList) runImport(ctx app.Context) {
-	al.importError = ""
-	al.importInfo = ""
-
-	if al.importText == "" {
-		al.importError = "Paste JSON before importing."
-		ctx.Update()
-		return
-	}
-
-	mappings, err := data.GetFeatureMappings()
-	if err != nil {
-		al.importError = fmt.Sprintf("failed to load feature mappings: %v", err)
-		ctx.Update()
-		return
-	}
-
-	ap, err := parser.NewAdversaryParserFromBytes(mappings)
-	if err != nil {
-		al.importError = fmt.Sprintf("failed to initialize parser: %v", err)
-		ctx.Update()
-		return
-	}
-
-	imported, err := ap.LoadAdversariesFromBytes([]byte(al.importText))
-	if err != nil {
-		al.importError = fmt.Sprintf("invalid JSON: %v", err)
-		ctx.Update()
-		return
-	}
-
-	if len(imported) == 0 {
-		al.importError = "no adversaries found in JSON"
-		ctx.Update()
-		return
-	}
-
-	if al.OnAdd != nil {
-		for _, adv := range imported {
-			al.OnAdd(ctx, adv)
+	load := func(raw []byte) ([]*models.Combatant, error) {
+		mappings, err := data.GetFeatureMappings()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load feature mappings: %w", err)
 		}
+		ap, err := parser.NewAdversaryParserFromBytes(mappings)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize parser: %w", err)
+		}
+		imported, err := ap.LoadAdversariesFromBytes(raw)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON: %w", err)
+		}
+		return imported, nil
 	}
-
-	al.importInfo = fmt.Sprintf("Imported %d adversaries.", len(imported))
-	al.importText = ""
-	ctx.Update()
+	al.importer.run(ctx, "adversaries", load, al.OnAdd)
 }
 
 // renderList renders the list of adversaries
 func (al *AdversaryList) renderList() app.UI {
 	if len(al.Adversaries) == 0 {
-		return app.Div().
-			Class("empty-state").
-			Text("No adversaries added yet")
+		return app.Div().Class("empty-state").Text("No adversaries added yet")
 	}
 
 	items := make([]app.UI, len(al.Adversaries))
 	for i, adversary := range al.Adversaries {
-		idx := i
-		templateTag := ""
-		if adversary.IsSummonTemplate {
-			templateTag = " [TEMPLATE]"
-		}
-		items[i] = app.Div().
-			Class("adversary-item combatant-item").
-			Body(
-				app.Div().
-					Class("adversary-info").
-					Body(
-						app.Strong().Text(fmt.Sprintf("%s %s - %s%s", adversary.Tier, adversary.AdversaryType, adversary.Name, templateTag)),
-						app.Br(),
-						app.Span().Text(fmt.Sprintf("Difficulty: %d | Thresholds: %s | HP: %d | Stress: %d | ATK: +%d",
-							adversary.Difficulty,
-							thresholdLabel(adversary.CustomThresholds),
-							adversary.HPMax,
-							adversary.StressMax,
-							adversary.ATK)),
-					),
-				app.Div().
-					Class("item-actions").
-					Body(
-						app.Button().
-							Class("btn btn-small").
-							Text("Duplicate").
-							OnClick(func(ctx app.Context, e app.Event) {
-								al.duplicateAdversary(ctx, idx)
-							}),
-						app.Button().
-							Class("btn btn-danger btn-small").
-							Text("Remove").
-							OnClick(func(ctx app.Context, e app.Event) {
-								if al.OnRemove != nil {
-									al.OnRemove(ctx, idx)
-								}
-							}),
-					),
-			)
+		items[i] = app.Div().Class("adversary-item combatant-item").Body(
+			app.Div().Class("adversary-info").Body(
+				app.Div().Class("item-title").Body(
+					app.Text(adversary.Name),
+					app.Span().Class("tag").Text(fmt.Sprintf("%s %s", adversary.Tier, adversary.AdversaryType)),
+					app.If(adversary.IsSummonTemplate, func() app.UI {
+						return app.Span().Class("tag tag-muted").Text("Template")
+					}),
+				),
+				app.Div().Class("chip-row").Body(
+					statChip("Diff", fmt.Sprintf("%d", adversary.Difficulty)),
+					statChip("HP", fmt.Sprintf("%d", adversary.HPMax)),
+					statChip("Stress", fmt.Sprintf("%d", adversary.StressMax)),
+					statChip("ATK", fmt.Sprintf("%+d", adversary.ATK)),
+					statChip("Thresholds", thresholdLabel(adversary.CustomThresholds)),
+					app.If(len(adversary.AdversaryFeatures) > 0, func() app.UI {
+						return statChip("Features", fmt.Sprintf("%d", len(adversary.AdversaryFeatures)))
+					}),
+				),
+			),
+			app.Div().Class("item-actions").Body(
+				app.Button().Class("btn btn-small").Text("Duplicate").OnClick(func(ctx app.Context, e app.Event) {
+					al.duplicateAdversary(ctx, i)
+				}),
+				app.Button().Class("btn btn-danger btn-small").Text("Remove").OnClick(func(ctx app.Context, e app.Event) {
+					if al.OnRemove != nil {
+						al.OnRemove(ctx, i)
+					}
+				}),
+			),
+		)
 	}
 
 	return app.Div().Class("adversary-items").Body(items...)
 }
 
-func (al *AdversaryList) toggleSection(ctx app.Context, name string) {
-	al.sectionOpen[name] = !al.sectionOpen[name]
-	ctx.Update()
+func (al *AdversaryList) section(key, label string, body ...app.UI) []app.UI {
+	return accordion(label, al.sectionOpen[key], func(ctx app.Context, e app.Event) {
+		al.sectionOpen[key] = !al.sectionOpen[key]
+		ctx.Update()
+	}, body...)
 }
+
+var (
+	tierOptions         = []selectOption{{"Tier 1", "Tier 1"}, {"Tier 2", "Tier 2"}, {"Tier 3", "Tier 3"}, {"Tier 4", "Tier 4"}, {"Tier 5", "Tier 5"}}
+	customTypeOptions   = []selectOption{{"Minion", "Minion"}, {"Standard", "Standard"}, {"Elite", "Elite"}, {"Solo", "Solo"}, {"Horde", "Horde"}}
+	summonTemplateLabel = "Summon Template Only (won't fight unless summoned)"
+)
 
 // renderAddForm renders the form for adding a new adversary
 func (al *AdversaryList) renderAddForm() app.UI {
-	return app.Div().
-		Class("add-form").
-		Body(
-			app.H4().Text("Add New Adversary"),
-			renderAccordionHeader("Identity", al.sectionOpen["identity"], func(ctx app.Context, e app.Event) {
-				al.toggleSection(ctx, "identity")
-			}),
-			app.If(al.sectionOpen["identity"], func() app.UI {
-				return app.Div().Class("accordion-body").Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Name:"),
-							app.Input().
-								Type("text").
-								Value(al.newName).
-								Placeholder("Ancient Witch").
-								OnInput(func(ctx app.Context, e app.Event) {
-									al.newName = ctx.JSSrc().Get("value").String()
-								}),
-						),
-					app.Div().
-						Class("form-row").
-						Body(
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Tier:"),
-									app.Select().
-										OnChange(func(ctx app.Context, e app.Event) {
-											al.newTier = ctx.JSSrc().Get("value").String()
-										}).
-										Body(
-											app.Option().Value("Tier 1").Text("Tier 1").Selected(al.newTier == "Tier 1"),
-											app.Option().Value("Tier 2").Text("Tier 2").Selected(al.newTier == "Tier 2"),
-											app.Option().Value("Tier 3").Text("Tier 3").Selected(al.newTier == "Tier 3"),
-											app.Option().Value("Tier 4").Text("Tier 4").Selected(al.newTier == "Tier 4"),
-											app.Option().Value("Tier 5").Text("Tier 5").Selected(al.newTier == "Tier 5"),
-										),
-								),
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Type:"),
-									app.Select().
-										OnChange(func(ctx app.Context, e app.Event) {
-											al.newType = ctx.JSSrc().Get("value").String()
-										}).
-										Body(
-											app.Option().Value("Minion").Text("Minion").Selected(al.newType == "Minion"),
-											app.Option().Value("Standard").Text("Standard").Selected(al.newType == "Standard"),
-											app.Option().Value("Elite").Text("Elite").Selected(al.newType == "Elite"),
-											app.Option().Value("Solo").Text("Solo").Selected(al.newType == "Solo"),
-											app.Option().Value("Horde").Text("Horde").Selected(al.newType == "Horde"),
-										),
-								),
-						),
-				)
-			}),
-			renderAccordionHeader("Stats", al.sectionOpen["stats"], func(ctx app.Context, e app.Event) {
-				al.toggleSection(ctx, "stats")
-			}),
-			app.If(al.sectionOpen["stats"], func() app.UI {
-				return app.Div().Class("accordion-body").Body(
-					app.Div().
-						Class("form-row").
-						Body(
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Difficulty:"),
-									app.Input().
-										Type("number").
-										Value(al.newDifficulty).
-										Min(1).
-										Max(25).
-										OnInput(handleIntInput(&al.newDifficulty)),
-								),
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("ATK:"),
-									app.Input().
-										Type("number").
-										Value(al.newATK).
-										Min(0).
-										Max(10).
-										OnInput(handleIntInput(&al.newATK)),
-								),
-						),
-					app.Div().
-						Class("form-row").
-						Body(
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("HP Max:"),
-									app.Input().
-										Type("number").
-										Value(al.newHP).
-										Min(1).
-										Max(100).
-										OnInput(handleIntInput(&al.newHP)),
-								),
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Stress Max:"),
-									app.Input().
-										Type("number").
-										Value(al.newStress).
-										Min(1).
-										Max(20).
-										OnInput(handleIntInput(&al.newStress)),
-								),
-						),
-					app.Div().
-						Class("form-row").
-						Body(
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Minor Threshold:"),
-									app.Input().
-										Type("number").
-										Value(al.newMinorThreshold).
-										Min(1).
-										Max(30).
-										OnInput(handleIntInput(&al.newMinorThreshold)),
-								),
-							app.Div().
-								Class("form-group").
-								Body(
-									app.Label().Text("Major Threshold:"),
-									app.Input().
-										Type("number").
-										Value(al.newMajorThreshold).
-										Min(1).
-										Max(50).
-										OnInput(handleIntInput(&al.newMajorThreshold)),
-								),
-						),
-				)
-			}),
-			renderAccordionHeader("Combat", al.sectionOpen["combat"], func(ctx app.Context, e app.Event) {
-				al.toggleSection(ctx, "combat")
-			}),
-			app.If(al.sectionOpen["combat"], func() app.UI {
-				return app.Div().Class("accordion-body").Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Damage Dice (e.g., 2d6+2, 1d6+1d6+4):"),
-							app.Input().
-								Type("text").
-								Value(al.newDamageDice).
-								Placeholder("e.g., 2d6+4 or 1d8+1d4+2").
-								OnInput(func(ctx app.Context, e app.Event) {
-									al.newDamageDice = ctx.JSSrc().Get("value").String()
-								}),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Motives & Tactics:"),
-							app.Textarea().
-								Text(al.newMotives).
-								Placeholder("Manipulate, curse, deceive...").
-								Rows(3).
-								OnInput(func(ctx app.Context, e app.Event) {
-									al.newMotives = ctx.JSSrc().Get("value").String()
-								}),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().
-								Class("checkbox-label").
-								Body(
-									app.Input().
-										Type("checkbox").
-										Checked(al.newIsSummonTemplate).
-										OnChange(func(ctx app.Context, e app.Event) {
-											al.newIsSummonTemplate = ctx.JSSrc().Get("checked").Bool()
-											ctx.Update()
-										}),
-									app.Text(" Summon Template Only (won't fight unless summoned)"),
-								),
-						),
-				)
-			}),
-			renderAccordionHeader("Features", al.sectionOpen["features"], func(ctx app.Context, e app.Event) {
-				al.toggleSection(ctx, "features")
-			}),
-			app.If(al.sectionOpen["features"], func() app.UI {
-				return app.Div().Class("accordion-body").Body(
-					&AdversaryFeatureForm{
-						Features:             al.newFeatures,
-						AvailableAdversaries: al.Adversaries,
-						OnChange: func(updated []*models.AdversaryFeature) {
-							al.newFeatures = updated
-						},
-					},
-				)
-			}),
-			app.Div().
-				Class("form-actions").
-				Body(
-					app.Button().
-						Class("btn btn-primary").
-						Text("Add Adversary").
-						Disabled(al.newName == "" || al.newTier == "" || al.newType == "").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.addAdversary(ctx)
-						}),
-					app.Button().
-						Class("btn btn-secondary").
-						Text("Cancel").
-						OnClick(func(ctx app.Context, e app.Event) {
-							al.showForm = false
-							al.resetForm()
-							ctx.Update()
-						}),
-				),
-		)
-}
+	body := []app.UI{app.H4().Text("Add New Adversary")}
+	body = append(body, al.section("identity", "Identity",
+		textField("Name", "Ancient Witch", &al.newName, false),
+		app.Div().Class("form-row").Body(
+			selectField("Tier", al.newTier, tierOptions, bindSelect(&al.newTier, false)),
+			selectField("Type", al.newType, customTypeOptions, bindSelect(&al.newType, false)),
+		),
+	)...)
+	body = append(body, al.section("stats", "Stats",
+		app.Div().Class("form-row").Body(
+			numberField("Difficulty", &al.newDifficulty, 1, 25),
+			numberField("ATK", &al.newATK, 0, 10),
+		),
+		app.Div().Class("form-row").Body(
+			numberField("HP Max", &al.newHP, 1, 100),
+			numberField("Stress Max", &al.newStress, 1, 20),
+		),
+		app.Div().Class("form-row").Body(
+			numberField("Minor Threshold", &al.newMinorThreshold, 1, 30),
+			numberField("Major Threshold", &al.newMajorThreshold, 1, 50),
+		),
+	)...)
+	body = append(body, al.section("combat", "Combat",
+		textField("Damage Dice (e.g., 2d6+2, 1d6+1d6+4)", "e.g., 2d6+4 or 1d8+1d4+2", &al.newDamageDice, false),
+		app.Div().Class("form-group").Body(
+			app.Label().Text("Motives & Tactics"),
+			app.Textarea().
+				Text(al.newMotives).
+				Placeholder("Manipulate, curse, deceive...").
+				Rows(3).
+				OnInput(func(ctx app.Context, e app.Event) { al.newMotives = ctx.JSSrc().Get("value").String() }),
+		),
+		checkboxField(summonTemplateLabel, &al.newIsSummonTemplate),
+	)...)
+	body = append(body, al.section("features", "Features",
+		&AdversaryFeatureForm{
+			Features:             al.newFeatures,
+			AvailableAdversaries: al.Adversaries,
+			OnChange:             func(updated []*models.AdversaryFeature) { al.newFeatures = updated },
+		},
+	)...)
+	body = append(body, formActions("Add Adversary", al.newName == "" || al.newTier == "" || al.newType == "",
+		func(ctx app.Context, e app.Event) { al.addAdversary(ctx) },
+		func(ctx app.Context, e app.Event) {
+			al.showForm = false
+			al.resetForm()
+			ctx.Update()
+		},
+	))
 
+	return app.Div().Class("add-form").Body(body...)
+}
 
 func (al *AdversaryList) duplicateAdversary(ctx app.Context, idx int) {
 	if idx < 0 || idx >= len(al.Adversaries) {
 		return
 	}
 	original := al.Adversaries[idx]
-	newID := fmt.Sprintf("enemy-%d", len(al.Adversaries))
-	clone := models.CloneCombatant(original, newID)
+	clone := models.CloneCombatant(original, fmt.Sprintf("enemy-%d", len(al.Adversaries)))
 	clone.Name = original.Name + " (Copy)"
 	if al.OnAdd != nil {
 		al.OnAdd(ctx, clone)
@@ -482,30 +347,21 @@ func (al *AdversaryList) duplicateAdversary(ctx app.Context, idx int) {
 func (al *AdversaryList) addAdversary(ctx app.Context) {
 	adversary := models.NewAdversary(
 		fmt.Sprintf("enemy-%d", len(al.Adversaries)),
-		al.newName,
-		al.newTier,
-		al.newType,
-		al.newDifficulty,
-		al.newATK,
-		al.newHP,
-		al.newStress,
+		al.newName, al.newTier, al.newType, al.newDifficulty, al.newATK, al.newHP, al.newStress,
 		[]int{al.newMinorThreshold, al.newMajorThreshold},
 	)
 	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newMotives
 	adversary.IsSummonTemplate = al.newIsSummonTemplate
-
 	for _, feature := range al.newFeatures {
 		adversary.AdversaryFeatures = append(adversary.AdversaryFeatures, *feature)
 	}
-
 	adversary.ApplyPassiveResistances()
 
 	if al.OnAdd != nil {
 		al.OnAdd(ctx, adversary)
 	}
-
 	al.showForm = false
 	al.resetForm()
 	ctx.Update()
@@ -526,12 +382,7 @@ func (al *AdversaryList) resetForm() {
 	al.newMotives = ""
 	al.newFeatures = make([]*models.AdversaryFeature, 0)
 	al.newIsSummonTemplate = false
-	al.sectionOpen = map[string]bool{
-		"identity": true,
-		"stats":    false,
-		"combat":   false,
-		"features": false,
-	}
+	al.sectionOpen = map[string]bool{"identity": true}
 }
 
 // thresholdLabel renders [Major, Severe]; 0 is the stat block's "None"

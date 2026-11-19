@@ -2,12 +2,13 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
 )
 
-// AdversaryRegistry interface for summoning (same as in feature_resolver.go)
+// AdversaryRegistry hands out fresh copies of stat blocks for summoning
 type AdversaryRegistry interface {
 	CloneTemplate(name string, uniqueID string) (*models.Combatant, error)
 }
@@ -23,21 +24,11 @@ type CombatEngine struct {
 
 // NewCombatEngine creates a combat engine with all components
 func NewCombatEngine(dice DiceRoller, spotlight SpotlightSelector) *CombatEngine {
-	// Extract RNG from DiceRoller if it's a StandardDiceRoller
-	var featureResolver *FeatureResolver
-	if stdDice, ok := dice.(*StandardDiceRoller); ok {
-		featureResolver = NewFeatureResolver(stdDice.GetRNG())
-	} else {
-		// Fallback: create new resolver without RNG (will cause issues if needed)
-		featureResolver = &FeatureResolver{dice: dice}
-	}
-
-	resolver := NewCombatResolver(dice, featureResolver)
-
+	featureResolver := &FeatureResolver{dice: dice}
 	return &CombatEngine{
 		dice:            dice,
 		spotlight:       spotlight,
-		resolver:        resolver,
+		resolver:        NewCombatResolver(dice, featureResolver),
 		featureResolver: featureResolver,
 	}
 }
@@ -92,29 +83,17 @@ func (ce *CombatEngine) executeTurn(actor *models.Combatant, decision *strategy.
 
 	target := decision.Target
 
-	// Track whether an action was taken (ability activation consumes turn even if it fails)
+	// An activation spends the turn even when its roll fails; an unaffordable one falls back to an attack
 	actionTaken := false
-
-	// Execute feature if AI chose one
-	if decision.DomainAbility != nil {
-		// Check if can activate BEFORE attempting
-		if ce.featureResolver.CanActivateDomainAbility(*decision.DomainAbility, actor, state) {
-			// Can activate - attempt it (may still fail DC check, but that's their turn)
-			ce.executeAbility(actor, target, decision.DomainAbility, state)
-			actionTaken = true
-		}
-		// If can't activate, fall through to basic attack
-	} else if decision.AdversaryFeature != nil {
-		// Check if can activate BEFORE attempting
-		if ce.featureResolver.CanActivateAdversaryFeature(decision.AdversaryFeature, actor, state) {
-			// Can activate - attempt it (may still fail DC check, but that's their turn)
-			ce.executeFeature(actor, target, decision.AdversaryFeature, state)
-			actionTaken = true
-		}
-		// If can't activate, fall through to basic attack
+	switch {
+	case decision.DomainAbility != nil && ce.featureResolver.CanActivateDomainAbility(*decision.DomainAbility, actor, state):
+		ce.executeAbility(actor, target, decision.DomainAbility, state)
+		actionTaken = true
+	case decision.AdversaryFeature != nil && ce.featureResolver.CanActivateAdversaryFeature(decision.AdversaryFeature, actor, state):
+		ce.executeFeature(actor, target, decision.AdversaryFeature, state)
+		actionTaken = true
 	}
 
-	// Fall back to basic attack if no ability was chosen or couldn't be activated
 	if !actionTaken && target != nil && target.IsAlive() {
 		ce.executeAttack(actor, target, state)
 	}
@@ -159,16 +138,14 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 	recordReactions(state, name, dcResult)
 }
 
-func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) error {
+func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
 	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
 	ce.recordActivation(actor, target, ability.Name, false, err, dcResult, state)
-	return err
 }
 
-func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) error {
+func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
 	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
 	ce.recordActivation(actor, target, feature.Name, true, err, dcResult, state)
-	return err
 }
 
 // executeClearCondition spends the actor's turn clearing one harmful condition.
@@ -276,12 +253,11 @@ func (ce *CombatEngine) blazeOfGlory(pc *models.Combatant, state *models.CombatS
 		return
 	}
 
-	damageDice := pc.DamageDice
-	if damageDice == "" {
-		damageDice = "1d6"
-	}
-	resolver := NewCombatResolver(critRoller{ce.dice}, ce.featureResolver)
-	attack := resolver.ResolveAttack(pc, target, damageDice, state)
+	// Both the attack roll and any triggered reactions use the forced-critical dice
+	critDice := critRoller{ce.dice}
+	critFeatures := *ce.featureResolver
+	critFeatures.dice = critDice
+	attack := NewCombatResolver(critDice, &critFeatures).ResolveAttack(pc, target, pc.AttackDamageFormula(), state)
 
 	state.RecordAction(models.ActionParams{
 		Actor:           pc,
@@ -294,72 +270,28 @@ func (ce *CombatEngine) blazeOfGlory(pc *models.Combatant, state *models.CombatS
 		DamageBonus:     attack.DamageBonus,
 		HPDamage:        attack.HPDamage,
 		Threshold:       attack.Threshold,
-		HopeDie:         attack.DualityResult.HopeDie,
-		FearDie:         attack.DualityResult.FearDie,
-		TotalRoll:       attack.AttackRoll,
+		HopeDie:         attack.Roll.HopeDie,
+		FearDie:         attack.Roll.FearDie,
+		TotalRoll:       attack.Roll.TotalRoll,
 		DamageResult:    attack.DamageResult,
 	})
 }
 
 // executeAttack handles basic attack action
-func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Combatant, state *models.CombatState) error {
-	if target == nil || !target.IsAlive() {
-		return nil
-	}
-
-	// Process on_attack triggered features BEFORE attack resolves
+func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Combatant, state *models.CombatState) {
 	ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnAttack, false)
 
-	// Use DamageDice notation, default to 1d6 if not set
-	damageDice := actor.DamageDice
-	if damageDice == "" {
-		damageDice = "1d6"
-	}
+	result := ce.resolver.ResolveAttack(actor, target, actor.AttackDamageFormula(), state)
 
-	result := ce.resolver.ResolveAttack(actor, target, damageDice, state)
-
-	// Process on_critical triggered features if attack was a critical
-	if result.CriticalResult {
+	if result.Roll.IsCritical {
 		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnCritical, true)
 	}
 
 	resultStr := "Miss"
-	spotlightShift := false
 	if result.Hit {
 		resultStr = "Hit"
-		// Process on_hit triggered features (e.g., spend Hope/Fear/Stress for bonus effects)
 		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnHit, false)
 		ce.featureResolver.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnHitTaken, false)
-	} else {
-		// Miss causes spotlight to shift
-		spotlightShift = true
-	}
-
-	// Prepare dice roll info for action record
-	hopeDie := 0
-	fearDie := 0
-	totalRoll := result.AttackRoll
-	hopeGenerated := 0
-	fearGenerated := 0
-
-	// Check if Hope/Fear result causes spotlight shift (player only)
-	if actor.Side == models.SidePlayer {
-		hopeDie = result.DualityResult.HopeDie
-		fearDie = result.DualityResult.FearDie
-		if result.DualityResult.Result == models.ResultFear {
-			spotlightShift = true
-		}
-		// Track Hope/Fear generation (always 1 per roll, even on critical)
-		if result.GeneratedHope {
-			hopeGenerated = 1
-		}
-		if result.GeneratedFear {
-			fearGenerated = 1
-		}
-	} else {
-		// Enemy uses d20 - store in HopeDie field for display
-		hopeDie = result.D20Result.D20Roll
-		fearDie = 0 // Enemies don't use fear die
 	}
 
 	state.RecordAction(models.ActionParams{
@@ -373,17 +305,16 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		DamageBonus:     result.DamageBonus,
 		HPDamage:        result.HPDamage,
 		Threshold:       result.Threshold,
-		HopeDie:         hopeDie,
-		FearDie:         fearDie,
-		TotalRoll:       totalRoll,
+		HopeDie:         result.Roll.HopeDie,
+		FearDie:         result.Roll.FearDie,
+		D20Roll:         result.Roll.D20Roll,
+		TotalRoll:       result.Roll.TotalRoll,
 		TargetDefense:   target.GetDefense(),
-		SpotlightShift:  spotlightShift,
-		HopeGenerated:   hopeGenerated,
-		FearGenerated:   fearGenerated,
+		SpotlightShift:  !result.Hit || result.Roll.SpotlightShift,
+		HopeGenerated:   result.Roll.HopeGenerated,
+		FearGenerated:   result.Roll.FearGenerated,
 		DamageResult:    result.DamageResult,
 	})
-
-	return nil
 }
 
 func (ce *CombatEngine) chooseNextPlayer(state *models.CombatState) *models.Combatant {
@@ -462,7 +393,6 @@ func (ce *CombatEngine) shouldSpendFearForAdditional(state *models.CombatState, 
 
 func (ce *CombatEngine) executeAdversarySpotlight(enemy *models.Combatant, state *models.CombatState, dm DecisionMaker) bool {
 	state.CurrentActor = enemy
-	enemy.AddSpotlightToken()
 
 	decision := dm.ChooseAction(state, enemy)
 	if decision.Target == nil {
@@ -470,10 +400,28 @@ func (ce *CombatEngine) executeAdversarySpotlight(enemy *models.Combatant, state
 	}
 
 	ce.ExecuteTurnWithDecision(enemy, decision, state)
-	enemy.ResetSpotlightTokens()
 	state.RecordAdversarySpotlight(enemy.ID)
-	state.IncrementTurn()
+	state.TurnNumber++
 	return true
+}
+
+// drainPendingSpotlights lets every ally handed a spotlight by a feature act now, at no
+// Fear cost. Their own features may queue more; the GM-turn spotlight limit bounds the chain.
+func (ce *CombatEngine) drainPendingSpotlights(state *models.CombatState, dm DecisionMaker, turnCount *int, maxTurns int) {
+	for !state.IsCombatOver() && *turnCount < maxTurns {
+		next, ok := state.PopPendingSpotlight()
+		if !ok {
+			return
+		}
+		ally := next.Combatant
+		if !ally.IsAlive() {
+			continue
+		}
+		ally.HalfDamage = next.HalfDamage
+		ce.executeAdversarySpotlight(ally, state, dm)
+		ally.HalfDamage = false
+		*turnCount++
+	}
 }
 
 func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker DecisionMaker, maxTurns int, enemyFearUsage strategy.ResourceUsageStrategy) *CombatOutcome {
@@ -502,7 +450,12 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 			}
 
 			state.CurrentActor = player
-			player.AddSpotlightToken()
+			// Tokens measure waiting: everyone passed over gains one, the actor's clear after the turn
+			for _, waiting := range state.GetAlivePlayers() {
+				if waiting != player {
+					waiting.SpotlightTokens++
+				}
+			}
 
 			decision := decisionMaker.ChooseAction(state, player)
 			if decision.Target == nil {
@@ -511,20 +464,12 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 
 			actionsBeforeTurn := len(state.ActionHistory)
 			ce.ExecuteTurnWithDecision(player, decision, state)
-			player.ResetSpotlightTokens()
-			state.IncrementTurn()
+			player.SpotlightTokens = 0
+			state.TurnNumber++
 			turnCount++
 			state.ConsecutivePlayerTurns++
 
-			spotlightShifted := false
-			for i := actionsBeforeTurn; i < len(state.ActionHistory); i++ {
-				if state.ActionHistory[i].SpotlightShift {
-					spotlightShifted = true
-					break
-				}
-			}
-
-			if spotlightShifted {
+			if slices.ContainsFunc(state.ActionHistory[actionsBeforeTurn:], func(a models.ActionRecord) bool { return a.SpotlightShift }) {
 				break
 			}
 		}
@@ -541,10 +486,14 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 		state.BeginGMTurn()
 		state.ConsecutivePlayerTurns = 0
 
+		// Spotlights granted by reactions during the PC phase resolve first
+		ce.drainPendingSpotlights(state, decisionMaker, &turnCount, maxTurns)
+
 		firstEnemy := ce.chooseGMAdversary(state)
 		if firstEnemy != nil {
 			ce.executeAdversarySpotlight(firstEnemy, state, decisionMaker)
 			turnCount++
+			ce.drainPendingSpotlights(state, decisionMaker, &turnCount, maxTurns)
 		}
 
 		for !state.IsCombatOver() && turnCount < maxTurns &&
@@ -556,10 +505,11 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 			}
 			ce.executeAdversarySpotlight(nextEnemy, state, decisionMaker)
 			turnCount++
+			ce.drainPendingSpotlights(state, decisionMaker, &turnCount, maxTurns)
 		}
 
 		state.EndGMTurn()
-		state.IncrementRound()
+		state.RoundNumber++
 		roundCount++
 	}
 

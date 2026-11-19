@@ -138,3 +138,39 @@ func TestDiceNotationRollEmpty(t *testing.T) {
 		t.Errorf("Roll() on empty notation = %d, want 0", got)
 	}
 }
+
+func TestMaxDice(t *testing.T) {
+	for _, tt := range []struct {
+		notation string
+		want     int
+	}{
+		{"2d8+1", 16},
+		{"3d4+10", 12},
+		{"1d6+1d4+3", 10},
+		{"5", 0},
+	} {
+		dn, err := ParseDiceNotation(tt.notation)
+		if err != nil {
+			t.Fatalf("%s: %v", tt.notation, err)
+		}
+		if got := dn.MaxDice(); got != tt.want {
+			t.Errorf("MaxDice(%s) = %d, want %d", tt.notation, got, tt.want)
+		}
+	}
+}
+
+func TestStringKeepsPlusBetweenDiceTerms(t *testing.T) {
+	for _, tt := range []struct{ in, want string }{
+		{"1d8+1d6+1", "1d8+1d6+1"},
+		{"2d6-1", "2d6-1"},
+		{"3d4+10", "3d4+10"},
+	} {
+		dn, err := ParseDiceNotation(tt.in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := dn.String(); got != tt.want {
+			t.Errorf("String(%s) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}

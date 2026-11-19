@@ -1,6 +1,10 @@
 package engine
 
-import "github.com/skarlso/daggerheart-combat-simulator/internal/models"
+import (
+	"fmt"
+
+	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+)
 
 func (fr *FeatureResolver) applyCondition(source, target *models.Combatant, condType models.ConditionType, duration string) error {
 	return fr.addCondition(source, target, condType, duration, 0, models.DamagePhysical)
@@ -22,18 +26,12 @@ func (fr *FeatureResolver) addCondition(source, target *models.Combatant, condTy
 		clearDifficulty = source.GetDefense()
 	}
 
-	var durationType models.DurationType
+	durationType := models.DurationEndOfTurn
 	switch duration {
-	case "until_cleared", "permanent":
+	case "until_cleared", "permanent", "scene":
 		durationType = models.DurationUntilCleared
-	case "1_turn":
-		durationType = models.DurationEndOfTurn
 	case "instant":
 		return nil
-	case "scene":
-		durationType = models.DurationUntilCleared
-	default:
-		durationType = models.DurationEndOfTurn
 	}
 
 	target.AddCondition(&models.ActiveCondition{
@@ -46,20 +44,23 @@ func (fr *FeatureResolver) addCondition(source, target *models.Combatant, condTy
 	return nil
 }
 
+// rollAmount is an effect's Magnitude plus its DiceFormula roll, if any
+func (fr *FeatureResolver) rollAmount(effect models.FeatureEffect) (int, error) {
+	notation, err := models.ParseDiceNotation(effect.DiceFormula)
+	if err != nil {
+		return 0, fmt.Errorf("invalid dice formula %s: %w", effect.DiceFormula, err)
+	}
+	return effect.Magnitude + notation.Roll(fr.dice), nil
+}
+
 func (fr *FeatureResolver) resolveStressInflict(effect models.FeatureEffect, target *models.Combatant) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
-
-	amount := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return err
-		}
-		amount += notation.Roll(fr.dice)
+	amount, err := fr.rollAmount(effect)
+	if err != nil {
+		return err
 	}
-
 	target.AddStress(amount)
 	return nil
 }
@@ -76,16 +77,10 @@ func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *mod
 	if actor == nil {
 		return nil
 	}
-
-	amount := effect.Magnitude
-	if effect.DiceFormula != "" {
-		notation, err := models.ParseDiceNotation(effect.DiceFormula)
-		if err != nil {
-			return err
-		}
-		amount += notation.Roll(fr.dice)
+	amount, err := fr.rollAmount(effect)
+	if err != nil {
+		return err
 	}
-
 	actor.Heal(amount)
 	return nil
 }
@@ -114,10 +109,5 @@ func (fr *FeatureResolver) resolveHopeDrain(effect models.FeatureEffect, target 
 		return nil
 	}
 	target.LoseHope(effect.Magnitude)
-	return nil
-}
-
-func (fr *FeatureResolver) resolveFearGenerate(effect models.FeatureEffect, state *models.CombatState) error {
-	state.AddFear(effect.Magnitude)
 	return nil
 }

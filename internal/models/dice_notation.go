@@ -17,8 +17,9 @@ type DiceTerm struct {
 	Size  int // Die size (d4, d6, etc.) or 0 for flat bonus
 }
 
+var validDiceSizes = map[int]bool{4: true, 6: true, 8: true, 10: true, 12: true, 20: true}
+
 // ParseDiceNotation parses strings like "2d6+2", "1d6+1d6+6", "3d8"
-// Supported dice: d4, d6, d8, d10, d12, d20
 func ParseDiceNotation(notation string) (*DiceNotation, error) {
 	if notation == "" {
 		return &DiceNotation{Terms: []DiceTerm{}}, nil
@@ -47,7 +48,6 @@ func ParseDiceNotation(notation string) (*DiceNotation, error) {
 	}
 
 	terms := []DiceTerm{}
-	validDice := map[int]bool{4: true, 6: true, 8: true, 10: true, 12: true, 20: true}
 
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
@@ -78,7 +78,7 @@ func ParseDiceNotation(notation string) (*DiceNotation, error) {
 				return nil, fmt.Errorf("invalid die size: %s", pieces[1])
 			}
 
-			if !validDice[size] {
+			if !validDiceSizes[size] {
 				return nil, fmt.Errorf("unsupported die size: d%d (valid: d4, d6, d8, d10, d12, d20)", size)
 			}
 
@@ -108,34 +108,38 @@ func (dn *DiceNotation) String() string {
 			// Flat bonus
 			parts = append(parts, fmt.Sprintf("%+d", term.Size))
 		} else {
-			parts = append(parts, fmt.Sprintf("%dd%d", term.Count, term.Size))
+			parts = append(parts, fmt.Sprintf("+%dd%d", term.Count, term.Size))
 		}
 	}
 
-	result := strings.Join(parts, "")
-	// Clean up leading +
-	if strings.HasPrefix(result, "+") {
-		result = result[1:]
-	}
-	return result
+	return strings.TrimPrefix(strings.Join(parts, ""), "+")
 }
 
-// RollDamage interface for rolling dice
+// DiceRoller is the subset of the engine's roller the models need
 type DiceRoller interface {
 	RollDice(diceCount, diceSize, flatBonus int) int
 }
 
-// Roll executes all dice rolls and returns the total damage
-// Supports mixed dice sizes (e.g., "1d6+1d4+3")
+// Roll rolls every term and returns the total
 func (dn *DiceNotation) Roll(roller DiceRoller) int {
 	total := 0
 	for _, term := range dn.Terms {
 		if term.Count == 0 {
-			// Flat bonus
 			total += term.Size
 		} else {
-			// Roll dice
 			total += roller.RollDice(term.Count, term.Size, 0)
+		}
+	}
+	return total
+}
+
+// MaxDice is the highest total the dice terms can roll, ignoring flat bonuses.
+// SRD critical damage adds this on top of the normal roll.
+func (dn *DiceNotation) MaxDice() int {
+	total := 0
+	for _, term := range dn.Terms {
+		if term.Count > 0 {
+			total += term.Count * term.Size
 		}
 	}
 	return total

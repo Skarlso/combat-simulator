@@ -1,5 +1,7 @@
 package models
 
+import "slices"
+
 // ExperienceSkill represents an adversary's trained skill
 type ExperienceSkill struct {
 	Name  string
@@ -61,11 +63,13 @@ type Combatant struct {
 	RelentlessLimit int
 
 	// Combat state flags
-	IsDefeated        bool
-	IsFullyStressed   bool
-	IsSummonTemplate  bool
+	IsDefeated       bool
+	IsFullyStressed  bool
+	IsSummonTemplate bool
 	// Fallen PCs have resolved their death move and are out of the fight
 	Fallen bool
+	// Set for the duration of a spotlight granted by an ally's feature that halves damage
+	HalfDamage bool
 }
 
 // MaxHope is the most Hope a single PC can hold
@@ -107,56 +111,41 @@ type Resistance struct {
 	IsImmune bool // If true, 100% reduction (immunity). If false, 50% reduction (resistance)
 }
 
-// NewCombatant creates a player combatant with basic stats
-func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax, stressMax int) *Combatant {
+func newCombatant(id, name string, side Side, hpMax, stressMax int) *Combatant {
 	return &Combatant{
 		ID:                id,
 		Name:              name,
 		Side:              side,
-		IsAdversary:       false,
-		Level:             level,
-		Evasion:           evasion,
-		Proficiency:       proficiency,
 		HP:                hpMax,
 		HPMax:             hpMax,
-		Stress:            0,
 		StressMax:         stressMax,
-		SpotlightTokens:   0,
 		AdversaryFeatures: make([]AdversaryFeature, 0),
 		DomainAbilities:   make([]DomainAbility, 0),
 		Resistances:       make([]Resistance, 0),
 		Conditions:        make([]*ActiveCondition, 0),
 		Experience:        make([]ExperienceSkill, 0),
-		IsDefeated:        false,
-		IsFullyStressed:   false,
 	}
+}
+
+// NewCombatant creates a player combatant with basic stats
+func NewCombatant(id, name string, side Side, level, evasion, proficiency, hpMax, stressMax int) *Combatant {
+	c := newCombatant(id, name, side, hpMax, stressMax)
+	c.Level = level
+	c.Evasion = evasion
+	c.Proficiency = proficiency
+	return c
 }
 
 // NewAdversary creates an adversary combatant
 func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, stressMax int, thresholds []int) *Combatant {
-	return &Combatant{
-		ID:                id,
-		Name:              name,
-		Side:              SideEnemy,
-		IsAdversary:       true,
-		Tier:              tier,
-		AdversaryType:     adversaryType,
-		Difficulty:        difficulty,
-		ATK:               atk,
-		CustomThresholds:  thresholds,
-		HP:                hpMax,
-		HPMax:             hpMax,
-		Stress:            0,
-		StressMax:         stressMax,
-		SpotlightTokens:   0,
-		AdversaryFeatures: make([]AdversaryFeature, 0),
-		DomainAbilities:   make([]DomainAbility, 0),
-		Resistances:       make([]Resistance, 0),
-		Conditions:        make([]*ActiveCondition, 0),
-		Experience:        make([]ExperienceSkill, 0),
-		IsDefeated:        false,
-		IsFullyStressed:   false,
-	}
+	c := newCombatant(id, name, SideEnemy, hpMax, stressMax)
+	c.IsAdversary = true
+	c.Tier = tier
+	c.AdversaryType = adversaryType
+	c.Difficulty = difficulty
+	c.ATK = atk
+	c.CustomThresholds = thresholds
+	return c
 }
 
 func (c *Combatant) MaxSpotlightsPerGMTurn() int {
@@ -168,18 +157,12 @@ func (c *Combatant) MaxSpotlightsPerGMTurn() int {
 
 // AddResistance adds 50% damage resistance to a damage type
 func (c *Combatant) AddResistance(damageType DamageType) {
-	c.Resistances = append(c.Resistances, Resistance{
-		Type:     damageType,
-		IsImmune: false,
-	})
+	c.Resistances = append(c.Resistances, Resistance{Type: damageType})
 }
 
 // AddImmunity adds 100% damage immunity to a damage type
 func (c *Combatant) AddImmunity(damageType DamageType) {
-	c.Resistances = append(c.Resistances, Resistance{
-		Type:     damageType,
-		IsImmune: true,
-	})
+	c.Resistances = append(c.Resistances, Resistance{Type: damageType, IsImmune: true})
 }
 
 // DamageResult contains the results of damage application
@@ -194,9 +177,7 @@ type DamageResult struct {
 	ArmorSlotsAfter  int             // Armor slots after
 }
 
-// TakeDamage applies damage using threshold system
-// Returns damage result with processed damage and HP damage
-// roller can be nil if no dice rolling is needed
+// TakeDamage applies damage using the threshold system; roller may be nil
 func (c *Combatant) TakeDamage(rawDamage int, damageType DamageType, roller DiceRoller) DamageResult {
 	return c.takeDamage(rawDamage, damageType, roller, 1)
 }
@@ -213,150 +194,79 @@ func (c *Combatant) TakeDamageWithArmorCost(rawDamage int, damageType DamageType
 
 // armorCost is how many slots reducing this damage marks; 0 means armor can't be used
 func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller DiceRoller, armorCost int) DamageResult {
-	// Capture state before damage
-	hpBefore := c.HP
-	armorBefore := c.ArmorSlots
+	result := DamageResult{Threshold: ThresholdNone, HPBefore: c.HP, ArmorSlotsBefore: c.ArmorSlots}
+	defer func() {
+		result.HPAfter = c.HP
+		result.ArmorSlotsAfter = c.ArmorSlots
+	}()
 
-	actualDamage := rawDamage
-
-	// Apply damage reduction from active effects (Ward-style)
-	if roller != nil {
-		reduction := c.calculateDamageReduction(roller)
-		actualDamage -= reduction
-	}
-
-	if actualDamage < 0 {
-		actualDamage = 0
-	}
-
-	// Apply resistance/immunity/vulnerability (after reductions, before armor/threshold)
-	hasResistance := false
-	hasImmunity := false
-
+	// SRD p50: resistance applies before any other reduction
+	resistant := c.HasCondition(ConditionResistant)
 	for _, resist := range c.Resistances {
-		if resist.Type == damageType {
-			if resist.IsImmune {
-				hasImmunity = true
-				break
-			}
-			hasResistance = true
+		if resist.Type != damageType {
+			continue
 		}
-	}
-
-	if c.HasCondition(ConditionResistant) {
-		hasResistance = true
-	}
-
-	if hasImmunity {
-		return DamageResult{
-			ProcessedDamage:  0,
-			HPDamage:         0,
-			Threshold:        ThresholdNone,
-			HPBefore:         hpBefore,
-			HPAfter:          c.HP,
-			ArmorUsed:        false,
-			ArmorSlotsBefore: armorBefore,
-			ArmorSlotsAfter:  c.ArmorSlots,
+		if resist.IsImmune {
+			return result
 		}
-	}
-	if hasResistance {
-		actualDamage = actualDamage / 2
+		resistant = true
 	}
 
-	if actualDamage < 0 {
-		actualDamage = 0
+	damage := rawDamage
+	if resistant {
+		damage = (damage + 1) / 2 // SRD rounds up
 	}
+	if roller != nil {
+		damage -= c.calculateDamageReduction(roller)
+	}
+	damage = max(damage, 0)
+	result.ProcessedDamage = damage
 
-	// Store the processed damage (after all modifiers, before armor/threshold)
-	processedDamage := actualDamage
-
-	threshold := DamageThresholdFromAmount(actualDamage, c)
-
-	armorReducedMinor := false
-	armorUsed := false
+	threshold := DamageThresholdFromAmount(damage, c)
+	hpDamage := threshold.HPMarked()
 	if armorCost > 0 && threshold != ThresholdNone && c.ArmorSlots >= armorCost {
 		c.ArmorSlots -= armorCost
-		armorUsed = true
-		// Reduce threshold by one level: Severe→Major→Minor→None (0 HP)
-		switch threshold {
-		case ThresholdSevere:
-			threshold = ThresholdMajor
-		case ThresholdMajor:
-			threshold = ThresholdMinor
-		case ThresholdMinor:
-			// Minor reduced by armor becomes 0 HP damage
-			armorReducedMinor = true
-		}
-	}
-
-	hpDamage := 0
-	switch threshold {
-	case ThresholdNone:
-		hpDamage = 0
-	case ThresholdMinor:
-		if armorReducedMinor {
-			hpDamage = 0
-		} else {
-			hpDamage = 1
-		}
-	case ThresholdMajor:
-		hpDamage = 2
-	case ThresholdSevere:
-		hpDamage = 3
+		result.ArmorUsed = true
+		// Armor steps the severity down one tier; a Minor hit marks nothing
+		hpDamage--
+		threshold = max(threshold-1, ThresholdMinor)
 	}
 
 	c.markHP(hpDamage)
-
-	return DamageResult{
-		ProcessedDamage:  processedDamage,
-		HPDamage:         hpDamage,
-		Threshold:        threshold,
-		HPBefore:         hpBefore,
-		HPAfter:          c.HP,
-		ArmorUsed:        armorUsed,
-		ArmorSlotsBefore: armorBefore,
-		ArmorSlotsAfter:  c.ArmorSlots,
-	}
+	result.Threshold = threshold
+	result.HPDamage = hpDamage
+	return result
 }
 
+// passiveEffects lists every effect carried by the combatant's passive features and abilities
+func (c *Combatant) passiveEffects() []FeatureEffect {
+	var effects []FeatureEffect
+	for _, f := range c.AdversaryFeatures {
+		if f.Passive {
+			effects = append(effects, f.Effects...)
+		}
+	}
+	for _, a := range c.DomainAbilities {
+		if a.Passive {
+			effects = append(effects, a.Effects...)
+		}
+	}
+	return effects
+}
+
+// calculateDamageReduction sums flat Ward-style reductions from passive effects
 func (c *Combatant) calculateDamageReduction(roller DiceRoller) int {
-	totalReduction := 0
-
-	for _, ability := range c.DomainAbilities {
-		if !ability.Passive {
+	total := 0
+	for _, effect := range c.passiveEffects() {
+		if effect.Category != FeatureEffectDamageReduction {
 			continue
 		}
-		for _, effect := range ability.Effects {
-			if effect.Category != FeatureEffectDamageReduction {
-				continue
-			}
-			totalReduction += effect.Magnitude
-			if effect.DiceFormula != "" {
-				if notation, err := ParseDiceNotation(effect.DiceFormula); err == nil {
-					totalReduction += notation.Roll(roller)
-				}
-			}
+		total += effect.Magnitude
+		if notation, err := ParseDiceNotation(effect.DiceFormula); err == nil {
+			total += notation.Roll(roller)
 		}
 	}
-
-	for _, feature := range c.AdversaryFeatures {
-		if !feature.Passive {
-			continue
-		}
-		for _, effect := range feature.Effects {
-			if effect.Category != FeatureEffectDamageReduction {
-				continue
-			}
-			totalReduction += effect.Magnitude
-			if effect.DiceFormula != "" {
-				if notation, err := ParseDiceNotation(effect.DiceFormula); err == nil {
-					totalReduction += notation.Roll(roller)
-				}
-			}
-		}
-	}
-
-	return totalReduction
+	return total
 }
 
 func (c *Combatant) markHP(amount int) {
@@ -472,11 +382,12 @@ func (c *Combatant) HasCondition(condType ConditionType) bool {
 	return false
 }
 
-// ClearableCondition returns the first harmful condition an action can clear, or nil
+// ClearableCondition returns the first harmful condition an action can clear, or nil.
+// Restrained only limits movement, which the simulator does not model, so it is never worth a turn.
 func (c *Combatant) ClearableCondition() *ActiveCondition {
 	for _, cond := range c.Conditions {
 		switch cond.Type {
-		case ConditionBurning, ConditionPoisoned, ConditionRestrained:
+		case ConditionBurning, ConditionPoisoned:
 			return cond
 		case ConditionVulnerable:
 			// Vulnerable from full Stress only ends by clearing Stress
@@ -491,16 +402,6 @@ func (c *Combatant) ClearableCondition() *ActiveCondition {
 // IsAlive returns whether combatant is still in the fight
 func (c *Combatant) IsAlive() bool {
 	return !c.IsDefeated
-}
-
-// AddSpotlightToken increments spotlight tokens
-func (c *Combatant) AddSpotlightToken() {
-	c.SpotlightTokens++
-}
-
-// ResetSpotlightTokens clears tokens after taking action
-func (c *Combatant) ResetSpotlightTokens() {
-	c.SpotlightTokens = 0
 }
 
 // GetDefense returns appropriate defense stat
@@ -519,49 +420,17 @@ func (c *Combatant) GetAttackBonus() int {
 	return c.AttackTrait
 }
 
-// AddAdversaryFeature attaches a feature to an adversary
-func (c *Combatant) AddAdversaryFeature(feature AdversaryFeature) {
-	c.AdversaryFeatures = append(c.AdversaryFeatures, feature)
-}
-
-// AddDomainAbility attaches a domain ability to a player
-func (c *Combatant) AddDomainAbility(ability DomainAbility) {
-	c.DomainAbilities = append(c.DomainAbilities, ability)
-}
-
-// ApplyPassiveResistances processes all passive features/abilities and applies resistance effects
+// ApplyPassiveResistances turns passive damage_resistance effects into Resistances (100+ = immunity)
 func (c *Combatant) ApplyPassiveResistances() {
-	// Process adversary features
-	for _, feature := range c.AdversaryFeatures {
-		if !feature.Passive {
+	for _, effect := range c.passiveEffects() {
+		if effect.Category != FeatureEffectDamageResistance {
 			continue
 		}
-		for _, effect := range feature.Effects {
-			if effect.Category == FeatureEffectDamageResistance {
-				damageType := ParseDamageType(effect.DamageType)
-				if effect.Magnitude >= 100 {
-					c.AddImmunity(damageType)
-				} else {
-					c.AddResistance(damageType)
-				}
-			}
-		}
-	}
-
-	// Process domain abilities
-	for _, ability := range c.DomainAbilities {
-		if !ability.Passive {
-			continue
-		}
-		for _, effect := range ability.Effects {
-			if effect.Category == FeatureEffectDamageResistance {
-				damageType := ParseDamageType(effect.DamageType)
-				if effect.Magnitude >= 100 {
-					c.AddImmunity(damageType)
-				} else {
-					c.AddResistance(damageType)
-				}
-			}
+		damageType := ParseDamageType(effect.DamageType)
+		if effect.Magnitude >= 100 {
+			c.AddImmunity(damageType)
+		} else {
+			c.AddResistance(damageType)
 		}
 	}
 }
@@ -574,53 +443,49 @@ func ParseDamageType(s string) DamageType {
 	return DamagePhysical
 }
 
-// CloneCombatant creates a deep copy of a combatant template with a new unique ID
+// CloneCombatant copies a template at full health with a new ID and fresh combat state
 func CloneCombatant(template *Combatant, uniqueID string) *Combatant {
-	clone := &Combatant{
-		ID:                uniqueID,
-		Name:              template.Name,
-		Side:              template.Side,
-		Level:             template.Level,
-		Evasion:           template.Evasion,
-		Proficiency:       template.Proficiency,
-		AttackTrait:       template.AttackTrait,
-		Traits:            template.Traits,
-		IsAdversary:       template.IsAdversary,
-		Tier:              template.Tier,
-		AdversaryType:     template.AdversaryType,
-		Difficulty:        template.Difficulty,
-		ATK:               template.ATK,
-		Motives:           template.Motives,
-		Tactics:           template.Tactics,
-		HP:                template.HPMax,
-		HPMax:             template.HPMax,
-		Stress:            0,
-		StressMax:         template.StressMax,
-		ArmorSlots:        template.ArmorSlots,
-		DamageDice:        template.DamageDice,
-		SpotlightTokens:   0,
-		RelentlessLimit:   template.RelentlessLimit,
-		IsDefeated:        false,
-		IsFullyStressed:   false,
-		IsSummonTemplate:  template.IsSummonTemplate,
-		AdversaryFeatures: make([]AdversaryFeature, len(template.AdversaryFeatures)),
-		DomainAbilities:   make([]DomainAbility, len(template.DomainAbilities)),
-		Resistances:       make([]Resistance, len(template.Resistances)),
-		Conditions:        make([]*ActiveCondition, 0),
-		Experience:        make([]ExperienceSkill, len(template.Experience)),
-	}
+	clone := *template
+	clone.ID = uniqueID
+	clone.HP = template.HPMax
+	clone.Hope = 0
+	clone.Stress = 0
+	clone.SpotlightTokens = 0
+	clone.IsDefeated = false
+	clone.IsFullyStressed = false
+	clone.Fallen = false
+	clone.HalfDamage = false
 
-	if len(template.CustomThresholds) > 0 {
-		clone.CustomThresholds = make([]int, len(template.CustomThresholds))
-		copy(clone.CustomThresholds, template.CustomThresholds)
-	}
-
-	copy(clone.AdversaryFeatures, template.AdversaryFeatures)
-	copy(clone.DomainAbilities, template.DomainAbilities)
-	copy(clone.Resistances, template.Resistances)
-	copy(clone.Experience, template.Experience)
+	clone.CustomThresholds = slices.Clone(template.CustomThresholds)
+	clone.AdversaryFeatures = slices.Clone(template.AdversaryFeatures)
+	clone.DomainAbilities = slices.Clone(template.DomainAbilities)
+	clone.Experience = slices.Clone(template.Experience)
+	clone.Resistances = slices.Clone(template.Resistances)
+	clone.Conditions = make([]*ActiveCondition, 0)
 
 	clone.ApplyPassiveResistances()
+	return &clone
+}
 
-	return clone
+// AttackDamageFormula is the dice the basic attack really rolls.
+// SRD p50: a PC rolls Proficiency damage dice; the flat modifier is unchanged.
+func (c *Combatant) AttackDamageFormula() string {
+	formula := c.DamageDice
+	if formula == "" {
+		formula = "1d6"
+	}
+	if c.IsAdversary || c.Proficiency <= 0 {
+		return formula
+	}
+	notation, err := ParseDiceNotation(formula)
+	if err != nil {
+		return formula
+	}
+	for i := range notation.Terms {
+		if notation.Terms[i].Count > 0 {
+			notation.Terms[i].Count = c.Proficiency
+			break
+		}
+	}
+	return notation.String()
 }

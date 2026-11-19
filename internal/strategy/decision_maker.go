@@ -113,17 +113,19 @@ func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models
 		return &ActionDecision{Target: actor, ClearCondition: true}
 	}
 
-	target := ai.selectTarget(state, actor)
+	target := ai.selectTargetFrom(state.GetEnemiesOf(actor))
 	if target == nil {
-		return &ActionDecision{Target: nil}
+		return &ActionDecision{}
 	}
-
-	decision := ai.evaluateBestAction(state, actor, target)
-	return decision
+	return ai.evaluateBestAction(state, actor, target)
 }
 
-// Every preset clears immediately for now: without ranges there is no way to
-// judge when a condition like Restrained is harmless enough to ignore.
+func hpPercent(c *models.Combatant) int {
+	return c.HP * 100 / c.HPMax
+}
+
+// Every preset clears immediately for now; ClearableCondition already leaves out
+// conditions that do nothing in this simulator.
 func (ai *AIDecisionMaker) shouldClearCondition(actor *models.Combatant) bool {
 	if actor.ClearableCondition() == nil {
 		return false
@@ -133,26 +135,16 @@ func (ai *AIDecisionMaker) shouldClearCondition(actor *models.Combatant) bool {
 	case ClearImmediately:
 		return true
 	case ClearWhenSafe:
-		hpPercent := (actor.HP * 100) / actor.HPMax
-		return hpPercent > 50
+		return hpPercent(actor) > 50
 	case ClearProbabilistic:
-		hpPercent := (actor.HP * 100) / actor.HPMax
 		threshold := 60
-		if hpPercent < 30 {
+		if hpPercent(actor) < 30 {
 			threshold = 80
 		}
 		return ai.rng.Intn(100) < threshold
-	case ClearNever:
-		return false
 	default:
 		return false
 	}
-}
-
-// selectTarget chooses a target from enemies
-func (ai *AIDecisionMaker) selectTarget(state *models.CombatState, actor *models.Combatant) *models.Combatant {
-	enemies := state.GetEnemiesOf(actor)
-	return ai.selectTargetFrom(enemies)
 }
 
 // selectTargetFrom chooses from a list of candidates
@@ -163,58 +155,32 @@ func (ai *AIDecisionMaker) selectTargetFrom(candidates []*models.Combatant) *mod
 
 	switch ai.TargetSelection {
 	case TargetLowestHP:
-		lowest := candidates[0]
-		for _, c := range candidates {
-			if c.HP < lowest.HP {
-				lowest = c
-			}
-		}
-		return lowest
-
+		return pickMax(candidates, func(c *models.Combatant) int { return -c.HP })
 	case TargetHighestHP:
-		highest := candidates[0]
-		for _, c := range candidates {
-			if c.HP > highest.HP {
-				highest = c
-			}
-		}
-		return highest
-
+		return pickMax(candidates, func(c *models.Combatant) int { return c.HP })
 	case TargetRandom:
 		return candidates[ai.rng.Intn(len(candidates))]
-
 	case TargetHighestThreat:
-		// Threat = proficiency + number of abilities
-		highestThreat := candidates[0]
-		maxThreat := ai.calculateThreat(highestThreat)
-
-		for _, c := range candidates {
-			threat := ai.calculateThreat(c)
-			if threat > maxThreat {
-				highestThreat = c
-				maxThreat = threat
-			}
-		}
-		return highestThreat
-
+		return pickMax(candidates, calculateThreat)
 	default:
 		return candidates[0]
 	}
 }
 
-// calculateThreat estimates how dangerous a combatant is
-func (ai *AIDecisionMaker) calculateThreat(combatant *models.Combatant) int {
-	threat := combatant.Proficiency * 2
+// pickMax returns the first candidate with the highest score
+func pickMax(candidates []*models.Combatant, score func(*models.Combatant) int) *models.Combatant {
+	best := candidates[0]
+	for _, c := range candidates[1:] {
+		if score(c) > score(best) {
+			best = c
+		}
+	}
+	return best
+}
 
-	// Higher HP = more threat potential
-	hpPercent := (combatant.HP * 100) / combatant.HPMax
-	threat += hpPercent / 10
-
-	// Add threat based on features/abilities count
-	threat += len(combatant.AdversaryFeatures)
-	threat += len(combatant.DomainAbilities)
-
-	return threat
+// calculateThreat rates a combatant by weapon dice, remaining health and number of tricks
+func calculateThreat(c *models.Combatant) int {
+	return c.Proficiency*2 + hpPercent(c)/10 + len(c.AdversaryFeatures) + len(c.DomainAbilities)
 }
 
 func (ai *AIDecisionMaker) evaluateBestAction(state *models.CombatState, actor *models.Combatant, target *models.Combatant) *ActionDecision {
@@ -280,14 +246,9 @@ func (ai *AIDecisionMaker) shouldUseAbilities(state *models.CombatState, actor *
 	case AbilityAlways:
 		return true
 	case AbilitySparingly:
-		hpPercent := (actor.HP * 100) / actor.HPMax
-		return hpPercent < ai.LowHPThreshold || len(state.GetEnemiesOf(actor)) <= 1
+		return hpPercent(actor) < ai.LowHPThreshold || len(state.GetEnemiesOf(actor)) <= 1
 	case AbilityContextual:
-		hpPercent := (actor.HP * 100) / actor.HPMax
-		if hpPercent < ai.LowHPThreshold {
-			return true
-		}
-		return ai.rng.Intn(100) < 60
+		return hpPercent(actor) < ai.LowHPThreshold || ai.rng.Intn(100) < 60
 	default:
 		return true
 	}
@@ -307,17 +268,11 @@ func (ai *AIDecisionMaker) shouldSpendResources(state *models.CombatState, actor
 		}
 		return state.FearPool > hopeFearCost+2
 	case ResourceDesperate:
-		hpPercent := (actor.HP * 100) / actor.HPMax
-		return hpPercent < ai.LowHPThreshold
+		return hpPercent(actor) < ai.LowHPThreshold
 	case ResourceRandom:
 		return ai.rng.Intn(100) < 50
 	case ResourceClever:
-		enemiesLeft := len(state.GetEnemiesOf(actor))
-		if enemiesLeft <= 1 {
-			return true
-		}
-		hpPercent := (actor.HP * 100) / actor.HPMax
-		return hpPercent < 50 || ai.rng.Intn(100) < 40
+		return len(state.GetEnemiesOf(actor)) <= 1 || hpPercent(actor) < 50 || ai.rng.Intn(100) < 40
 	default:
 		return true
 	}
@@ -325,7 +280,7 @@ func (ai *AIDecisionMaker) shouldSpendResources(state *models.CombatState, actor
 
 // evaluateBasicAttack estimates expected value of a basic attack
 func (ai *AIDecisionMaker) evaluateBasicAttack(actor *models.Combatant, target *models.Combatant) float64 {
-	avgDamage := ai.estimateAverageDamage(actor.DamageDice)
+	avgDamage := ai.estimateAverageDamage(actor.AttackDamageFormula())
 	hitChance := ai.estimateSuccessProbability(actor, target, "target", 0)
 	return avgDamage * hitChance
 }
@@ -340,87 +295,52 @@ func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, t
 	switch dcType {
 	case "target":
 		if target == nil {
-			return 0.5 // Unknown target, assume 50%
+			return 0.5
 		}
 		dc = target.GetDefense()
 	case "fixed":
 		dc = fixedDC
 	default:
-		return 1.0 // Unknown DC type, assume success
+		return 1.0
 	}
 
-	// Estimate success probability based on actor's stats
-	if actor.Side == models.SidePlayer {
-		// Player uses duality dice (2d12 + modifiers)
-		// Average duality roll is about 13 + trait
-		avgRoll := 13 + actor.GetAttackBonus()
-
-		// Rough probability estimate based on difference
-		diff := avgRoll - dc
-		if diff >= 5 {
-			return 0.85 // Very likely to succeed
-		} else if diff >= 0 {
-			return 0.65 // Moderately likely
-		} else if diff >= -3 {
-			return 0.45 // Somewhat unlikely
-		} else {
-			return 0.25 // Very unlikely
-		}
-	} else {
-		avgRoll := 10 + actor.GetAttackBonus()
-
-		diff := avgRoll - dc
-		if diff >= 5 {
-			return 0.80
-		} else if diff >= 0 {
-			return 0.60
-		} else if diff >= -3 {
-			return 0.40
-		} else {
-			return 0.20
-		}
+	// Duality Dice average 13, a d20 averages 10; the bands are a rough curve around that
+	avgRoll, odds := 13, [4]float64{0.85, 0.65, 0.45, 0.25}
+	if actor.Side != models.SidePlayer {
+		avgRoll, odds = 10, [4]float64{0.80, 0.60, 0.40, 0.20}
+	}
+	switch diff := avgRoll + actor.GetAttackBonus() - dc; {
+	case diff >= 5:
+		return odds[0]
+	case diff >= 0:
+		return odds[1]
+	case diff >= -3:
+		return odds[2]
+	default:
+		return odds[3]
 	}
 }
 
-// evaluateAbility estimates expected value of a domain ability
+// evaluateEffects values a set of effects, scaled by how likely the roll is to succeed
+func (ai *AIDecisionMaker) evaluateEffects(state *models.CombatState, actor, target *models.Combatant, effects []models.FeatureEffect, dcType string, fixedDC int) float64 {
+	value := 0.0
+	for _, effect := range effects {
+		value += ai.evaluateEffect(effect, actor, target, state)
+	}
+	return value * ai.estimateSuccessProbability(actor, target, dcType, fixedDC)
+}
+
+// evaluateAbility estimates expected value of a domain ability; Hope is dearer than Stress
 func (ai *AIDecisionMaker) evaluateAbility(state *models.CombatState, actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility) float64 {
-	value := 0.0
-
-	for _, effect := range ability.Effects {
-		value += ai.evaluateEffect(effect, actor, target, state)
-	}
-
-	// Factor in success probability based on DC
-	successProb := ai.estimateSuccessProbability(actor, target, ability.DCType, ability.FixedDC)
-	value *= successProb
-
-	// Subtract cost penalty (Hope is valuable) - costs paid regardless of success
-	value -= float64(ability.HopeCost) * 1.5
-	value -= float64(ability.StressCost) * 0.5
-
-	return value
+	value := ai.evaluateEffects(state, actor, target, ability.Effects, ability.DCType, ability.FixedDC)
+	return value - float64(ability.HopeCost)*1.5 - float64(ability.StressCost)*0.5
 }
 
-// evaluateFeature estimates expected value of an adversary feature
+// evaluateFeature estimates expected value of an adversary feature. Features are the
+// stat block's designed moves, so they get a flat preference over a generic attack.
 func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature) float64 {
-	value := 0.0
-
-	for _, effect := range feature.Effects {
-		value += ai.evaluateEffect(effect, actor, target, state)
-	}
-
-	successProb := ai.estimateSuccessProbability(actor, target, feature.DCType, feature.FixedDC)
-	value *= successProb
-
-	value -= float64(feature.FearCost) * 0.5
-	value -= float64(feature.StressCost) * 0.5
-
-	// Features are the adversary's designed actions; prefer over generic attacks.
-	// In Daggerheart's threshold system, raw dice differences matter less than
-	// tactical effects, so give features an inherent preference.
-	value += 2.0
-
-	return value
+	value := ai.evaluateEffects(state, actor, target, feature.Effects, feature.DCType, feature.FixedDC)
+	return value - float64(feature.FearCost)*0.5 - float64(feature.StressCost)*0.5 + 2.0
 }
 
 // evaluateEffect estimates the value of a single effect
@@ -440,25 +360,26 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 
 func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, actor *models.Combatant, target *models.Combatant, state *models.CombatState) float64 {
 	if effect.StandardAttack {
-		effect.DiceFormula = actor.DamageDice
+		effect.DiceFormula = actor.AttackDamageFormula()
 	}
+
+	avgAmount := ai.estimateAverageDamage(effect.DiceFormula) + float64(effect.Magnitude)
 
 	switch effect.Category {
 	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage:
-		// Direct damage value
-		avgDamage := ai.estimateAverageDamage(effect.DiceFormula)
-		return avgDamage + float64(effect.Magnitude)
+		return avgAmount
 
 	case models.FeatureEffectAreaDamage:
-		// AOE hits multiple targets
-		avgDamage := ai.estimateAverageDamage(effect.DiceFormula)
-		enemyCount := float64(len(state.GetEnemiesOf(actor)))
-		if ai.AreaTargets > 0 && enemyCount > float64(ai.AreaTargets) {
-			enemyCount = float64(ai.AreaTargets)
+		enemyCount := len(state.GetEnemiesOf(actor))
+		if ai.AreaTargets > 0 {
+			enemyCount = min(enemyCount, ai.AreaTargets)
 		}
-		return (avgDamage + float64(effect.Magnitude)) * enemyCount
+		return avgAmount * float64(enemyCount)
 
 	case models.FeatureEffectApplyPoison, models.FeatureEffectApplyIgnite:
+		if target.HasCondition(models.ConditionPoisoned) || target.HasCondition(models.ConditionBurning) {
+			return 0.0
+		}
 		// Status effects are valuable on high HP targets
 		if target.HP > target.HPMax/2 {
 			return 3.0 // Worth about 3 damage over time
@@ -466,6 +387,9 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		return 1.5
 
 	case models.FeatureEffectApplyVulnerable:
+		if target.HasCondition(models.ConditionVulnerable) {
+			return 0.0
+		}
 		// Very valuable on high HP targets
 		if target.HP > target.HPMax/2 {
 			return 5.0
@@ -473,109 +397,110 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		return 2.0
 
 	case models.FeatureEffectApplyStunned:
+		if target.HasCondition(models.ConditionStunned) {
+			return 0.0
+		}
 		return 4.0
 
 	case models.FeatureEffectApplyRestrained:
-		return 2.0
+		// Only limits movement, which is not modelled: never worth a spotlight
+		return 0.0
 
 	case models.FeatureEffectStressInflict:
-		// Stress damage
-		return float64(effect.Magnitude) * 0.3 // Less valuable than HP damage
+		return float64(effect.Magnitude) * 0.3
 
 	case models.FeatureEffectHPHeal:
-		// Healing is valuable when hurt
-		missingHP := actor.HPMax - actor.HP
-		healAmount := float64(effect.Magnitude) + ai.estimateAverageDamage(effect.DiceFormula)
-		if missingHP > int(healAmount) {
-			return healAmount
+		// Overheal is wasted
+		missingHP := float64(actor.HPMax - actor.HP)
+		if missingHP > avgAmount {
+			return avgAmount
 		}
-		return float64(missingHP) * 0.8 // Overheal is wasted
+		return missingHP * 0.8
 
 	case models.FeatureEffectStressClear:
-		// Clearing stress
 		if actor.Stress > 0 {
 			return float64(effect.Magnitude) * 0.5
 		}
 		return 0.0
 
 	case models.FeatureEffectArmorDamage:
-		// Armor damage is valuable if target has armor
+		// With no slot left to mark, the target marks a Hit Point instead
 		if target.ArmorSlots > 0 {
 			return 2.0
 		}
-		// With no slot left to mark, the target marks a Hit Point instead
 		return 3.0
 
 	case models.FeatureEffectGrantArmor:
-		// Grant armor is valuable when actor is low on armor
 		if actor.ArmorSlots < 2 {
 			return float64(effect.Magnitude) * 2.0
 		}
-		return float64(effect.Magnitude) * 1.0
+		return float64(effect.Magnitude)
 
 	case models.FeatureEffectDamageReduction:
-		// Damage reduction is valuable (defensive ability)
-		avgReduction := ai.estimateAverageDamage(effect.DiceFormula)
-		return avgReduction + float64(effect.Magnitude)
+		return avgAmount
 
 	case models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend:
-		// Token mechanics - moderate value (future use)
 		return 2.0
 
 	case models.FeatureEffectSummonAllies:
-		// Summoning is VERY valuable - adds combatants to your side
-		// Estimate based on summon quantity
-		quantity := float64(effect.Magnitude)
-		if effect.DiceFormula != "" {
-			// Rough estimate: assume average of dice
-			quantity += 2.5 // ~average of 1d4
+		// Each body is worth about 10 HP; arrivals that act at once also deliver an attack this GM turn
+		quantity := avgAmount
+		spotlighted := float64(effect.SpotlightCount)
+		if effect.SpotlightAll {
+			spotlighted = quantity
 		}
-		// Each summoned ally is worth ~10 HP worth of value
-		return quantity * 10.0
+		return quantity*10.0 + spotlighted*3.0
+
+	case models.FeatureEffectAllySpotlight:
+		return ai.evaluateAllySpotlight(effect, actor, target, state)
 
 	default:
-		// Unknown effect, give it minimal value
 		return 1.0
 	}
 }
 
-// estimateAverageDamage calculates average damage from dice notation (e.g., "2d6+3")
-func (ai *AIDecisionMaker) estimateAverageDamage(diceFormula string) float64 {
-	if diceFormula == "" {
+// evaluateAllySpotlight sums the basic attacks the chosen allies would make right now
+func (ai *AIDecisionMaker) evaluateAllySpotlight(effect models.FeatureEffect, actor *models.Combatant, target *models.Combatant, state *models.CombatState) float64 {
+	allies := state.EligibleSpotlightAllies(actor, effect)
+	if len(allies) == 0 {
 		return 0.0
 	}
 
-	// Parse dice notation
+	count := len(allies)
+	if !effect.SpotlightAll {
+		count = min(effect.Magnitude+int(ai.estimateAverageDamage(effect.DiceFormula)), len(allies))
+	}
+
+	value := 0.0
+	for _, ally := range allies[:count] {
+		value += ai.evaluateBasicAttack(ally, target)
+	}
+	if effect.HalfDamage {
+		value /= 2
+	}
+	return value
+}
+
+// estimateAverageDamage is the expected total of a dice formula such as "2d6+3"
+func (ai *AIDecisionMaker) estimateAverageDamage(diceFormula string) float64 {
 	parsed, err := models.ParseDiceNotation(diceFormula)
 	if err != nil {
 		return 0.0
 	}
-
-	// Sum up average for each term
 	total := 0.0
 	for _, term := range parsed.Terms {
 		if term.Count == 0 {
-			// Flat bonus
 			total += float64(term.Size)
 		} else {
-			// Dice roll: count * ((size + 1) / 2)
-			avgPerDie := float64(term.Size+1) / 2.0
-			total += float64(term.Count) * avgPerDie
+			total += float64(term.Count) * float64(term.Size+1) / 2.0
 		}
 	}
-
 	return total
 }
 
 // canAffordAbility checks if actor can pay costs for ability
 func (ai *AIDecisionMaker) canAffordAbility(state *models.CombatState, actor *models.Combatant, ability *models.DomainAbility) bool {
-	if ability.HopeCost > actor.Hope {
-		return false
-	}
-	if ability.StressCost+actor.Stress > actor.StressMax {
-		return false
-	}
-	return true
+	return ability.HopeCost <= actor.Hope && ability.StressCost+actor.Stress <= actor.StressMax
 }
 
 // canAffordFeature checks if state has enough Fear for feature

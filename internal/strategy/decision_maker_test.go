@@ -388,3 +388,70 @@ func TestPassiveFeaturesAreNeverChosenAsActions(t *testing.T) {
 		t.Error("a passive feature should not be picked as the turn's action")
 	}
 }
+
+func TestBasicAttackValueScalesWithProficiency(t *testing.T) {
+	ai := newTestAI(DefaultGreedyConfig())
+	target := models.NewAdversary("e1", "Dummy", "Tier 1", "Standard", 10, 3, 20, 6, []int{4, 7})
+	novice := models.NewCombatant("p1", "Novice", models.SidePlayer, 1, 12, 1, 15, 8)
+	novice.DamageDice = "1d8+2"
+	veteran := models.NewCombatant("p2", "Veteran", models.SidePlayer, 5, 12, 3, 15, 8)
+	veteran.DamageDice = "1d8+2"
+
+	low, high := ai.evaluateBasicAttack(novice, target), ai.evaluateBasicAttack(veteran, target)
+	// 1d8+2 averages 6.5, 3d8+2 averages 15.5; the hit chance is the same
+	if high/low < 2.3 || high/low > 2.4 {
+		t.Errorf("veteran/novice value = %.2f/%.2f, want ratio 15.5/6.5", high, low)
+	}
+}
+
+// Re-applying a condition the target already has is a wasted spotlight.
+func TestConditionAlreadyPresentIsWorthless(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	actor := models.NewAdversary("e1", "Witch", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	target := models.NewCombatant("p1", "PC", models.SidePlayer, 3, 10, 2, 10, 8)
+	effect := models.FeatureEffect{Category: models.FeatureEffectApplyVulnerable, Duration: "until_cleared"}
+	state := models.NewCombatState([]*models.Combatant{target}, []*models.Combatant{actor}, 3, 3, 5)
+	if v := ai.evaluateUnopposedEffect(effect, actor, target, state); v <= 0 {
+		t.Fatalf("fresh Vulnerable should have value, got %v", v)
+	}
+	target.AddCondition(&models.ActiveCondition{Type: models.ConditionVulnerable, Duration: models.DurationUntilCleared})
+	if v := ai.evaluateUnopposedEffect(effect, actor, target, state); v != 0 {
+		t.Fatalf("re-applying Vulnerable should be worth 0, got %v", v)
+	}
+}
+
+// Restrained only limits movement, which the simulator does not model.
+func TestRestrainedIsNeverWorthApplying(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	actor := models.NewAdversary("e1", "Witch", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	target := models.NewCombatant("p1", "PC", models.SidePlayer, 3, 10, 2, 10, 8)
+	state := models.NewCombatState([]*models.Combatant{target}, []*models.Combatant{actor}, 3, 3, 5)
+	effect := models.FeatureEffect{Category: models.FeatureEffectApplyRestrained, Duration: "until_cleared"}
+	if v := ai.evaluateUnopposedEffect(effect, actor, target, state); v != 0 {
+		t.Fatalf("restrain value = %v, want 0", v)
+	}
+}
+
+func TestAllySpotlightIsWorthTheAlliesAttacks(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	leader := models.NewAdversary("e1", "Captain", "Tier 1", "Leader", 12, 2, 6, 3, []int{5, 9})
+	guard := models.NewAdversary("e2", "Guard", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	guard.DamageDice = "1d8+2"
+	target := models.NewCombatant("p1", "PC", models.SidePlayer, 3, 10, 2, 10, 8)
+
+	effect := models.FeatureEffect{Category: models.FeatureEffectAllySpotlight, Magnitude: 1}
+	alone := models.NewCombatState([]*models.Combatant{target}, []*models.Combatant{leader}, 3, 3, 5)
+	if v := ai.evaluateUnopposedEffect(effect, leader, target, alone); v != 0 {
+		t.Errorf("no allies: value = %v, want 0", v)
+	}
+
+	state := models.NewCombatState([]*models.Combatant{target}, []*models.Combatant{leader, guard}, 3, 3, 5)
+	full := ai.evaluateUnopposedEffect(effect, leader, target, state)
+	if want := ai.evaluateBasicAttack(guard, target); full != want {
+		t.Errorf("one ally: value = %v, want the guard's attack value %v", full, want)
+	}
+	effect.HalfDamage = true
+	if half := ai.evaluateUnopposedEffect(effect, leader, target, state); half != full/2 {
+		t.Errorf("half damage: value = %v, want %v", half, full/2)
+	}
+}

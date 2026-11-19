@@ -186,20 +186,6 @@ func TestIsAlive(t *testing.T) {
 	}
 }
 
-func TestSpotlightTokens(t *testing.T) {
-	c := newTestPlayer()
-	c.AddSpotlightToken()
-	c.AddSpotlightToken()
-	if c.SpotlightTokens != 2 {
-		t.Errorf("SpotlightTokens = %d, want 2", c.SpotlightTokens)
-	}
-
-	c.ResetSpotlightTokens()
-	if c.SpotlightTokens != 0 {
-		t.Errorf("SpotlightTokens after reset = %d, want 0", c.SpotlightTokens)
-	}
-}
-
 func TestTakeDamageThresholds(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -309,6 +295,31 @@ func TestTakeDamageResistance(t *testing.T) {
 	result := c.TakeDamage(10, DamagePhysical, nil)
 	if result.ProcessedDamage != 5 {
 		t.Errorf("ProcessedDamage = %d, want 5 (50%% resistance)", result.ProcessedDamage)
+	}
+}
+
+func TestTakeDamageResistanceRoundsUp(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{4, 7})
+	c.AddResistance(DamagePhysical)
+
+	result := c.TakeDamage(7, DamagePhysical, nil)
+	if result.ProcessedDamage != 4 || result.Threshold != ThresholdMajor {
+		t.Errorf("7 resisted = %d (%v), want 4 Major (SRD rounds up)", result.ProcessedDamage, result.Threshold)
+	}
+}
+
+func TestTakeDamageResistanceBeforeFlatReduction(t *testing.T) {
+	c := NewAdversary("e1", "Target", "Tier 1", "Standard", 10, 3, 10, 6, []int{5, 10})
+	c.AddResistance(DamagePhysical)
+	c.DomainAbilities = []DomainAbility{{
+		Name: "Ward", Passive: true,
+		Effects: []FeatureEffect{{Category: FeatureEffectDamageReduction, Magnitude: 2}},
+	}}
+
+	// SRD: halve first (12 -> 6), then other reductions (6 - 2 = 4), not (12 - 2) / 2 = 5
+	result := c.TakeDamage(12, DamagePhysical, &mockRoller{})
+	if result.ProcessedDamage != 4 || result.Threshold != ThresholdMinor {
+		t.Errorf("ProcessedDamage = %d (%v), want 4 Minor", result.ProcessedDamage, result.Threshold)
 	}
 }
 
@@ -815,5 +826,54 @@ func TestTakeDamageWithArmorCost(t *testing.T) {
 	result = c.TakeDamageWithArmorCost(12, DamagePhysical, nil, 2)
 	if c.ArmorSlots != 1 || result.ArmorUsed || result.HPDamage != 3 {
 		t.Errorf("ArmorSlots=%d ArmorUsed=%v HPDamage=%d, want 1 / false / 3 (can't pay two slots)", c.ArmorSlots, result.ArmorUsed, result.HPDamage)
+	}
+}
+
+func TestAttackDamageFormulaUsesProficiency(t *testing.T) {
+	pc := NewCombatant("p1", "Hero", SidePlayer, 5, 12, 3, 15, 8)
+	for _, tt := range []struct{ dice, want string }{
+		{"1d8+2", "3d8+2"},
+		{"2d6", "3d6"},
+		{"1d8+1d6+1", "3d8+1d6+1"},
+		{"", "3d6"}, // the engine's 1d6 default also scales with Proficiency
+	} {
+		pc.DamageDice = tt.dice
+		if got := pc.AttackDamageFormula(); got != tt.want {
+			t.Errorf("PC %q = %q, want %q", tt.dice, got, tt.want)
+		}
+	}
+
+	adv := NewAdversary("e1", "Ogre", "Tier 2", "Bruiser", 14, 3, 20, 6, []int{10, 20})
+	adv.DamageDice = "2d12+4"
+	if got := adv.AttackDamageFormula(); got != "2d12+4" {
+		t.Errorf("adversary = %q, want unchanged 2d12+4", got)
+	}
+}
+
+// Restrained has no mechanical effect without ranges, so no one spends a turn on it.
+func TestRestrainedIsNotWorthClearing(t *testing.T) {
+	c := NewCombatant("p1", "Hero", SidePlayer, 3, 10, 2, 10, 8)
+	c.AddCondition(&ActiveCondition{Type: ConditionRestrained, Duration: DurationUntilCleared})
+	if cond := c.ClearableCondition(); cond != nil {
+		t.Errorf("ClearableCondition = %v, want nil", cond)
+	}
+}
+
+func TestEligibleSpotlightAlliesFiltersByName(t *testing.T) {
+	leader := NewAdversary("e1", "Fang Lord", "Tier 2", "Leader", 14, 3, 8, 4, []int{8, 15})
+	shifter := NewAdversary("e2", "Guahalan Shifter", "Tier 2", "Standard", 14, 3, 6, 3, []int{8, 15})
+	summoned := NewAdversary("e3", "Guahalan Shifter #2", "Tier 2", "Standard", 14, 3, 6, 3, []int{8, 15})
+	other := NewAdversary("e4", "Guahalan Spirit Beast", "Tier 2", "Minion", 14, 3, 1, 1, []int{8, 15})
+	dead := NewAdversary("e5", "Guahalan Shifter", "Tier 2", "Standard", 14, 3, 6, 3, []int{8, 15})
+	dead.HP = 0
+	dead.IsDefeated = true
+	state := NewCombatState(nil, []*Combatant{leader, shifter, summoned, other, dead}, 0, 0, 5)
+
+	got := state.EligibleSpotlightAllies(leader, FeatureEffect{AllyName: "Guahalan Shifter"})
+	if len(got) != 2 || got[0] != shifter || got[1] != summoned {
+		t.Errorf("eligible = %v, want the two living Shifters", got)
+	}
+	if all := state.EligibleSpotlightAllies(leader, FeatureEffect{}); len(all) != 3 {
+		t.Errorf("unfiltered eligible = %d, want 3", len(all))
 	}
 }

@@ -127,28 +127,22 @@ func parseCharacter(c CharacterJSON, idx int) (*models.Combatant, error) {
 func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 	effects := make([]models.FeatureEffect, 0, len(a.Effects))
 	for _, e := range a.Effects {
-		category, err := stringToEffectCategory(e.Category)
-		if err != nil {
-			return models.DomainAbility{}, err
-		}
-		targetType, err := stringToTargetType(e.TargetType)
-		if err != nil {
-			return models.DomainAbility{}, err
-		}
-		effects = append(effects, models.FeatureEffect{
-			Category:      category,
+		effect, err := convertMappingEffect(FeatureMappingEffect{
+			Category:      e.Category,
 			Magnitude:     e.Magnitude,
 			DiceFormula:   e.DiceFormula,
 			Duration:      e.Duration,
-			TargetType:    targetType,
+			TargetType:    e.TargetType,
 			DamageType:    e.DamageType,
 			ReactionTrait: e.ReactionTrait,
 			ReactionDC:    e.ReactionDC,
 			HalfOnSuccess: e.HalfOnSuccess,
 		})
+		if err != nil {
+			return models.DomainAbility{}, err
+		}
+		effects = append(effects, effect)
 	}
-
-	usesLeft := a.MaxUses
 
 	return models.DomainAbility{
 		Name:        a.Name,
@@ -159,12 +153,11 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 		StressCost:  a.StressCost,
 		RefreshType: a.RefreshType,
 		MaxUses:     a.MaxUses,
-		UsesLeft:    usesLeft,
+		UsesLeft:    a.MaxUses,
 		DCType:      a.DCType,
 		FixedDC:     a.FixedDC,
 		UsesTokens:  a.UsesTokens,
 		TokenName:   a.TokenName,
-		TokensHeld:  0,
 		TokensMax:   a.TokensMax,
 		Effects:     effects,
 	}, nil

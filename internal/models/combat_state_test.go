@@ -47,24 +47,6 @@ func TestNewCombatStateFiltersSummonTemplates(t *testing.T) {
 	}
 }
 
-func TestGetAllCombatants(t *testing.T) {
-	state := newTestState()
-	all := state.GetAllCombatants()
-	if len(all) != 4 {
-		t.Errorf("GetAllCombatants() = %d, want 4", len(all))
-	}
-}
-
-func TestGetAliveCombatants(t *testing.T) {
-	state := newTestState()
-	state.Enemies[0].IsDefeated = true
-
-	alive := state.GetAliveCombatants()
-	if len(alive) != 3 {
-		t.Errorf("GetAliveCombatants() = %d, want 3", len(alive))
-	}
-}
-
 func TestGetAlivePlayers(t *testing.T) {
 	state := newTestState()
 	state.Players[0].IsDefeated = true
@@ -190,7 +172,7 @@ func TestNewCombatStateGivesEachPCStartingHope(t *testing.T) {
 
 func TestCombatOverWhenBothSidesFall(t *testing.T) {
 	state := newTestState()
-	for _, c := range state.GetAllCombatants() {
+	for _, c := range append(state.Players, state.Enemies...) {
 		c.IsDefeated = true
 	}
 
@@ -239,9 +221,8 @@ func TestFearPoolCap(t *testing.T) {
 func TestIncrementCounters(t *testing.T) {
 	state := newTestState()
 
-	state.IncrementRound()
-	state.IncrementTurn()
-	state.IncrementTurn()
+	state.RoundNumber++
+	state.TurnNumber += 2
 
 	if state.RoundNumber != 1 {
 		t.Errorf("RoundNumber = %d, want 1", state.RoundNumber)
@@ -273,9 +254,9 @@ func TestRecordAction(t *testing.T) {
 		Result:     "Hit",
 		DamageRoll: 8, ProcessedDamage: 8,
 		DamageDice: []int{5, 3},
-		HPDamage:  2,
-		Threshold: ThresholdMajor,
-		HopeDie:   7, FearDie: 5,
+		HPDamage:   2,
+		Threshold:  ThresholdMajor,
+		HopeDie:    7, FearDie: 5,
 		TotalRoll: 14, TargetDefense: 10,
 		HopeGenerated: 1,
 	})
@@ -340,10 +321,10 @@ func TestRecordActionWithDamageResult(t *testing.T) {
 		Target:     state.Enemies[0],
 		Result:     "Hit",
 		DamageRoll: 8, ProcessedDamage: 8,
-		HPDamage:      2,
-		Threshold:     ThresholdMajor,
-		HopeDie:       7, FearDie: 5,
-		TotalRoll:     14, TargetDefense: 10,
+		HPDamage:  2,
+		Threshold: ThresholdMajor,
+		HopeDie:   7, FearDie: 5,
+		TotalRoll: 14, TargetDefense: 10,
 		HopeGenerated: 1,
 		DamageResult:  dr,
 	})

@@ -52,11 +52,6 @@ func NewStandardDiceRoller(rng *rand.Rand) *StandardDiceRoller {
 	}
 }
 
-// GetRNG returns the underlying random number generator
-func (dr *StandardDiceRoller) GetRNG() *rand.Rand {
-	return dr.rng
-}
-
 // RollDuality performs the core d12 Hope vs d12 Fear roll
 func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) DualityRollResult {
 	hopeDie := dr.RollDice(1, 12, 0)
@@ -66,32 +61,23 @@ func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) Dualit
 	fearTotal := fearDie + fearModifier
 
 	result := DualityRollResult{
-		HopeDie:   hopeDie,
-		FearDie:   fearDie,
-		HopeTotal: hopeTotal,
-		FearTotal: fearTotal,
+		HopeDie:    hopeDie,
+		FearDie:    fearDie,
+		HopeTotal:  hopeTotal,
+		FearTotal:  fearTotal,
+		WithSpirit: hopeTotal + fearTotal,
 	}
 
-	// Check for critical success (matching dice)
-	if hopeDie == fearDie {
+	// Hope vs Fear is decided on the raw dice, not the modified totals
+	switch {
+	case hopeDie == fearDie:
 		result.IsCritical = true
-		// Critical success counts as "with Hope"
 		result.Result = models.ResultCriticalHope
-		result.WithSpirit = hopeTotal + fearTotal
-		return result
-	}
-
-	// Sum both dice for total
-	result.WithSpirit = hopeTotal + fearTotal
-
-	// Determine winner (Hope vs Fear) using RAW dice values, NOT modified totals
-	// This determines if the roll generates Hope or Fear tokens
-	if hopeDie >= fearDie {
+	case hopeDie > fearDie:
 		result.Result = models.ResultHope
-	} else {
+	default:
 		result.Result = models.ResultFear
 	}
-
 	return result
 }
 
@@ -106,33 +92,35 @@ func (dr *StandardDiceRoller) RollDice(diceCount, diceSize, flatBonus int) int {
 
 // RollDiceDetailed rolls dice and returns individual values
 func (dr *StandardDiceRoller) RollDiceDetailed(diceCount, diceSize, flatBonus int) DamageRollResult {
-	diceValues := make([]int, diceCount)
-	total := flatBonus
-
-	for i := 0; i < diceCount; i++ {
-		roll := dr.rng.Intn(diceSize) + 1
-		diceValues[i] = roll
-		total += roll
+	result := DamageRollResult{DiceValues: make([]int, max(diceCount, 0)), FlatBonus: flatBonus, Total: flatBonus}
+	for i := range result.DiceValues {
+		result.DiceValues[i] = dr.rng.Intn(diceSize) + 1
+		result.Total += result.DiceValues[i]
 	}
-
-	return DamageRollResult{
-		DiceValues: diceValues,
-		FlatBonus:  flatBonus,
-		Total:      total,
-	}
+	return result
 }
 
 // RollD20Attack rolls d20 + modifier for enemy attacks
 func (dr *StandardDiceRoller) RollD20Attack(modifier int) D20RollResult {
 	d20 := dr.RollDice(1, 20, 0)
-	total := d20 + modifier
+	return D20RollResult{D20Roll: d20, Modifier: modifier, Total: d20 + modifier, IsCritical: d20 == 20}
+}
 
-	return D20RollResult{
-		D20Roll:    d20,
-		Modifier:   modifier,
-		Total:      total,
-		IsCritical: d20 == 20,
+// rollNotationDetailed rolls every term of a notation, keeping the individual dice for the log
+func rollNotationDetailed(dice DiceRoller, notation *models.DiceNotation) DamageRollResult {
+	var out DamageRollResult
+	for _, term := range notation.Terms {
+		switch {
+		case term.Count == 0:
+			out.FlatBonus += term.Size
+		case term.Count > 0:
+			r := dice.RollDiceDetailed(term.Count, term.Size, 0)
+			out.DiceValues = append(out.DiceValues, r.DiceValues...)
+			out.Total += r.Total
+		}
 	}
+	out.Total += out.FlatBonus
+	return out
 }
 
 // rollAdversaryD20 rolls the GM's d20. With advantage or disadvantage a second

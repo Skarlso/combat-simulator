@@ -72,46 +72,22 @@ func (ap *AdversaryParser) LoadAdversariesFromBytes(data []byte) ([]*models.Comb
 
 	combatants := make([]*models.Combatant, 0, len(advFile.Adversaries))
 	for _, adv := range advFile.Adversaries {
-		combatant := ap.ParseAdversary(adv)
-		combatants = append(combatants, combatant)
+		combatants = append(combatants, ap.ParseAdversary(adv))
 	}
-
 	return combatants, nil
 }
 
 // ParseAdversary converts an AdversaryJSON into a Combatant
 func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
-	// Generate unique ID
 	id := fmt.Sprintf("%s_%d", strings.ToLower(strings.ReplaceAll(adv.Name, " ", "_")), adv.Tier)
-
-	// Create combatant
-	combatant := &models.Combatant{
-		ID:                id,
-		Name:              adv.Name,
-		Side:              models.SideEnemy,
-		IsAdversary:       true,
-		Level:             adv.Tier,
-		HP:                adv.HP,
-		HPMax:             adv.HP,
-		Stress:            0,
-		StressMax:         adv.Stress,
-		Evasion:           adv.Difficulty,
-		Proficiency:       adv.Attack.Bonus,
-		ArmorSlots:        0,
-		DamageDice:        adv.Attack.Damage,
-		Tier:              fmt.Sprintf("Tier %d", adv.Tier),
-		AdversaryType:     adv.Type,
-		Difficulty:        adv.Difficulty,
-		ATK:               adv.Attack.Bonus,
-		Motives:           strings.Join(adv.MotivesTactics, ", "),
-		Tactics:           "",
-		CustomThresholds:  []int{adv.Thresholds.Minor, adv.Thresholds.Major},
-		Conditions:        make([]*models.ActiveCondition, 0),
-		Resistances:       make([]models.Resistance, 0),
-		Experience:        make([]models.ExperienceSkill, 0),
-		AdversaryFeatures: make([]models.AdversaryFeature, 0),
-		DomainAbilities:   make([]models.DomainAbility, 0),
-	}
+	combatant := models.NewAdversary(id, adv.Name, fmt.Sprintf("Tier %d", adv.Tier), adv.Type,
+		adv.Difficulty, adv.Attack.Bonus, adv.HP, adv.Stress, []int{adv.Thresholds.Minor, adv.Thresholds.Major})
+	// PC-side mirrors keep threat scoring and thresholds working for adversaries too
+	combatant.Level = adv.Tier
+	combatant.Evasion = adv.Difficulty
+	combatant.Proficiency = adv.Attack.Bonus
+	combatant.DamageDice = adv.Attack.Damage
+	combatant.Motives = strings.Join(adv.MotivesTactics, ", ")
 
 	for _, jsonFeature := range adv.Features {
 		if strings.EqualFold(jsonFeature.Name, "Relentless") {
@@ -119,18 +95,19 @@ func (ap *AdversaryParser) ParseAdversary(adv AdversaryJSON) *models.Combatant {
 			continue
 		}
 
-		feature := ap.featureParser.ParseFeature(jsonFeature.Name, jsonFeature.Description)
-		if feature != nil {
-			// Reactions and Passives fire on triggers; the stat block decides, not the mapping
-			if strings.EqualFold(jsonFeature.Type, "Passive") || strings.EqualFold(jsonFeature.Type, "Reaction") {
-				feature.Passive = true
-			}
-			if jsonFeature.Uses > 0 {
-				feature.MaxUses = jsonFeature.Uses
-				feature.UsesLeft = jsonFeature.Uses
-			}
-			combatant.AdversaryFeatures = append(combatant.AdversaryFeatures, *feature)
+		feature := ap.featureParser.ParseFeatureFor(adv.Name, jsonFeature.Name, jsonFeature.Description)
+		if feature == nil {
+			continue
 		}
+		// Reactions and Passives fire on triggers; the stat block decides, not the mapping
+		if strings.EqualFold(jsonFeature.Type, "Passive") || strings.EqualFold(jsonFeature.Type, "Reaction") {
+			feature.Passive = true
+		}
+		if jsonFeature.Uses > 0 {
+			feature.MaxUses = jsonFeature.Uses
+			feature.UsesLeft = jsonFeature.Uses
+		}
+		combatant.AdversaryFeatures = append(combatant.AdversaryFeatures, *feature)
 	}
 
 	return combatant

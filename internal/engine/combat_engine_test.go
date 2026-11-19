@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -12,6 +13,7 @@ type mockDiceRoller struct {
 	dualityIdx   int
 	damage       int
 	coinFlip     int
+	d20          int // 0 = 15
 }
 
 func (m *mockDiceRoller) RollDuality(_, _ int) DualityRollResult {
@@ -24,7 +26,11 @@ func (m *mockDiceRoller) RollDuality(_, _ int) DualityRollResult {
 }
 
 func (m *mockDiceRoller) RollD20Attack(modifier int) D20RollResult {
-	return D20RollResult{D20Roll: 15, Modifier: modifier, Total: 15 + modifier}
+	roll := 15
+	if m.d20 > 0 {
+		roll = m.d20
+	}
+	return D20RollResult{D20Roll: roll, Modifier: modifier, Total: roll + modifier, IsCritical: roll == 20}
 }
 
 func (m *mockDiceRoller) RollDiceDetailed(_, _, _ int) DamageRollResult {
@@ -137,6 +143,50 @@ func TestPlayerPhaseActsUntilShift(t *testing.T) {
 	}
 	if outcome.ActionHistory[2].Actor != "Goblin" {
 		t.Errorf("action 2: got %q, want Goblin", outcome.ActionHistory[2].Actor)
+	}
+}
+
+func TestSpotlightTokensAccrueToWaitingPlayers(t *testing.T) {
+	dice := &mockDiceRoller{dualityQueue: []DualityRollResult{hopeDuality(20), fearDuality(20)}, damage: 2}
+	ce := newMockEngine(dice, &firstPicker{})
+	hero, mage, bard := tPlayer("p1", "Hero"), tPlayer("p2", "Mage"), tPlayer("p3", "Bard")
+	state := models.NewCombatState([]*models.Combatant{hero, mage, bard}, []*models.Combatant{tEnemy("e1", "Goblin", 50)}, 0, 0, 3)
+
+	// Hero acts twice (Hope keeps the spotlight, then Fear passes it)
+	ce.RunCombat(state, &mockDecisionMaker{}, 2, strategy.ResourceGreedy)
+
+	if hero.SpotlightTokens != 0 {
+		t.Errorf("acting player tokens = %d, want 0", hero.SpotlightTokens)
+	}
+	if mage.SpotlightTokens != 2 || bard.SpotlightTokens != 2 {
+		t.Errorf("waiting players tokens = %d / %d, want 2 / 2", mage.SpotlightTokens, bard.SpotlightTokens)
+	}
+}
+
+func TestSpotlightThresholdForcesWaitingPlayer(t *testing.T) {
+	dice := &mockDiceRoller{damage: 1} // every roll is Hope: the spotlight never leaves the players
+	ce := newMockEngine(dice, NewHybridSpotlightSelector(rand.New(rand.NewSource(7)), 0.2))
+	players := []*models.Combatant{tPlayer("p1", "A"), tPlayer("p2", "B"), tPlayer("p3", "C"), tPlayer("p4", "D")}
+	state := models.NewCombatState(players, []*models.Combatant{tEnemy("e1", "Wall", 500)}, 0, 0, 3)
+
+	outcome := ce.RunCombat(state, &mockDecisionMaker{}, 40, strategy.ResourceGreedy)
+
+	// With threshold 3 nobody can be skipped more than 3 player turns in a row
+	lastSeen := map[string]int{}
+	for i, a := range outcome.ActionHistory {
+		if a.ActionType != models.ActionAttack {
+			continue
+		}
+		for _, p := range players {
+			if p.Name == a.Actor {
+				lastSeen[p.Name] = i
+			} else if seen, ok := lastSeen[p.Name]; ok && i-seen > 4 {
+				t.Fatalf("%s waited %d player turns at action %d", p.Name, i-seen, i)
+			}
+		}
+	}
+	if len(lastSeen) != 4 {
+		t.Errorf("only %d of 4 players acted", len(lastSeen))
 	}
 }
 
@@ -491,12 +541,12 @@ func TestDefeatedByConditionTickDoesNotAct(t *testing.T) {
 func TestPlayerFailsToClearCondition(t *testing.T) {
 	ce := newMockEngine(&mockDiceRoller{dualityQueue: []DualityRollResult{fearDuality(8)}}, &firstPicker{})
 	player := tPlayer("p1", "Hero")
-	player.AddCondition(&models.ActiveCondition{Type: models.ConditionRestrained, Duration: models.DurationUntilCleared, ClearDifficulty: 12})
+	player.AddCondition(&models.ActiveCondition{Type: models.ConditionVulnerable, Duration: models.DurationUntilCleared, ClearDifficulty: 12})
 	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{tEnemy("e1", "Ogre", 10)}, 0, 0)
 
 	ce.ExecuteTurnWithDecision(player, &strategy.ActionDecision{Target: player, ClearCondition: true}, state)
 
-	if !player.HasCondition(models.ConditionRestrained) {
+	if !player.HasCondition(models.ConditionVulnerable) {
 		t.Error("a failed action roll should leave the condition in place")
 	}
 	last := state.ActionHistory[len(state.ActionHistory)-1]
@@ -512,12 +562,12 @@ func TestAdversaryClearsConditionWithoutRoll(t *testing.T) {
 	dice := &mockDiceRoller{dualityQueue: []DualityRollResult{fearDuality(1)}}
 	ce := newMockEngine(dice, &firstPicker{})
 	enemy := tEnemy("e1", "Ogre", 10)
-	enemy.AddCondition(&models.ActiveCondition{Type: models.ConditionRestrained, Duration: models.DurationUntilCleared})
+	enemy.AddCondition(&models.ActiveCondition{Type: models.ConditionVulnerable, Duration: models.DurationUntilCleared})
 	state := newStateWith([]*models.Combatant{tPlayer("p1", "Hero")}, []*models.Combatant{enemy}, 0, 0)
 
 	ce.ExecuteTurnWithDecision(enemy, &strategy.ActionDecision{Target: enemy, ClearCondition: true}, state)
 
-	if enemy.HasCondition(models.ConditionRestrained) {
+	if enemy.HasCondition(models.ConditionVulnerable) {
 		t.Error("an adversary clears a condition by spending its spotlight")
 	}
 	if dice.dualityIdx != 0 {

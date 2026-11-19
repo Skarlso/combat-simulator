@@ -1,9 +1,6 @@
 package models
 
-type GMTurnState struct {
-	Active         bool
-	SpotlightedIDs map[string]int
-}
+import "strings"
 
 // CombatState tracks the current state of an encounter
 type CombatState struct {
@@ -21,8 +18,8 @@ type CombatState struct {
 	ActionHistory          []ActionRecord
 	ConsecutivePlayerTurns int
 
-	// GM turn state
-	GMTurn GMTurnState
+	// Spotlights each adversary has used this GM turn, keyed by ID
+	gmSpotlights map[string]int
 
 	// Configuration
 	SpotlightThreshold int
@@ -30,6 +27,15 @@ type CombatState struct {
 	// Summoning support
 	SummonCounter  int
 	SummonedCounts map[string]int
+
+	// Allies granted a spotlight by a feature; they act in the current or next GM turn
+	PendingSpotlights []PendingSpotlight
+}
+
+// PendingSpotlight is one queued spotlight handed out by an ally_spotlight or summon effect
+type PendingSpotlight struct {
+	Combatant  *Combatant
+	HalfDamage bool
 }
 
 // ActionRecord logs what happened during combat
@@ -39,7 +45,6 @@ type ActionRecord struct {
 	Actor            string
 	ActionType       ActionType
 	Target           string
-	Ability          string
 	FeatureName      string // Name of feature/ability used (if any)
 	IsFeature        bool   // True if a feature was activated
 	Result           string
@@ -79,57 +84,33 @@ func NewCombatState(players, enemies []*Combatant, startingHope, fearPool, spotl
 		}
 	}
 	return &CombatState{
-		Players:                players,
-		Enemies:                activeEnemies,
-		FearPool:               fearPool,
-		RoundNumber:            0,
-		TurnNumber:             0,
-		ConsecutivePlayerTurns: 0,
-		SpotlightThreshold:     spotlightThreshold,
-		ActionHistory:          make([]ActionRecord, 0),
-		SummonedCounts:         make(map[string]int),
+		Players:            players,
+		Enemies:            activeEnemies,
+		FearPool:           fearPool,
+		SpotlightThreshold: spotlightThreshold,
+		ActionHistory:      make([]ActionRecord, 0),
+		SummonedCounts:     make(map[string]int),
 	}
 }
 
-// GetAllCombatants returns all participants
-func (cs *CombatState) GetAllCombatants() []*Combatant {
-	all := make([]*Combatant, 0, len(cs.Players)+len(cs.Enemies))
-	all = append(all, cs.Players...)
-	all = append(all, cs.Enemies...)
-	return all
-}
-
-// GetAliveCombatants returns only living combatants
-func (cs *CombatState) GetAliveCombatants() []*Combatant {
-	alive := make([]*Combatant, 0)
-	for _, c := range cs.GetAllCombatants() {
+func alive(combatants []*Combatant) []*Combatant {
+	out := make([]*Combatant, 0, len(combatants))
+	for _, c := range combatants {
 		if c.IsAlive() {
-			alive = append(alive, c)
+			out = append(out, c)
 		}
 	}
-	return alive
+	return out
 }
 
 // GetAlivePlayers returns living player characters
 func (cs *CombatState) GetAlivePlayers() []*Combatant {
-	alive := make([]*Combatant, 0)
-	for _, p := range cs.Players {
-		if p.IsAlive() {
-			alive = append(alive, p)
-		}
-	}
-	return alive
+	return alive(cs.Players)
 }
 
 // GetAliveEnemies returns living enemies
 func (cs *CombatState) GetAliveEnemies() []*Combatant {
-	alive := make([]*Combatant, 0)
-	for _, e := range cs.Enemies {
-		if e.IsAlive() {
-			alive = append(alive, e)
-		}
-	}
-	return alive
+	return alive(cs.Enemies)
 }
 
 // GetAlliesOf returns living allies of a combatant
@@ -194,7 +175,6 @@ type ActionParams struct {
 	Actor           *Combatant
 	ActionType      ActionType
 	Target          *Combatant
-	AbilityName     string
 	FeatureName     string
 	IsFeature       bool
 	Result          string
@@ -225,7 +205,6 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 		ActionType:      p.ActionType,
 		FeatureName:     p.FeatureName,
 		IsFeature:       p.IsFeature,
-		Ability:         p.AbilityName,
 		Result:          p.Result,
 		DamageRoll:      p.DamageRoll,
 		ProcessedDamage: p.ProcessedDamage,
@@ -264,40 +243,72 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 	cs.ActionHistory = append(cs.ActionHistory, record)
 }
 
-// IncrementTurn advances turn counter
-func (cs *CombatState) IncrementTurn() {
-	cs.TurnNumber++
-}
-
-// IncrementRound advances round counter
-func (cs *CombatState) IncrementRound() {
-	cs.RoundNumber++
-}
-
 func (cs *CombatState) BeginGMTurn() {
-	cs.GMTurn = GMTurnState{
-		Active:         true,
-		SpotlightedIDs: make(map[string]int),
-	}
+	cs.gmSpotlights = make(map[string]int)
 }
 
 func (cs *CombatState) EndGMTurn() {
-	cs.GMTurn.Active = false
-	cs.GMTurn.SpotlightedIDs = nil
+	cs.gmSpotlights = nil
 }
 
 func (cs *CombatState) RecordAdversarySpotlight(id string) {
-	if cs.GMTurn.SpotlightedIDs == nil {
-		cs.GMTurn.SpotlightedIDs = make(map[string]int)
+	if cs.gmSpotlights == nil {
+		cs.gmSpotlights = make(map[string]int)
 	}
-	cs.GMTurn.SpotlightedIDs[id]++
+	cs.gmSpotlights[id]++
 }
 
+// AdversarySpotlightCount is how often an adversary has been spotlighted this GM turn
 func (cs *CombatState) AdversarySpotlightCount(id string) int {
-	if cs.GMTurn.SpotlightedIDs == nil {
-		return 0
+	return cs.gmSpotlights[id]
+}
+
+// QueueSpotlight hands a combatant a spotlight to use once the current action resolves
+func (cs *CombatState) QueueSpotlight(c *Combatant, halfDamage bool) {
+	cs.PendingSpotlights = append(cs.PendingSpotlights, PendingSpotlight{Combatant: c, HalfDamage: halfDamage})
+}
+
+// PopPendingSpotlight returns the next queued spotlight, if any
+func (cs *CombatState) PopPendingSpotlight() (PendingSpotlight, bool) {
+	if len(cs.PendingSpotlights) == 0 {
+		return PendingSpotlight{}, false
 	}
-	return cs.GMTurn.SpotlightedIDs[id]
+	next := cs.PendingSpotlights[0]
+	cs.PendingSpotlights = cs.PendingSpotlights[1:]
+	return next, true
+}
+
+func (cs *CombatState) isSpotlightQueued(c *Combatant) bool {
+	for _, p := range cs.PendingSpotlights {
+		if p.Combatant == c {
+			return true
+		}
+	}
+	return false
+}
+
+// EligibleSpotlightAllies lists the actor's living allies an ally_spotlight effect may pick:
+// not the actor, not already queued, not already at their spotlight limit this GM turn.
+func (cs *CombatState) EligibleSpotlightAllies(actor *Combatant, effect FeatureEffect) []*Combatant {
+	var allies []*Combatant
+	for _, c := range cs.GetAlliesOf(actor) {
+		if c == actor || !c.IsAlive() || cs.isSpotlightQueued(c) {
+			continue
+		}
+		if cs.AdversarySpotlightCount(c.ID) >= c.MaxSpotlightsPerGMTurn() {
+			continue
+		}
+		if effect.AllyName != "" && !matchesAllyName(c.Name, effect.AllyName) {
+			continue
+		}
+		allies = append(allies, c)
+	}
+	return allies
+}
+
+// matchesAllyName accepts the stat block name and the "Name #n" form summons get
+func matchesAllyName(name, want string) bool {
+	return name == want || strings.HasPrefix(name, want+" ")
 }
 
 // SummonCombatant adds a new enemy combatant mid-combat

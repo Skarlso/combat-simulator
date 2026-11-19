@@ -727,7 +727,7 @@ func TestAppliedConditionRemembersSourceDifficulty(t *testing.T) {
 	target := tPlayer("p1", "Hero")
 	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
 
-	effect := models.FeatureEffect{Category: models.FeatureEffectApplyRestrained, Duration: "until_cleared"}
+	effect := models.FeatureEffect{Category: models.FeatureEffectApplyVulnerable, Duration: "until_cleared"}
 	if err := fr.ResolveEffect(effect, actor, target, state, nil); err != nil {
 		t.Fatal(err)
 	}
@@ -802,6 +802,99 @@ func TestBurningReactionDamagesAttacker(t *testing.T) {
 	// 5 direct damage is Minor for a level 3 PC, and armor cannot reduce it
 	if hero.HP != hero.HPMax-1 || hero.ArmorSlots != 2 {
 		t.Errorf("hero HP=%d armor=%d, want %d / 2", hero.HP, hero.ArmorSlots, hero.HPMax-1)
+	}
+}
+
+func TestAttackFeatureMissesAgainstHighEvasion(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{damage: 5}) // d20 is always 15
+	wolf := tEnemy("e1", "Dire Wolf", 10)
+	wolf.ATK = 2
+	hero := tPlayer("p1", "Hero")
+	hero.Evasion = 18
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{wolf}, 0, 0)
+	feature := &models.AdversaryFeature{
+		Name: "Hobbling Strike", StressCost: 1, DCType: "target",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDirectDamage, DiceFormula: "3d4+10"}},
+	}
+
+	err, res := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
+	if err == nil || res.Success {
+		t.Fatalf("17 vs Evasion 18 should miss, got err=%v success=%v", err, res.Success)
+	}
+	if hero.HP != hero.HPMax {
+		t.Errorf("hero HP = %d, want untouched on a miss", hero.HP)
+	}
+	// "Mark a Stress to make an attack": the Stress is spent even on a miss
+	if wolf.Stress != 1 {
+		t.Errorf("wolf Stress = %d, want 1", wolf.Stress)
+	}
+}
+
+func TestCostOnSuccessIsNotPaidOnMiss(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{damage: 5})
+	guard := tEnemy("e1", "Bladed Guard", 10)
+	guard.ATK = 1
+	hero := tPlayer("p1", "Hero")
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{guard}, 0, 0)
+	feature := &models.AdversaryFeature{
+		Name: "Detain", StressCost: 1, CostOnSuccess: true, DCType: "target",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectApplyRestrained, Duration: "until_cleared"}},
+	}
+
+	hero.Evasion = 18
+	fr.ActivateAdversaryFeature(feature, guard, hero, state)
+	if guard.Stress != 0 || hero.HasCondition(models.ConditionRestrained) {
+		t.Errorf("on a miss: Stress=%d restrained=%v, want 0 / false", guard.Stress, hero.HasCondition(models.ConditionRestrained))
+	}
+
+	hero.Evasion = 10
+	if err, _ := fr.ActivateAdversaryFeature(feature, guard, hero, state); err != nil {
+		t.Fatal(err)
+	}
+	if guard.Stress != 1 || !hero.HasCondition(models.ConditionRestrained) {
+		t.Errorf("on a hit: Stress=%d restrained=%v, want 1 / true", guard.Stress, hero.HasCondition(models.ConditionRestrained))
+	}
+}
+
+func TestFeatureAttackCriticalAddsMaxDice(t *testing.T) {
+	fr := newTestFR(&mockDiceRoller{damage: 5, d20: 20})
+	wolf := tEnemy("e1", "Dire Wolf", 10)
+	hero := tPlayer("p1", "Hero")
+	hero.Evasion = 30 // only the natural 20 can hit
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{wolf}, 0, 0)
+	feature := &models.AdversaryFeature{
+		Name: "Hobbling Strike", DCType: "target",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDirectDamage, DiceFormula: "3d4+10"}},
+	}
+
+	err, res := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
+	if err != nil || !res.IsCritical {
+		t.Fatalf("natural 20 should crit, err=%v crit=%v", err, res.IsCritical)
+	}
+	// rolled 5 + flat 10, plus the 12 maximum of 3d4
+	if res.DamageRoll != 27 {
+		t.Errorf("DamageRoll = %d, want 27", res.DamageRoll)
+	}
+}
+
+func TestAbilityCriticalAddsMaxDice(t *testing.T) {
+	crit := DualityRollResult{HopeDie: 6, FearDie: 6, IsCritical: true, Result: models.ResultCriticalHope, WithSpirit: 12}
+	fr := newTestFR(&mockDiceRoller{damage: 5, dualityQueue: []DualityRollResult{crit}})
+	hero := tPlayer("p1", "Hero")
+	ogre := tEnemy("e1", "Ogre", 20)
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 2, 0)
+	ability := &models.DomainAbility{
+		Name: "Blast", DCType: "target",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDamage, DiceFormula: "2d8+1", DamageType: "magic"}},
+	}
+
+	err, res := fr.ActivateDomainAbility(ability, hero, ogre, state)
+	if err != nil || !res.IsCritical {
+		t.Fatalf("matching dice should crit, err=%v crit=%v", err, res.IsCritical)
+	}
+	// rolled 5 + flat 1, plus the 16 maximum of 2d8
+	if res.DamageRoll != 22 {
+		t.Errorf("DamageRoll = %d, want 22", res.DamageRoll)
 	}
 }
 

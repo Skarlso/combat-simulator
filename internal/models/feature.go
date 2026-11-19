@@ -95,6 +95,14 @@ type FeatureEffect struct {
 	HalfOnSuccess bool
 	SummonType    string       // Adversary name to summon (for FeatureEffectSummonAllies) - registry lookup
 	SummonPool    []*Combatant // Inline summon templates (preferred over registry)
+
+	// Spotlight chaining. ally_spotlight picks Magnitude+DiceFormula allies (or all with
+	// SpotlightAll), optionally only those named AllyName; summon_allies spotlights
+	// SpotlightCount of the new arrivals (or all). HalfDamage halves what they deal.
+	SpotlightAll   bool
+	SpotlightCount int
+	AllyName       string
+	HalfDamage     bool
 }
 
 // AdversaryFeature represents passive or AI-triggered abilities for enemies
@@ -105,6 +113,7 @@ type AdversaryFeature struct {
 	Trigger        FeatureTriggerCondition
 	FearCost       int    // Fear required to activate (0 = free)
 	StressCost     int    // Stress required to activate (0 = free)
+	CostOnSuccess  bool   // "On a success, mark a Stress to...": costs are only paid when the roll succeeds
 	SpotlightLimit int    // Max times per GM turn (0 = unlimited)
 	UsageType      string // "unlimited", "once_per_scene", "once_per_session", "once_per_rest"
 	MaxUses        int    // Limit count (0 = unlimited)

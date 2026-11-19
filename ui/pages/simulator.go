@@ -2,6 +2,7 @@ package pages
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/data"
@@ -24,6 +25,7 @@ type SimulatorPage struct {
 	errorMessage      string
 	currentTab        string
 	initialized       bool
+	configSet         bool
 	adversaryRegistry *parser.AdversaryRegistry
 }
 
@@ -32,6 +34,7 @@ func (p *SimulatorPage) OnNav(ctx app.Context) {
 	if !p.initialized {
 		p.currentTab = "players"
 		p.config = simulation.DefaultSimulationConfig()
+		p.configSet = true
 		p.players = make([]*models.Combatant, 0)
 		p.enemies = make([]*models.Combatant, 0)
 
@@ -61,33 +64,79 @@ func (p *SimulatorPage) Render() app.UI {
 	if p.enemies == nil {
 		p.enemies = make([]*models.Combatant, 0)
 	}
-	if p.config.RunCount == 0 {
+	// Only seed defaults once: RunCount hits 0 whenever the user clears the input to retype it
+	if !p.configSet {
 		p.config = simulation.DefaultSimulationConfig()
+		p.configSet = true
+	}
+
+	workspaceClass := "workspace"
+	if p.result != nil {
+		workspaceClass += " has-results"
 	}
 
 	return app.Div().
 		Class("simulator-page").
 		Body(
-			p.renderTabs(),
-			p.renderTabContent(),
-			p.renderActionButtons(),
-			p.renderResults(),
+			p.renderToolbar(),
+			app.Div().
+				Class(workspaceClass).
+				Body(
+					app.Div().
+						Class("builder").
+						Body(
+							app.If(p.errorMessage != "", func() app.UI {
+								return app.Div().Class("error-message").Text(p.errorMessage)
+							}),
+							p.renderTabContent(),
+						),
+					app.If(p.result != nil, func() app.UI {
+						return p.renderResults()
+					}),
+				),
 		)
 }
 
-// renderTabs renders the tab navigation
-func (p *SimulatorPage) renderTabs() app.UI {
+// renderToolbar renders the sticky bar with tabs and run controls
+func (p *SimulatorPage) renderToolbar() app.UI {
 	return app.Div().
-		Class("tabs").
+		Class("toolbar").
 		Body(
-			p.renderTab("players", "Players"),
-			p.renderTab("enemies", "Enemies"),
-			p.renderTab("config", "Configuration"),
+			app.Div().
+				Class("tabs").
+				Body(
+					p.renderTab("players", "Party", len(p.players)),
+					p.renderTab("enemies", "Adversaries", len(p.enemies)),
+					p.renderTab("config", "Settings", -1),
+				),
+			app.Div().
+				Class("toolbar-actions").
+				Body(
+					p.renderStatusChip(),
+					app.Button().
+						Class("btn btn-primary").
+						Text(fmt.Sprintf("Run %d", p.config.RunCount)).
+						Disabled(p.isRunning || len(p.players) == 0 || len(p.enemies) == 0).
+						OnClick(func(ctx app.Context, e app.Event) {
+							p.runSimulation(ctx)
+						}),
+				),
 		)
 }
 
-// renderTab renders a single tab button
-func (p *SimulatorPage) renderTab(id, label string) app.UI {
+func (p *SimulatorPage) renderStatusChip() app.UI {
+	switch {
+	case p.isRunning:
+		return app.Span().Class("status-chip running").Text("Running")
+	case len(p.players) == 0 || len(p.enemies) == 0:
+		return app.Span().Class("status-chip").Text("Add a party and adversaries to run")
+	default:
+		return app.Span().Class("status-chip").Text("Ready")
+	}
+}
+
+// renderTab renders a single tab button; count < 0 hides the badge
+func (p *SimulatorPage) renderTab(id, label string, count int) app.UI {
 	class := "tab"
 	if p.currentTab == id {
 		class += " active"
@@ -95,7 +144,12 @@ func (p *SimulatorPage) renderTab(id, label string) app.UI {
 
 	return app.Button().
 		Class(class).
-		Text(label).
+		Body(
+			app.Text(label),
+			app.If(count >= 0, func() app.UI {
+				return app.Span().Class("tab-count").Text(fmt.Sprintf("%d", count))
+			}),
+		).
 		OnClick(func(ctx app.Context, e app.Event) {
 			p.currentTab = id
 			ctx.Update()
@@ -109,9 +163,8 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 		return app.Div().
 			Class("tab-content").
 			Body(
-				app.H2().Text("Player Characters"),
 				&components.CombatantList{
-					Title:      "Players",
+					Title:      "Party",
 					Combatants: p.players,
 					Side:       models.SidePlayer,
 					OnAdd: func(ctx app.Context, c *models.Combatant) {
@@ -131,10 +184,10 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 		return app.Div().
 			Class("tab-content").
 			Body(
-				app.H2().Text("Adversaries"),
 				&components.AdversaryList{
 					Title:       "Adversaries",
 					Adversaries: p.enemies,
+					Registry:    p.adversaryRegistry,
 					OnAdd: func(ctx app.Context, c *models.Combatant) {
 						p.enemies = append(p.enemies, c)
 						ctx.Update()
@@ -152,12 +205,8 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 		return app.Div().
 			Class("tab-content").
 			Body(
-				app.H2().Text("Simulation Configuration"),
-				&components.ConfigForm{
-					Config: &p.config,
-					OnChange: func() {
-					},
-				},
+				app.H2().Text("Simulation Settings"),
+				&components.ConfigForm{Config: &p.config},
 			)
 
 	default:
@@ -165,50 +214,24 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 	}
 }
 
-// renderActionButtons renders the run/clear buttons
-func (p *SimulatorPage) renderActionButtons() app.UI {
-	return app.Div().
-		Class("action-buttons").
-		Body(
-			app.Button().
-				Class("btn btn-primary").
-				Text("Run Simulation").
-				Disabled(p.isRunning || len(p.players) == 0 || len(p.enemies) == 0).
-				OnClick(func(ctx app.Context, e app.Event) {
-					p.runSimulation(ctx)
-				}),
-			app.Button().
-				Class("btn btn-secondary").
-				Text("Clear Results").
-				Disabled(p.result == nil).
-				OnClick(func(ctx app.Context, e app.Event) {
-					p.result = nil
-					p.errorMessage = ""
-					ctx.Update()
-				}),
-			app.If(p.isRunning, func() app.UI {
-				return app.Span().
-					Class("status-text").
-					Text("Running simulations...")
-			}),
-			app.If(p.errorMessage != "", func() app.UI {
-				return app.Div().
-					Class("error-message").
-					Text(p.errorMessage)
-			}),
-		)
-}
-
-// renderResults renders the simulation results
+// renderResults renders the simulation results panel
 func (p *SimulatorPage) renderResults() app.UI {
-	if p.result == nil {
-		return app.Div()
-	}
-
 	return app.Div().
-		Class("results-section").
+		Class("results-panel").
 		Body(
-			app.H2().Text("Simulation Results"),
+			app.Div().
+				Class("panel-header").
+				Body(
+					app.H2().Text("Results"),
+					app.Button().
+						Class("btn btn-ghost btn-small").
+						Text("Clear").
+						OnClick(func(ctx app.Context, e app.Event) {
+							p.result = nil
+							p.errorMessage = ""
+							ctx.Update()
+						}),
+				),
 			&components.ResultsSummary{
 				Result: p.result,
 			},
@@ -221,24 +244,17 @@ func (p *SimulatorPage) runSimulation(ctx app.Context) {
 	p.errorMessage = ""
 	p.result = nil
 
-	// Run in goroutine to avoid blocking UI
 	go func() {
-		defer func() {
-			p.isRunning = false
-			ctx.Dispatch(func(ctx app.Context) {
-			})
-		}()
+		// Sleeping yields to the browser so the "Running" state paints before the CPU-bound run
+		time.Sleep(50 * time.Millisecond)
 
-		// Configure simulation
 		p.config.PlayerTemplates = p.players
 		p.config.EnemyTemplates = p.enemies
 		p.config.AdversaryRegistry = p.adversaryRegistry
-
-		// Run simulation
-		runner := simulation.NewSimulationRunner(p.config)
-		result, err := runner.Run()
+		result, err := simulation.NewSimulationRunner(p.config).Run()
 
 		ctx.Dispatch(func(ctx app.Context) {
+			p.isRunning = false
 			if err != nil {
 				p.errorMessage = fmt.Sprintf("Error: %v", err)
 			} else {

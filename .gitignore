@@ -29,3 +29,6 @@ vendor/
 # Temporary files
 *.log
 *.tmp
+
+# Ignore the SRD
+srd/

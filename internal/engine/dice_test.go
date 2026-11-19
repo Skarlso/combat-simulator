@@ -129,14 +129,6 @@ func TestRollD20Attack(t *testing.T) {
 	}
 }
 
-func TestGetRNG(t *testing.T) {
-	rng := rand.New(rand.NewSource(1))
-	roller := NewStandardDiceRoller(rng)
-	if roller.GetRNG() != rng {
-		t.Error("GetRNG should return the same rng instance")
-	}
-}
-
 type d20QueueRoller struct {
 	*mockDiceRoller
 	rolls []int

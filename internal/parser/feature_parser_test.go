@@ -190,6 +190,19 @@ func TestNewFeatureParserRejectsUnknownEffectCategory(t *testing.T) {
 	}
 }
 
+func TestParseFeatureCostOnSuccess(t *testing.T) {
+	blob := `{"mappings": {"Detain": {"stress_cost": 1, "cost_on_success": true, "dc_type": "target",
+		"effects": [{"category": "FeatureEffectApplyRestrained", "duration": "until_cleared"}]}}}`
+	fp, err := NewFeatureParserFromBytes([]byte(blob))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	f := fp.ParseFeature("Detain", "")
+	if f == nil || !f.CostOnSuccess || f.DCType != "target" || f.StressCost != 1 {
+		t.Errorf("ParseFeature = %+v, want CostOnSuccess, dc target, stress 1", f)
+	}
+}
+
 func TestNewFeatureParserRejectsUnknownTargetType(t *testing.T) {
 	blob := `{"mappings": {"Bite": {"effects": [{"category": "FeatureEffectDamage", "target_type": "everyone"}]}}}`
 	if _, err := NewFeatureParserFromBytes([]byte(blob)); err == nil {
@@ -274,5 +287,49 @@ func TestEmbeddedArmorFeatureMappings(t *testing.T) {
 	shards := fp.ParseFeature("Armor-Shredding Shards", "")
 	if !shards.Passive || shards.Trigger.Type != models.TriggerOnHitTaken || shards.FearCost != 0 {
 		t.Errorf("Armor-Shredding Shards = passive %v, trigger %q, fear %d", shards.Passive, shards.Trigger.Type, shards.FearCost)
+	}
+}
+
+// The same feature name carries different numbers on different stat blocks.
+func TestParseFeatureForPrefersAdversaryKey(t *testing.T) {
+	raw := []byte(`{"mappings": {
+		"Bite": {"category": "damage", "effects": [{"category": "FeatureEffectDamage", "dice_formula": "1d6", "damage_type": "physical"}]},
+		"Dire Wolf::Bite": {"category": "damage", "max_uses": 2, "effects": [{"category": "FeatureEffectDamage", "dice_formula": "3d6", "damage_type": "physical"}]}
+	}}`)
+	fp, err := NewFeatureParserFromBytes(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	generic := fp.ParseFeatureFor("Bear", "Bite", "")
+	specific := fp.ParseFeatureFor("Dire Wolf", "Bite", "")
+	if generic.Effects[0].DiceFormula != "1d6" || specific.Effects[0].DiceFormula != "3d6" {
+		t.Fatalf("generic %q, specific %q", generic.Effects[0].DiceFormula, specific.Effects[0].DiceFormula)
+	}
+	if specific.MaxUses != 2 || specific.UsesLeft != 2 {
+		t.Fatalf("max_uses not applied: %d/%d", specific.UsesLeft, specific.MaxUses)
+	}
+}
+
+func TestParseFeatureSpotlightFields(t *testing.T) {
+	blob := `{"mappings": {
+		"Dance of Death": {"stress_cost": 1, "effects": [{"category": "FeatureEffectAllySpotlight", "dice_formula": "1d4", "half_damage": true}]},
+		"Call of the Guahala": {"fear_cost": 2, "effects": [{"category": "FeatureEffectAllySpotlight", "spotlight_all": true, "ally_name": "Guahalan Shifter"}]},
+		"Release the Hounds": {"fear_cost": 1, "effects": [{"category": "FeatureEffectSummonAllies", "summon_type": "Demonic Hound Pack", "magnitude": 2, "spotlight_count": 2}]}}}`
+	fp, err := NewFeatureParserFromBytes([]byte(blob))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	dance := fp.ParseFeature("Dance of Death", "").Effects[0]
+	if dance.DiceFormula != "1d4" || !dance.HalfDamage || dance.SpotlightAll {
+		t.Errorf("Dance of Death effect = %+v", dance)
+	}
+	call := fp.ParseFeature("Call of the Guahala", "").Effects[0]
+	if !call.SpotlightAll || call.AllyName != "Guahalan Shifter" {
+		t.Errorf("Call of the Guahala effect = %+v", call)
+	}
+	hounds := fp.ParseFeature("Release the Hounds", "").Effects[0]
+	if hounds.SpotlightCount != 2 || hounds.SummonType != "Demonic Hound Pack" {
+		t.Errorf("Release the Hounds effect = %+v", hounds)
 	}
 }

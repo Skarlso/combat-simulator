@@ -10,7 +10,7 @@ import (
 func newTestResolver() *CombatResolver {
 	rng := rand.New(rand.NewSource(42))
 	dice := NewStandardDiceRoller(rng)
-	fr := NewFeatureResolver(rng)
+	fr := &FeatureResolver{dice: NewStandardDiceRoller(rng)}
 	return NewCombatResolver(dice, fr)
 }
 
@@ -43,8 +43,8 @@ func TestResolveAttackEnemyHit(t *testing.T) {
 	state := models.NewCombatState([]*models.Combatant{defender}, []*models.Combatant{attacker}, 0, 3, 5)
 
 	result := resolver.ResolveAttack(attacker, defender, "1d8+2", state)
-	if result.D20Result.Modifier != 5 {
-		t.Errorf("enemy attack modifier = %d, want 5 (ATK)", result.D20Result.Modifier)
+	if modifier := result.Roll.TotalRoll - result.Roll.D20Roll; modifier != 5 {
+		t.Errorf("enemy attack modifier = %d, want 5 (ATK)", modifier)
 	}
 }
 
@@ -60,10 +60,10 @@ func TestResolveAttackGeneratesHopeOrFear(t *testing.T) {
 		defenderCopy := models.CloneCombatant(defender, "e1")
 		state := models.NewCombatState([]*models.Combatant{attacker}, []*models.Combatant{defenderCopy}, 0, 0, 5)
 		result := resolver.ResolveAttack(attacker, defenderCopy, "1d6", state)
-		if result.GeneratedHope {
+		if result.Roll.HopeGenerated > 0 {
 			hopeGenerated = true
 		}
-		if result.GeneratedFear {
+		if result.Roll.FearGenerated > 0 {
 			fearGenerated = true
 		}
 		if hopeGenerated && fearGenerated {
@@ -93,7 +93,7 @@ func TestResolveAttackDamageApplied(t *testing.T) {
 		if result.DamageResult == nil {
 			t.Error("hit should have DamageResult")
 		}
-		if defender.HP >= defender.HPMax && !result.CriticalResult {
+		if defender.HP >= defender.HPMax && !result.Roll.IsCritical {
 			t.Error("defender should take damage on hit")
 		}
 	}
@@ -173,7 +173,7 @@ func TestResolveAttackCriticalGeneratesOneHope(t *testing.T) {
 
 	result := resolver.ResolveAttack(attacker, defender, "1d6", state)
 
-	if !result.Hit || !result.CriticalResult {
+	if !result.Hit || !result.Roll.IsCritical {
 		t.Fatal("matching dice should be a critical hit")
 	}
 	if attacker.Hope != 1 {

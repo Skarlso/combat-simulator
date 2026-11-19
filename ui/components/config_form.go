@@ -10,268 +10,94 @@ import (
 type ConfigForm struct {
 	app.Compo
 
-	Config   *simulation.SimulationConfig
-	OnChange func()
+	Config *simulation.SimulationConfig
 }
 
 // Render renders the configuration form
 func (cf *ConfigForm) Render() app.UI {
-	return app.Div().
-		Class("config-form").
-		Body(
-			cf.renderBasicSettings(),
-			cf.renderResourcePools(),
-			cf.renderSpotlightSettings(),
-			cf.renderStrategySettings(),
-		)
+	return app.Div().Class("config-form").Body(
+		section("Basic Settings",
+			settingField("Number of Simulations", "Recommended: 100-1000", &cf.Config.RunCount, 1, 10000),
+			settingField("Max Turns Per Combat", "Prevents infinite loops", &cf.Config.MaxTurnsPerCombat, 10, 500),
+		),
+		section("Resource Pools",
+			app.Div().Class("form-row").Body(
+				settingField("Initial Hope (per PC)", "", &cf.Config.InitialHope, 0, 6),
+				settingField("Initial Fear Pool (-1 = 1 per PC)", "", &cf.Config.InitialFearPool, -1, 12),
+			),
+		),
+		section("Spotlight System",
+			settingField("Spotlight Threshold", "Tokens required to force selection", &cf.Config.SpotlightThreshold, 1, 10),
+			settingField("Area Attack Targets", "How many targets an area effect catches, since ranges are not modeled (0 = everyone)", &cf.Config.AreaTargets, 0, 10),
+		),
+		section("AI Strategies",
+			app.Div().Class("strategy-row").Body(
+				app.Div().Class("strategy-column").Body(
+					app.H4().Text("Player Strategy"),
+					cf.renderStrategySelector(&cf.Config.PlayerStrategy),
+				),
+				app.Div().Class("strategy-column").Body(
+					app.H4().Text("Enemy Strategy"),
+					cf.renderStrategySelector(&cf.Config.EnemyStrategy),
+				),
+			),
+		),
+	)
 }
 
-// renderBasicSettings renders basic simulation settings
-func (cf *ConfigForm) renderBasicSettings() app.UI {
-	return app.Div().
-		Class("form-section").
-		Body(
-			app.H3().Text("Basic Settings"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Number of Simulations:"),
-					app.Input().
-						Type("number").
-						Value(cf.Config.RunCount).
-						Min(1).
-						Max(10000).
-						OnInput(func(ctx app.Context, e app.Event) {
-							cf.Config.RunCount = ctx.JSSrc().Get("valueAsNumber").Int()
-							if cf.OnChange != nil {
-								cf.OnChange()
-							}
-						}),
-					app.Span().
-						Class("form-help").
-						Text("Recommended: 100-1000"),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Max Turns Per Combat:"),
-					app.Input().
-						Type("number").
-						Value(cf.Config.MaxTurnsPerCombat).
-						Min(10).
-						Max(500).
-						OnInput(func(ctx app.Context, e app.Event) {
-							cf.Config.MaxTurnsPerCombat = ctx.JSSrc().Get("valueAsNumber").Int()
-							if cf.OnChange != nil {
-								cf.OnChange()
-							}
-						}),
-					app.Span().
-						Class("form-help").
-						Text("Prevents infinite loops"),
-				),
-		)
+func section(title string, body ...app.UI) app.UI {
+	return app.Div().Class("form-section").Body(append([]app.UI{app.H3().Text(title)}, body...)...)
 }
 
-// renderResourcePools renders Hope/Fear pool settings
-func (cf *ConfigForm) renderResourcePools() app.UI {
-	return app.Div().
-		Class("form-section").
-		Body(
-			app.H3().Text("Resource Pools"),
-			app.Div().
-				Class("form-row").
-				Body(
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Initial Hope (per PC):"),
-							app.Input().
-								Type("number").
-								Value(cf.Config.InitialHope).
-								Min(0).
-								Max(6).
-								OnInput(func(ctx app.Context, e app.Event) {
-									cf.Config.InitialHope = ctx.JSSrc().Get("valueAsNumber").Int()
-									if cf.OnChange != nil {
-										cf.OnChange()
-									}
-								}),
-						),
-					app.Div().
-						Class("form-group").
-						Body(
-							app.Label().Text("Initial Fear Pool (-1 = 1 per PC):"),
-							app.Input().
-								Type("number").
-								Value(cf.Config.InitialFearPool).
-								Min(-1).
-								Max(12).
-								OnInput(func(ctx app.Context, e app.Event) {
-									cf.Config.InitialFearPool = ctx.JSSrc().Get("valueAsNumber").Int()
-									if cf.OnChange != nil {
-										cf.OnChange()
-									}
-								}),
-						),
-				),
-		)
+// settingField is a number input with an optional help line
+func settingField(label, help string, target *int, minVal, maxVal int) app.UI {
+	return app.Div().Class("form-group").Body(
+		app.Label().Text(label),
+		app.Input().Type("number").Value(*target).Min(minVal).Max(maxVal).OnInput(handleIntInput(target), fieldScope(target)),
+		app.If(help != "", func() app.UI { return app.Span().Class("form-help").Text(help) }),
+	)
 }
 
-// renderSpotlightSettings renders spotlight token settings
-func (cf *ConfigForm) renderSpotlightSettings() app.UI {
-	return app.Div().
-		Class("form-section").
-		Body(
-			app.H3().Text("Spotlight System"),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Spotlight Threshold:"),
-					app.Input().
-						Type("number").
-						Value(cf.Config.SpotlightThreshold).
-						Min(1).
-						Max(10).
-						OnInput(func(ctx app.Context, e app.Event) {
-							cf.Config.SpotlightThreshold = ctx.JSSrc().Get("valueAsNumber").Int()
-							if cf.OnChange != nil {
-								cf.OnChange()
-							}
-						}),
-					app.Span().
-						Class("form-help").
-						Text("Tokens required to force selection"),
-				),
-			app.Div().
-				Class("form-group").
-				Body(
-					app.Label().Text("Area Attack Targets:"),
-					app.Input().
-						Type("number").
-						Value(cf.Config.AreaTargets).
-						Min(0).
-						Max(10).
-						OnInput(func(ctx app.Context, e app.Event) {
-							cf.Config.AreaTargets = ctx.JSSrc().Get("valueAsNumber").Int()
-							if cf.OnChange != nil {
-								cf.OnChange()
-							}
-						}),
-					app.Span().
-						Class("form-help").
-						Text("How many targets an area effect catches, since ranges are not modeled (0 = everyone)"),
-				),
-		)
+// strategyPresets are keyed by the ResourceUsage they set, which is how the current one is recognised
+var strategyPresets = []struct {
+	key, label, description string
+	config                  func() strategy.StrategyConfig
+}{
+	{"greedy", "Greedy (Aggressive)", "Uses resources aggressively, focuses fire on weakest targets", strategy.DefaultGreedyConfig},
+	{"conservative", "Conservative (Defensive)", "Hoards resources, clears conditions immediately, targets threats", strategy.DefaultConservativeConfig},
+	{"desperate", "Desperate (Contextual)", "Uses resources when low HP, contextual ability usage", strategy.DefaultDesperateConfig},
+	{"random", "Random (Unpredictable)", "Unpredictable behavior with random decisions", strategy.DefaultRandomConfig},
 }
 
-// renderStrategySettings renders AI strategy settings
-func (cf *ConfigForm) renderStrategySettings() app.UI {
-	return app.Div().
-		Class("form-section").
-		Body(
-			app.H3().Text("AI Strategies"),
-			app.Div().
-				Class("strategy-row").
-				Body(
-					app.Div().
-						Class("strategy-column").
-						Body(
-							app.H4().Text("Player Strategy"),
-							cf.renderStrategySelector("player"),
-						),
-					app.Div().
-						Class("strategy-column").
-						Body(
-							app.H4().Text("Enemy Strategy"),
-							cf.renderStrategySelector("enemy"),
-						),
-				),
-		)
-}
-
-// renderStrategySelector renders strategy preset selector
-func (cf *ConfigForm) renderStrategySelector(side string) app.UI {
-	var currentStrategy strategy.ResourceUsageStrategy
-	if side == "player" {
-		currentStrategy = cf.Config.PlayerStrategy.ResourceUsage
-	} else {
-		currentStrategy = cf.Config.EnemyStrategy.ResourceUsage
+func (cf *ConfigForm) renderStrategySelector(target *strategy.StrategyConfig) app.UI {
+	current := string(target.ResourceUsage)
+	options := make([]selectOption, len(strategyPresets))
+	description := ""
+	for i, p := range strategyPresets {
+		options[i] = selectOption{p.key, p.label}
+		if p.key == current {
+			description = p.description
+		}
 	}
 
-	return app.Div().
-		Class("form-group").
-		Body(
-			app.Label().Text("Preset:"),
-			app.Select().
-				OnChange(func(ctx app.Context, e app.Event) {
-					value := ctx.JSSrc().Get("value").String()
-					cf.applyStrategyPreset(side, value)
-					if cf.OnChange != nil {
-						cf.OnChange()
-					}
-				}).
-				Body(
-					cf.renderStrategyOption("greedy", "Greedy (Aggressive)", currentStrategy),
-					cf.renderStrategyOption("conservative", "Conservative (Defensive)", currentStrategy),
-					cf.renderStrategyOption("desperate", "Desperate (Contextual)", currentStrategy),
-					cf.renderStrategyOption("random", "Random (Unpredictable)", currentStrategy),
-				),
-			app.Span().
-				Class("form-help").
-				Text(cf.getStrategyDescription(currentStrategy)),
-		)
+	return app.Div().Class("form-group").Body(
+		app.Label().Text("Preset"),
+		app.Select().
+			OnChange(func(ctx app.Context, e app.Event) {
+				cf.applyStrategyPreset(target, ctx.JSSrc().Get("value").String())
+				ctx.Update()
+			}).
+			Body(optionElements(options, current)...),
+		app.Span().Class("form-help").Text(description),
+	)
 }
 
-// renderStrategyOption renders a strategy option
-func (cf *ConfigForm) renderStrategyOption(value, label string, current strategy.ResourceUsageStrategy) app.UI {
-	option := app.Option().
-		Value(value).
-		Text(label)
-
-	if string(current) == value {
-		option = option.Selected(true)
+func (cf *ConfigForm) applyStrategyPreset(target *strategy.StrategyConfig, key string) {
+	for _, p := range strategyPresets {
+		if p.key == key {
+			*target = p.config()
+			return
+		}
 	}
-
-	return option
-}
-
-// getStrategyDescription returns description for a strategy
-func (cf *ConfigForm) getStrategyDescription(strat strategy.ResourceUsageStrategy) string {
-	switch strat {
-	case strategy.ResourceGreedy:
-		return "Uses resources aggressively, focuses fire on weakest targets"
-	case strategy.ResourceConservative:
-		return "Hoards resources, clears conditions immediately, targets threats"
-	case strategy.ResourceDesperate:
-		return "Uses resources when low HP, contextual ability usage"
-	case strategy.ResourceRandom:
-		return "Unpredictable behavior with random decisions"
-	default:
-		return ""
-	}
-}
-
-// applyStrategyPreset applies a strategy preset to player or enemy
-func (cf *ConfigForm) applyStrategyPreset(side, preset string) {
-	var config strategy.StrategyConfig
-
-	switch preset {
-	case "greedy":
-		config = strategy.DefaultGreedyConfig()
-	case "conservative":
-		config = strategy.DefaultConservativeConfig()
-	case "desperate":
-		config = strategy.DefaultDesperateConfig()
-	case "random":
-		config = strategy.DefaultRandomConfig()
-	default:
-		config = strategy.DefaultDesperateConfig()
-	}
-
-	if side == "player" {
-		cf.Config.PlayerStrategy = config
-	} else {
-		cf.Config.EnemyStrategy = config
-	}
+	*target = strategy.DefaultDesperateConfig()
 }

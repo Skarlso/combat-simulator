@@ -9,17 +9,19 @@ import (
 
 // FeatureMapping represents a mapping from feature name to quantized effects
 type FeatureMapping struct {
-	Category   string                 `json:"category"`
-	FearCost   int                    `json:"fear_cost"`
-	StressCost int                    `json:"stress_cost"`
-	Passive    bool                   `json:"passive"`
-	Trigger    string                 `json:"trigger,omitempty"`
-	DCType     string                 `json:"dc_type,omitempty"`
-	FixedDC    int                    `json:"fixed_dc,omitempty"`
-	UsesTokens bool                   `json:"uses_tokens,omitempty"`
-	TokenName  string                 `json:"token_name,omitempty"`
-	TokensMax  int                    `json:"tokens_max,omitempty"`
-	Effects    []FeatureMappingEffect `json:"effects"`
+	Category      string                 `json:"category"`
+	FearCost      int                    `json:"fear_cost"`
+	StressCost    int                    `json:"stress_cost"`
+	CostOnSuccess bool                   `json:"cost_on_success,omitempty"`
+	Passive       bool                   `json:"passive"`
+	Trigger       string                 `json:"trigger,omitempty"`
+	DCType        string                 `json:"dc_type,omitempty"`
+	FixedDC       int                    `json:"fixed_dc,omitempty"`
+	UsesTokens    bool                   `json:"uses_tokens,omitempty"`
+	TokenName     string                 `json:"token_name,omitempty"`
+	TokensMax     int                    `json:"tokens_max,omitempty"`
+	MaxUses       int                    `json:"max_uses,omitempty"`
+	Effects       []FeatureMappingEffect `json:"effects"`
 }
 
 // FeatureMappingEffect represents a single effect in the mapping
@@ -38,6 +40,10 @@ type FeatureMappingEffect struct {
 	Duration       string `json:"duration"`
 	TargetType     string `json:"target_type"`
 	SummonType     string `json:"summon_type"`
+	SpotlightAll   bool   `json:"spotlight_all,omitempty"`
+	SpotlightCount int    `json:"spotlight_count,omitempty"`
+	AllyName       string `json:"ally_name,omitempty"`
+	HalfDamage     bool   `json:"half_damage,omitempty"`
 	Description    string `json:"description"`
 }
 
@@ -90,24 +96,36 @@ func (fp *FeatureParser) FeatureNames() []string {
 // ParseFeature converts a feature name into an AdversaryFeature
 // Returns nil if feature is not mapped
 func (fp *FeatureParser) ParseFeature(name string, description string) *models.AdversaryFeature {
-	mapping, exists := fp.mappings[name]
+	return fp.ParseFeatureFor("", name, description)
+}
+
+// ParseFeatureFor prefers an "Adversary::Feature" mapping, since the same feature
+// name carries different numbers on different stat blocks.
+func (fp *FeatureParser) ParseFeatureFor(adversaryName, name, description string) *models.AdversaryFeature {
+	mapping, exists := fp.mappings[adversaryName+"::"+name]
+	if !exists {
+		mapping, exists = fp.mappings[name]
+	}
 	if !exists {
 		return nil // Feature not mapped yet
 	}
 
 	feature := &models.AdversaryFeature{
-		Name:        name,
-		Description: description,
-		Passive:     mapping.Passive,
-		Trigger:     models.FeatureTriggerCondition{Type: models.FeatureTriggerType(mapping.Trigger)},
-		FearCost:    mapping.FearCost,
-		StressCost:  mapping.StressCost,
-		DCType:      mapping.DCType,
-		FixedDC:     mapping.FixedDC,
-		UsesTokens:  mapping.UsesTokens,
-		TokenName:   mapping.TokenName,
-		TokensMax:   mapping.TokensMax,
-		Effects:     make([]models.FeatureEffect, 0, len(mapping.Effects)),
+		Name:          name,
+		Description:   description,
+		Passive:       mapping.Passive,
+		Trigger:       models.FeatureTriggerCondition{Type: models.FeatureTriggerType(mapping.Trigger)},
+		FearCost:      mapping.FearCost,
+		StressCost:    mapping.StressCost,
+		CostOnSuccess: mapping.CostOnSuccess,
+		DCType:        mapping.DCType,
+		FixedDC:       mapping.FixedDC,
+		UsesTokens:    mapping.UsesTokens,
+		TokenName:     mapping.TokenName,
+		TokensMax:     mapping.TokensMax,
+		MaxUses:       mapping.MaxUses,
+		UsesLeft:      mapping.MaxUses,
+		Effects:       make([]models.FeatureEffect, 0, len(mapping.Effects)),
 	}
 
 	// Effects were validated when the mapping file was loaded
@@ -143,6 +161,10 @@ func convertMappingEffect(m FeatureMappingEffect) (models.FeatureEffect, error) 
 		ReactionTrait:  m.ReactionTrait,
 		ReactionDC:     m.ReactionDC,
 		HalfOnSuccess:  m.HalfOnSuccess,
+		SpotlightAll:   m.SpotlightAll,
+		SpotlightCount: m.SpotlightCount,
+		AllyName:       m.AllyName,
+		HalfDamage:     m.HalfDamage,
 	}, nil
 }
 

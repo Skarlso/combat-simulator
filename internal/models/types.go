@@ -47,6 +47,11 @@ func (dt DamageThreshold) String() string {
 // ThresholdNone represents zero damage (no HP marked).
 const ThresholdNone DamageThreshold = -1
 
+// HPMarked is how many Hit Points a hit of this severity marks
+func (dt DamageThreshold) HPMarked() int {
+	return int(dt) + 1
+}
+
 // DamageThresholdFromAmount determines threshold based on combatant's custom thresholds.
 // Returns ThresholdNone for zero damage per SRD.
 func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold {
