@@ -182,3 +182,14 @@ func TestLoadCharactersFromBytesTraits(t *testing.T) {
 		t.Errorf("Traits = %+v, want agility 2, knowledge -1, the rest 0", traits)
 	}
 }
+
+func TestCharacterImportPotionsAreCapped(t *testing.T) {
+	blob := `{"characters":[{"name":"Kira","level":2,"hp":6,"stress":5,"evasion":11,"health_potions":9,"stamina_potions":2}]}`
+	pcs, err := LoadCharactersFromBytes([]byte(blob))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pcs[0].HealthPotions != 5 || pcs[0].StaminaPotions != 2 {
+		t.Errorf("potions = %d health, %d stamina; want 5 / 2", pcs[0].HealthPotions, pcs[0].StaminaPotions)
+	}
+}

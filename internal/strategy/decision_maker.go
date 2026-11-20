@@ -9,6 +9,7 @@ import (
 // ActionDecision represents the AI's choice for a turn
 type ActionDecision struct {
 	Target           *models.Combatant
+	Potion           models.PotionType        // spend the turn drinking this potion
 	ClearCondition   bool                     // spend the turn clearing a harmful condition on Target
 	DomainAbility    *models.DomainAbility    // nil = use basic attack
 	AdversaryFeature *models.AdversaryFeature // nil = use basic attack
@@ -27,6 +28,8 @@ type AIDecisionMaker struct {
 	// Thresholds
 	// Most targets an area effect is assumed to reach (0 = everyone)
 	AreaTargets int
+	// PCs drink a Health Potion at or below this HP percentage (0 = never)
+	PotionHPThreshold int
 
 	LowHPThreshold      int // Percentage (e.g., 30 = below 30% HP)
 	HighThreatThreshold int // Damage threshold to consider enemy "high threat"
@@ -109,6 +112,9 @@ func DefaultRandomConfig() StrategyConfig {
 }
 
 func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {
+	if potion := ai.wantsPotion(actor); potion != "" {
+		return &ActionDecision{Target: actor, Potion: potion}
+	}
 	if ai.shouldClearCondition(actor) {
 		return &ActionDecision{Target: actor, ClearCondition: true}
 	}
@@ -122,6 +128,21 @@ func (ai *AIDecisionMaker) ChooseAction(state *models.CombatState, actor *models
 
 func hpPercent(c *models.Combatant) int {
 	return c.HP * 100 / c.HPMax
+}
+
+// wantsPotion picks a Health Potion below the HP threshold, or a Stamina Potion when one
+// more Stress would cost a Hit Point. Only PCs carry potions.
+func (ai *AIDecisionMaker) wantsPotion(actor *models.Combatant) models.PotionType {
+	if actor.Side != models.SidePlayer {
+		return ""
+	}
+	if ai.PotionHPThreshold > 0 && actor.HealthPotions > 0 && hpPercent(actor) <= ai.PotionHPThreshold {
+		return models.PotionHealth
+	}
+	if actor.StaminaPotions > 0 && actor.StressMax > 0 && actor.Stress >= actor.StressMax-1 {
+		return models.PotionStamina
+	}
+	return ""
 }
 
 // Every preset clears immediately for now; ClearableCondition already leaves out
@@ -359,8 +380,11 @@ func (ai *AIDecisionMaker) evaluateEffect(effect models.FeatureEffect, actor *mo
 }
 
 func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, actor *models.Combatant, target *models.Combatant, state *models.CombatState) float64 {
-	if effect.StandardAttack {
+	switch {
+	case effect.StandardAttack:
 		effect.DiceFormula = actor.AttackDamageFormula()
+	case effect.ProficiencyDice:
+		effect.DiceFormula = actor.ScaleToProficiency(effect.DiceFormula)
 	}
 
 	avgAmount := ai.estimateAverageDamage(effect.DiceFormula) + float64(effect.Magnitude)
@@ -410,18 +434,21 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		return float64(effect.Magnitude) * 0.3
 
 	case models.FeatureEffectHPHeal:
-		// Overheal is wasted
-		missingHP := float64(actor.HPMax - actor.HP)
-		if missingHP > avgAmount {
-			return avgAmount
+		// Damage effects are valued in raw damage, so a healed Hit Point is worth the
+		// damage it takes to mark one: the recipient's Major threshold. Overheal is wasted.
+		value := 0.0
+		for _, c := range state.Recipients(actor, effect.TargetType, models.MissingHP) {
+			major, _ := c.Thresholds()
+			value += min(avgAmount, float64(models.MissingHP(c))) * float64(max(major, 1))
 		}
-		return missingHP * 0.8
+		return value
 
 	case models.FeatureEffectStressClear:
-		if actor.Stress > 0 {
-			return float64(effect.Magnitude) * 0.5
+		value := 0.0
+		for _, c := range state.Recipients(actor, effect.TargetType, models.StressHeld) {
+			value += min(avgAmount, float64(c.Stress)) * 0.5
 		}
-		return 0.0
+		return value
 
 	case models.FeatureEffectArmorDamage:
 		// With no slot left to mark, the target marks a Hit Point instead
@@ -524,6 +551,11 @@ func NewUnifiedDecisionMaker(rng *rand.Rand, playerConfig, enemyConfig StrategyC
 func (udm *UnifiedDecisionMaker) SetAreaTargets(limit int) {
 	udm.playerStrategy.AreaTargets = limit
 	udm.enemyStrategy.AreaTargets = limit
+}
+
+// SetPotionThreshold sets the HP percentage at or below which PCs drink a Health Potion
+func (udm *UnifiedDecisionMaker) SetPotionThreshold(percent int) {
+	udm.playerStrategy.PotionHPThreshold = percent
 }
 
 func (udm *UnifiedDecisionMaker) ChooseAction(state *models.CombatState, actor *models.Combatant) *ActionDecision {

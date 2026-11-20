@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/skarlso/daggerheart-combat-simulator/data"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 )
 
 // DomainAbilityForm manages adding/editing domain abilities (player skills)
@@ -35,12 +37,19 @@ type DomainAbilityForm struct {
 	newUsesTokens    bool
 	newTokenName     string
 	newTokensMax     int
+	newTargetType    string
+	// The library card or ability being edited; effects this form cannot show are kept from it
+	baseAbility *models.DomainAbility
+
+	library      []parser.DomainCard
+	selectedCard string
 }
 
 var (
 	abilityTriggerOptions = []selectOption{
 		{"", "None (manual)"}, {"on_attack", "On Attack"}, {"on_hit", "On Hit"}, {"on_critical", "On Critical"},
-		{"on_damage_taken", "On Damage Taken"}, {"start_turn", "Start of Turn"}, {"end_turn", "End of Turn"},
+		{"on_damage_taken", "On Damage Taken"}, {"on_ally_damaged", "When an ally would take damage"},
+		{"start_turn", "Start of Turn"}, {"end_turn", "End of Turn"},
 	}
 	triggerFilterOptions = []selectOption{
 		{"", "None"}, {"if_target_below_50_hp", "Target below 50% HP"}, {"if_hidden", "If hidden"}, {"if_ally_adjacent", "If ally adjacent"},
@@ -56,12 +65,19 @@ var (
 		{"armor_damage", "Damage Armor Slots"}, {"grant_armor", "Grant Armor Slots"}, {"damage_reduction", "Damage Reduction (Ward)"},
 		{"token_place", "Place Token"}, {"token_spend", "Spend Token"},
 		{"resistance", "Resistance (50%)"}, {"immunity", "Immunity (100%)"},
+		{"redirect_damage", "Shield an ally (take their hit)"},
 	}
 )
 
-// OnMount initializes default values
+// OnMount initializes default values and loads the domain card library
 func (daf *DomainAbilityForm) OnMount(ctx app.Context) {
 	daf.resetForm()
+	cards, err := data.LoadDomainCards()
+	if err != nil {
+		app.Log("domain card library failed to load:", err)
+		return
+	}
+	daf.library = cards
 }
 
 // Render renders the ability list and form
@@ -125,9 +141,18 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 		selectField("Effect Type", daf.newEffectType, abilityEffectOptions, bindSelect(&daf.newEffectType, true)),
 	}
 	effect = append(effect, effectFields(daf.newEffectType, &daf.newDiceFormula, diceErr, &daf.newMagnitude, &daf.newDamageType, &daf.newDuration)...)
+	effect = append(effect,
+		app.If(needsRecipient(daf.newEffectType), func() app.UI {
+			return selectField("Target", daf.newTargetType, recipientOptions, bindSelect(&daf.newTargetType, false))
+		}),
+		app.If(daf.baseAbility != nil && len(daf.baseAbility.Effects) > 1, func() app.UI {
+			return app.Div().Class("form-hint").Text(fmt.Sprintf("Also keeps %d more effect(s) from the card, not editable here", len(daf.baseAbility.Effects)-1))
+		}),
+	)
 
 	return app.Div().Class("ability-add-form").Body(
 		app.H4().Text(formTitle),
+		app.If(daf.editingIndex < 0 && len(daf.library) > 0, func() app.UI { return daf.renderLibraryPicker() }),
 		app.Div().Class("form-row").Body(
 			textField("Name", "Rune Strike", &daf.newName, false),
 			textField("Description", "Channel runic power...", &daf.newDescription, false),
@@ -163,13 +188,51 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 	)
 }
 
+func (daf *DomainAbilityForm) renderLibraryPicker() app.UI {
+	options := []selectOption{{customLibraryOption, "-- Custom Ability --"}}
+	note := ""
+	for _, c := range daf.library {
+		options = append(options, selectOption{c.Name, fmt.Sprintf("%s (%s, level %d)", c.Name, c.Domain, c.Level)})
+		if c.Name == daf.selectedCard {
+			note = c.Note
+		}
+	}
+	current := daf.selectedCard
+	if current == "" {
+		current = customLibraryOption
+	}
+
+	return app.Div().Class("form-subsection").Body(
+		app.H5().Text("Domain Card Library"),
+		selectField(fmt.Sprintf("Start from card (%d available)", len(daf.library)), current, options, func(ctx app.Context, key string) {
+			daf.selectedCard = key
+			for i := range daf.library {
+				if daf.library[i].Name == key {
+					daf.loadAbility(&daf.library[i].Ability)
+				}
+			}
+			ctx.Update()
+		}),
+		app.If(note != "", func() app.UI { return app.Div().Class("form-hint").Text(note) }),
+	)
+}
+
 func (daf *DomainAbilityForm) startEditing(ctx app.Context, idx int) {
 	if idx < 0 || idx >= len(daf.Abilities) {
 		return
 	}
-	ability := daf.Abilities[idx]
 	daf.editingIndex = idx
 	daf.showForm = true
+	daf.loadAbility(daf.Abilities[idx])
+	ctx.Update()
+}
+
+// loadAbility fills the form from an ability and remembers it, so saving keeps what the form cannot show
+func (daf *DomainAbilityForm) loadAbility(ability *models.DomainAbility) {
+	base := *ability
+	base.Effects = append([]models.FeatureEffect(nil), ability.Effects...)
+	daf.baseAbility = &base
+
 	daf.newName = ability.Name
 	daf.newDescription = ability.Description
 	daf.newPassive = ability.Passive
@@ -184,25 +247,45 @@ func (daf *DomainAbilityForm) startEditing(ctx app.Context, idx int) {
 	daf.newUsesTokens = ability.UsesTokens
 	daf.newTokenName = ability.TokenName
 	daf.newTokensMax = ability.TokensMax
-	if len(ability.Effects) > 0 {
-		eff := ability.Effects[0]
-		daf.newEffectType = reverseEffectCategory(eff)
-		daf.newDiceFormula = eff.DiceFormula
-		daf.newDamageType = eff.DamageType
-		daf.newMagnitude = eff.Magnitude
-		daf.newDuration = eff.Duration
+	if daf.newRefreshType == "" {
+		daf.newRefreshType = "unlimited"
 	}
-	ctx.Update()
+	if daf.newDCType == "" {
+		daf.newDCType = "none"
+	}
+	if len(ability.Effects) == 0 {
+		return
+	}
+	eff := ability.Effects[0]
+	daf.newEffectType = reverseEffectCategory(eff)
+	daf.newDiceFormula = eff.DiceFormula
+	daf.newDamageType = eff.DamageType
+	daf.newMagnitude = eff.Magnitude
+	daf.newDuration = eff.Duration
+	daf.newTargetType = string(eff.TargetType)
+	if daf.newTargetType == "" || daf.newTargetType == "single" {
+		daf.newTargetType = "self"
+	}
 }
 
 func (daf *DomainAbilityForm) buildAbility() *models.DomainAbility {
-	effect := models.FeatureEffect{
-		Category:    resolveEffectCategory(daf.newEffectType),
-		Magnitude:   resistanceMagnitude(daf.newEffectType, daf.newMagnitude),
-		DiceFormula: daf.newDiceFormula,
-		Duration:    daf.newDuration,
-		TargetType:  models.FeatureTargetSingle,
-		DamageType:  daf.newDamageType,
+	category := resolveEffectCategory(daf.newEffectType)
+	effect := models.FeatureEffect{TargetType: models.FeatureTargetSingle}
+	if daf.baseAbility != nil && len(daf.baseAbility.Effects) > 0 && daf.baseAbility.Effects[0].Category == category {
+		// Same kind of effect: keep reaction and target details the form cannot show
+		effect = daf.baseAbility.Effects[0]
+	}
+	effect.Category = category
+	effect.Magnitude = resistanceMagnitude(daf.newEffectType, daf.newMagnitude)
+	effect.DiceFormula = daf.newDiceFormula
+	effect.Duration = daf.newDuration
+	effect.DamageType = daf.newDamageType
+	if needsRecipient(daf.newEffectType) {
+		effect.TargetType = models.FeatureTargetType(daf.newTargetType)
+	}
+	effects := []models.FeatureEffect{effect}
+	if daf.baseAbility != nil && len(daf.baseAbility.Effects) > 1 {
+		effects = append(effects, daf.baseAbility.Effects[1:]...)
 	}
 
 	return &models.DomainAbility{
@@ -223,7 +306,7 @@ func (daf *DomainAbilityForm) buildAbility() *models.DomainAbility {
 		UsesTokens:  daf.newUsesTokens,
 		TokenName:   daf.newTokenName,
 		TokensMax:   daf.newTokensMax,
-		Effects:     []models.FeatureEffect{effect},
+		Effects:     effects,
 	}
 }
 
@@ -277,4 +360,7 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newUsesTokens = false
 	daf.newTokenName = ""
 	daf.newTokensMax = 5
+	daf.newTargetType = "self"
+	daf.baseAbility = nil
+	daf.selectedCard = customLibraryOption
 }

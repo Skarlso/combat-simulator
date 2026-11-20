@@ -25,6 +25,8 @@ type DCCheckResult struct {
 	Reactions     []ReactionRoll
 	HopeGenerated int
 	FearGenerated int
+	// RedirectedTo is the ally who stepped in and took the damage instead of the target
+	RedirectedTo *models.Combatant
 	// Damage tracking (populated during effect resolution)
 	DamageDealt     int                    // HP damage actually dealt to target
 	DamageRoll      int                    // Raw damage before resistance/threshold
@@ -207,9 +209,9 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectStressInflict:
 		return fr.resolveStressInflict(effect, target)
 	case models.FeatureEffectStressClear:
-		return fr.resolveStressClear(effect, actor)
+		return fr.resolveStressClear(effect, actor, state)
 	case models.FeatureEffectHPHeal:
-		return fr.resolveHPHeal(effect, actor)
+		return fr.resolveHPHeal(effect, actor, state)
 	case models.FeatureEffectArmorDamage:
 		return fr.resolveArmorDamage(effect, target, state)
 	case models.FeatureEffectHopeDrain:
@@ -224,10 +226,10 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectSummonAllies:
 		return fr.resolveSummon(effect, actor, state)
 
-	// Passives read elsewhere (damage pipeline, stat block load) and tokens handled by the activation
+	// Passives read elsewhere (damage pipeline, stat block load, shielding) and tokens handled by the activation
 	case models.FeatureEffectDamageResistance, models.FeatureEffectDamageVulnerability,
 		models.FeatureEffectDamageReduction, models.FeatureEffectSpotlightModifier,
-		models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend:
+		models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend, models.FeatureEffectRedirectDamage:
 		return nil
 
 	default:
@@ -338,7 +340,7 @@ func (fr *FeatureResolver) CanActivateAdversaryFeature(feature *models.Adversary
 	}
 
 	held := feature.TokensHeld
-	if spendTokens(feature.Effects, &held) != nil {
+	if spendTokens(feature.Effects, &held) != nil || lacksRecipient(feature.Effects, actor, state) {
 		return false
 	}
 
@@ -363,7 +365,7 @@ func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility
 		return false
 	}
 	held := ability.TokensHeld
-	return spendTokens(ability.Effects, &held) == nil
+	return spendTokens(ability.Effects, &held) == nil && !lacksRecipient(ability.Effects, actor, state)
 }
 
 // ActivateAdversaryFeature triggers an adversary feature
@@ -437,15 +439,15 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 // ErrFeatureMissed marks a feature whose attack or DC roll failed: a normal outcome, not a fault.
 var ErrFeatureMissed = errors.New("failed DC check")
 
-// recordTriggered logs a passive that fired and failed; successes log through their own effects
+// recordTriggered logs a passive that fired, so reactions show up in the combat log
 func recordTriggered(state *models.CombatState, actor *models.Combatant, name string, err error, dcResult DCCheckResult) {
 	recordReactions(state, name, dcResult)
-	if err == nil {
-		return
-	}
-	result := fmt.Sprintf("Triggered: %v", err)
-	if errors.Is(err, ErrFeatureMissed) {
+	result := "Triggered"
+	switch {
+	case errors.Is(err, ErrFeatureMissed):
 		result = "Reaction missed"
+	case err != nil:
+		result = fmt.Sprintf("Triggered: %v", err)
 	}
 	state.RecordAction(models.ActionParams{
 		Actor:         actor,

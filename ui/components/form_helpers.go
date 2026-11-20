@@ -225,6 +225,24 @@ var uiEffectCategoryMap = map[string]models.FeatureEffectCategory{
 	"fear_generate":      models.FeatureEffectFearGenerate,
 	"hope_drain":         models.FeatureEffectHopeDrain,
 	"spotlight_modifier": models.FeatureEffectSpotlightModifier,
+	"redirect_damage":    models.FeatureEffectRedirectDamage,
+}
+
+// recipientOptions are the targets a heal or stress clear can reach
+var recipientOptions = []selectOption{{"self", "Self"}, {"ally", "Most wounded ally"}, {"allies", "Self and all allies"}}
+
+func needsRecipient(effectType string) bool {
+	return oneOf(effectType, "heal", "stress_clear")
+}
+
+func recipientLabel(t models.FeatureTargetType) string {
+	switch t {
+	case models.FeatureTargetAlly:
+		return " on an ally"
+	case models.FeatureTargetAllies:
+		return " on all allies"
+	}
+	return ""
 }
 
 func resolveEffectCategory(effectType string) models.FeatureEffectCategory {
@@ -267,11 +285,17 @@ func describeEffect(effect models.FeatureEffect) string {
 	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage:
 		return fmt.Sprintf("%s %s damage", effect.DiceFormula, effect.DamageType)
 	case models.FeatureEffectHPHeal:
-		return fmt.Sprintf("Heal %s", effect.DiceFormula)
+		amount := effect.DiceFormula
+		if amount == "" {
+			amount = fmt.Sprintf("%d HP", effect.Magnitude)
+		}
+		return "Heal " + amount + recipientLabel(effect.TargetType)
 	case models.FeatureEffectStressInflict:
 		return fmt.Sprintf("Inflict %d stress", effect.Magnitude)
 	case models.FeatureEffectStressClear:
-		return fmt.Sprintf("Clear %d stress", effect.Magnitude)
+		return fmt.Sprintf("Clear %d stress", effect.Magnitude) + recipientLabel(effect.TargetType)
+	case models.FeatureEffectRedirectDamage:
+		return "Takes hits meant for allies"
 	case models.FeatureEffectArmorDamage:
 		return fmt.Sprintf("Damage %d armor slot(s)", effect.Magnitude)
 	case models.FeatureEffectGrantArmor:

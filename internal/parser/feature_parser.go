@@ -26,25 +26,26 @@ type FeatureMapping struct {
 
 // FeatureMappingEffect represents a single effect in the mapping
 type FeatureMappingEffect struct {
-	Category       string `json:"category"`
-	Magnitude      int    `json:"magnitude"`
-	DiceFormula    string `json:"dice_formula"`
-	StandardAttack bool   `json:"standard_attack,omitempty"`
-	DamageType     string `json:"damage_type"`
-	ArmorCost      int    `json:"armor_cost,omitempty"`
-	FallbackFear   int    `json:"fallback_fear,omitempty"`
-	ReactionTrait  string `json:"reaction_trait,omitempty"`
-	ReactionDC     int    `json:"reaction_dc,omitempty"`
-	HalfOnSuccess  bool   `json:"half_on_success,omitempty"`
-	Condition      string `json:"condition"`
-	Duration       string `json:"duration"`
-	TargetType     string `json:"target_type"`
-	SummonType     string `json:"summon_type"`
-	SpotlightAll   bool   `json:"spotlight_all,omitempty"`
-	SpotlightCount int    `json:"spotlight_count,omitempty"`
-	AllyName       string `json:"ally_name,omitempty"`
-	HalfDamage     bool   `json:"half_damage,omitempty"`
-	Description    string `json:"description"`
+	Category        string `json:"category"`
+	Magnitude       int    `json:"magnitude"`
+	DiceFormula     string `json:"dice_formula"`
+	StandardAttack  bool   `json:"standard_attack,omitempty"`
+	ProficiencyDice bool   `json:"proficiency_dice,omitempty"`
+	DamageType      string `json:"damage_type"`
+	ArmorCost       int    `json:"armor_cost,omitempty"`
+	FallbackFear    int    `json:"fallback_fear,omitempty"`
+	ReactionTrait   string `json:"reaction_trait,omitempty"`
+	ReactionDC      int    `json:"reaction_dc,omitempty"`
+	HalfOnSuccess   bool   `json:"half_on_success,omitempty"`
+	Condition       string `json:"condition"`
+	Duration        string `json:"duration"`
+	TargetType      string `json:"target_type"`
+	SummonType      string `json:"summon_type"`
+	SpotlightAll    bool   `json:"spotlight_all,omitempty"`
+	SpotlightCount  int    `json:"spotlight_count,omitempty"`
+	AllyName        string `json:"ally_name,omitempty"`
+	HalfDamage      bool   `json:"half_damage,omitempty"`
+	Description     string `json:"description"`
 }
 
 // FeatureMappingFile represents the JSON structure of feature_mappings.json
@@ -148,23 +149,24 @@ func convertMappingEffect(m FeatureMappingEffect) (models.FeatureEffect, error) 
 	}
 
 	return models.FeatureEffect{
-		Category:       category,
-		Magnitude:      m.Magnitude,
-		DiceFormula:    m.DiceFormula,
-		StandardAttack: m.StandardAttack,
-		Duration:       m.Duration,
-		TargetType:     targetType,
-		SummonType:     m.SummonType,
-		DamageType:     m.DamageType,
-		ArmorCost:      m.ArmorCost,
-		FallbackFear:   m.FallbackFear,
-		ReactionTrait:  m.ReactionTrait,
-		ReactionDC:     m.ReactionDC,
-		HalfOnSuccess:  m.HalfOnSuccess,
-		SpotlightAll:   m.SpotlightAll,
-		SpotlightCount: m.SpotlightCount,
-		AllyName:       m.AllyName,
-		HalfDamage:     m.HalfDamage,
+		Category:        category,
+		Magnitude:       m.Magnitude,
+		DiceFormula:     m.DiceFormula,
+		StandardAttack:  m.StandardAttack,
+		ProficiencyDice: m.ProficiencyDice,
+		Duration:        m.Duration,
+		TargetType:      targetType,
+		SummonType:      m.SummonType,
+		DamageType:      m.DamageType,
+		ArmorCost:       m.ArmorCost,
+		FallbackFear:    m.FallbackFear,
+		ReactionTrait:   m.ReactionTrait,
+		ReactionDC:      m.ReactionDC,
+		HalfOnSuccess:   m.HalfOnSuccess,
+		SpotlightAll:    m.SpotlightAll,
+		SpotlightCount:  m.SpotlightCount,
+		AllyName:        m.AllyName,
+		HalfDamage:      m.HalfDamage,
 	}, nil
 }
 
@@ -194,6 +196,7 @@ var effectCategoryMap = map[string]models.FeatureEffectCategory{
 	"FeatureEffectAreaDamage":          models.FeatureEffectAreaDamage,
 	"FeatureEffectGrantArmor":          models.FeatureEffectGrantArmor,
 	"FeatureEffectDamageReduction":     models.FeatureEffectDamageReduction,
+	"FeatureEffectRedirectDamage":      models.FeatureEffectRedirectDamage,
 }
 
 func stringToEffectCategory(s string) (models.FeatureEffectCategory, error) {
@@ -207,6 +210,7 @@ var targetTypeMap = map[string]models.FeatureTargetType{
 	"self":   models.FeatureTargetSelf,
 	"single": models.FeatureTargetSingle,
 	"aoe":    models.FeatureTargetAOE,
+	"ally":   models.FeatureTargetAlly,
 	"allies": models.FeatureTargetAllies,
 }
 

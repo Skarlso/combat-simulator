@@ -10,8 +10,11 @@ import (
 // A critical activation adds the dice maximum, as for basic attacks.
 func (fr *FeatureResolver) rollEffectDamage(effect models.FeatureEffect, actor *models.Combatant, activationResult *DCCheckResult) (int, error) {
 	formula := effect.DiceFormula
-	if effect.StandardAttack && actor != nil {
+	switch {
+	case effect.StandardAttack && actor != nil:
 		formula = actor.AttackDamageFormula()
+	case effect.ProficiencyDice && actor != nil:
+		formula = actor.ScaleToProficiency(formula)
 	}
 
 	damage := effect.Magnitude
@@ -55,17 +58,25 @@ func (fr *FeatureResolver) resolveDamage(effect models.FeatureEffect, actor, tar
 	}
 	damage = fr.damageAfterReaction(effect, actor, target, damage, activationResult)
 
+	recipient := target
+	if guardian := fr.shieldFor(target, damage, state); guardian != nil {
+		recipient = guardian
+		if activationResult != nil {
+			activationResult.RedirectedTo = guardian
+		}
+	}
+
 	damageType := models.ParseDamageType(effect.DamageType)
 	var damageRes models.DamageResult
 	if direct {
-		damageRes = target.TakeDirectDamage(damage, damageType, fr.dice)
+		damageRes = recipient.TakeDirectDamage(damage, damageType, fr.dice)
 	} else {
-		damageRes = target.TakeDamageWithArmorCost(damage, damageType, fr.dice, effect.ArmorCost)
+		damageRes = recipient.TakeDamageWithArmorCost(damage, damageType, fr.dice, effect.ArmorCost)
 	}
 	noteDamage(activationResult, damage, damageRes)
 
 	if damageRes.HPDamage > 0 {
-		fr.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnDamageTaken, false)
+		fr.ProcessTriggeredFeatures(recipient, actor, state, models.TriggerOnDamageTaken, false)
 	}
 	return nil
 }

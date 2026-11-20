@@ -25,6 +25,8 @@ type CharacterJSON struct {
 	Stress          int                 `json:"stress"`
 	Armor           int                 `json:"armor,omitempty"`
 	DamageDice      string              `json:"damage_dice,omitempty"`
+	HealthPotions   int                 `json:"health_potions,omitempty"`
+	StaminaPotions  int                 `json:"stamina_potions,omitempty"`
 	Thresholds      CharacterThresholds `json:"thresholds"`
 	DomainAbilities []DomainAbilityJSON `json:"domain_abilities,omitempty"`
 }
@@ -47,33 +49,35 @@ type CharacterThresholds struct {
 
 // DomainAbilityJSON is the import schema for a single domain ability.
 type DomainAbilityJSON struct {
-	Name        string                  `json:"name"`
-	Description string                  `json:"description,omitempty"`
-	Passive     bool                    `json:"passive,omitempty"`
-	HopeCost    int                     `json:"hope_cost,omitempty"`
-	StressCost  int                     `json:"stress_cost,omitempty"`
-	RefreshType string                  `json:"refresh_type,omitempty"`
-	MaxUses     int                     `json:"max_uses,omitempty"`
-	DCType      string                  `json:"dc_type,omitempty"`
-	FixedDC     int                     `json:"fixed_dc,omitempty"`
-	UsesTokens  bool                    `json:"uses_tokens,omitempty"`
-	TokenName   string                  `json:"token_name,omitempty"`
-	TokensMax   int                     `json:"tokens_max,omitempty"`
-	Trigger     string                  `json:"trigger,omitempty"`
-	Effects     []DomainAbilityEffectJS `json:"effects,omitempty"`
+	Name          string                  `json:"name"`
+	Description   string                  `json:"description,omitempty"`
+	Passive       bool                    `json:"passive,omitempty"`
+	HopeCost      int                     `json:"hope_cost,omitempty"`
+	StressCost    int                     `json:"stress_cost,omitempty"`
+	RefreshType   string                  `json:"refresh_type,omitempty"`
+	MaxUses       int                     `json:"max_uses,omitempty"`
+	DCType        string                  `json:"dc_type,omitempty"`
+	FixedDC       int                     `json:"fixed_dc,omitempty"`
+	UsesTokens    bool                    `json:"uses_tokens,omitempty"`
+	TokenName     string                  `json:"token_name,omitempty"`
+	TokensMax     int                     `json:"tokens_max,omitempty"`
+	Trigger       string                  `json:"trigger,omitempty"`
+	TriggerFilter string                  `json:"trigger_filter,omitempty"`
+	Effects       []DomainAbilityEffectJS `json:"effects,omitempty"`
 }
 
 // DomainAbilityEffectJS is the import schema for a single effect.
 type DomainAbilityEffectJS struct {
-	Category      string `json:"category"`
-	Magnitude     int    `json:"magnitude,omitempty"`
-	DiceFormula   string `json:"dice_formula,omitempty"`
-	Duration      string `json:"duration,omitempty"`
-	TargetType    string `json:"target_type,omitempty"`
-	DamageType    string `json:"damage_type,omitempty"`
-	ReactionTrait string `json:"reaction_trait,omitempty"`
-	ReactionDC    int    `json:"reaction_dc,omitempty"`
-	HalfOnSuccess bool   `json:"half_on_success,omitempty"`
+	Category        string `json:"category"`
+	Magnitude       int    `json:"magnitude,omitempty"`
+	DiceFormula     string `json:"dice_formula,omitempty"`
+	ProficiencyDice bool   `json:"proficiency_dice,omitempty"`
+	Duration        string `json:"duration,omitempty"`
+	TargetType      string `json:"target_type,omitempty"`
+	DamageType      string `json:"damage_type,omitempty"`
+	ReactionTrait   string `json:"reaction_trait,omitempty"`
+	ReactionDC      int    `json:"reaction_dc,omitempty"`
+	HalfOnSuccess   bool   `json:"half_on_success,omitempty"`
 }
 
 // LoadCharactersFromBytes parses a CharacterFile JSON blob and returns combatants.
@@ -107,6 +111,8 @@ func parseCharacter(c CharacterJSON, idx int) (*models.Combatant, error) {
 	combatant.Traits = models.Traits(c.Traits)
 	combatant.ArmorSlots = c.Armor
 	combatant.DamageDice = c.DamageDice
+	combatant.HealthPotions = min(max(c.HealthPotions, 0), models.MaxPotionsEach)
+	combatant.StaminaPotions = min(max(c.StaminaPotions, 0), models.MaxPotionsEach)
 
 	if c.Thresholds.Minor > 0 || c.Thresholds.Major > 0 {
 		combatant.CustomThresholds = []int{c.Thresholds.Minor, c.Thresholds.Major}
@@ -128,15 +134,16 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 	effects := make([]models.FeatureEffect, 0, len(a.Effects))
 	for _, e := range a.Effects {
 		effect, err := convertMappingEffect(FeatureMappingEffect{
-			Category:      e.Category,
-			Magnitude:     e.Magnitude,
-			DiceFormula:   e.DiceFormula,
-			Duration:      e.Duration,
-			TargetType:    e.TargetType,
-			DamageType:    e.DamageType,
-			ReactionTrait: e.ReactionTrait,
-			ReactionDC:    e.ReactionDC,
-			HalfOnSuccess: e.HalfOnSuccess,
+			Category:        e.Category,
+			Magnitude:       e.Magnitude,
+			DiceFormula:     e.DiceFormula,
+			ProficiencyDice: e.ProficiencyDice,
+			Duration:        e.Duration,
+			TargetType:      e.TargetType,
+			DamageType:      e.DamageType,
+			ReactionTrait:   e.ReactionTrait,
+			ReactionDC:      e.ReactionDC,
+			HalfOnSuccess:   e.HalfOnSuccess,
 		})
 		if err != nil {
 			return models.DomainAbility{}, err
@@ -148,7 +155,7 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 		Name:        a.Name,
 		Description: a.Description,
 		Passive:     a.Passive,
-		Trigger:     models.FeatureTriggerCondition{Type: models.FeatureTriggerType(a.Trigger)},
+		Trigger:     models.FeatureTriggerCondition{Type: models.FeatureTriggerType(a.Trigger), Filter: a.TriggerFilter},
 		HopeCost:    a.HopeCost,
 		StressCost:  a.StressCost,
 		RefreshType: a.RefreshType,
@@ -161,4 +168,81 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 		TokensMax:   a.TokensMax,
 		Effects:     effects,
 	}, nil
+}
+
+// ExportCharacters writes a party in the import schema, so a built party can be saved and reloaded
+func ExportCharacters(pcs []*models.Combatant) ([]byte, error) {
+	file := CharacterFile{Characters: make([]CharacterJSON, 0, len(pcs))}
+	for _, pc := range pcs {
+		file.Characters = append(file.Characters, characterToJSON(pc))
+	}
+	return json.MarshalIndent(file, "", "  ")
+}
+
+func characterToJSON(pc *models.Combatant) CharacterJSON {
+	c := CharacterJSON{
+		Name:           pc.Name,
+		Level:          pc.Level,
+		Evasion:        pc.Evasion,
+		Proficiency:    pc.Proficiency,
+		AttackTrait:    pc.AttackTrait,
+		Traits:         CharacterTraits(pc.Traits),
+		HP:             pc.HPMax,
+		Stress:         pc.StressMax,
+		Armor:          pc.ArmorSlots,
+		DamageDice:     pc.DamageDice,
+		HealthPotions:  pc.HealthPotions,
+		StaminaPotions: pc.StaminaPotions,
+	}
+	if len(pc.CustomThresholds) >= 2 {
+		c.Thresholds = CharacterThresholds{Minor: pc.CustomThresholds[0], Major: pc.CustomThresholds[1]}
+	}
+	for _, a := range pc.DomainAbilities {
+		c.DomainAbilities = append(c.DomainAbilities, domainAbilityToJSON(a))
+	}
+	return c
+}
+
+func domainAbilityToJSON(a models.DomainAbility) DomainAbilityJSON {
+	out := DomainAbilityJSON{
+		Name:          a.Name,
+		Description:   a.Description,
+		Passive:       a.Passive,
+		HopeCost:      a.HopeCost,
+		StressCost:    a.StressCost,
+		RefreshType:   a.RefreshType,
+		MaxUses:       a.MaxUses,
+		DCType:        a.DCType,
+		FixedDC:       a.FixedDC,
+		UsesTokens:    a.UsesTokens,
+		TokenName:     a.TokenName,
+		TokensMax:     a.TokensMax,
+		Trigger:       string(a.Trigger.Type),
+		TriggerFilter: a.Trigger.Filter,
+	}
+	for _, e := range a.Effects {
+		out.Effects = append(out.Effects, DomainAbilityEffectJS{
+			Category:        effectCategoryName(e.Category),
+			Magnitude:       e.Magnitude,
+			DiceFormula:     e.DiceFormula,
+			ProficiencyDice: e.ProficiencyDice,
+			Duration:        e.Duration,
+			TargetType:      string(e.TargetType),
+			DamageType:      e.DamageType,
+			ReactionTrait:   e.ReactionTrait,
+			ReactionDC:      e.ReactionDC,
+			HalfOnSuccess:   e.HalfOnSuccess,
+		})
+	}
+	return out
+}
+
+// effectCategoryName is the mapping-file spelling of a category, the inverse of stringToEffectCategory
+func effectCategoryName(c models.FeatureEffectCategory) string {
+	for name, cat := range effectCategoryMap {
+		if cat == c {
+			return name
+		}
+	}
+	return string(c)
 }

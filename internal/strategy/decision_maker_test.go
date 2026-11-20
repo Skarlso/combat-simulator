@@ -455,3 +455,67 @@ func TestAllySpotlightIsWorthTheAlliesAttacks(t *testing.T) {
 		t.Errorf("half damage: value = %v, want %v", half, full/2)
 	}
 }
+
+func TestPotionDecisions(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	ai.PotionHPThreshold = 50
+	pc := models.NewCombatant("p1", "PC", models.SidePlayer, 3, 10, 2, 10, 6)
+	pc.HealthPotions, pc.StaminaPotions = 1, 1
+	enemy := models.NewAdversary("e1", "Ogre", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	state := models.NewCombatState([]*models.Combatant{pc}, []*models.Combatant{enemy}, 3, 3, 5)
+
+	if d := ai.ChooseAction(state, pc); d.Potion != "" {
+		t.Errorf("healthy PC chose %q", d.Potion)
+	}
+	pc.HP = 5
+	if d := ai.ChooseAction(state, pc); d.Potion != models.PotionHealth {
+		t.Errorf("PC at 50%% chose %q, want a Health Potion", d.Potion)
+	}
+	pc.HP, pc.Stress = 10, 5
+	if d := ai.ChooseAction(state, pc); d.Potion != models.PotionStamina {
+		t.Errorf("PC one Stress from full chose %q, want a Stamina Potion", d.Potion)
+	}
+	pc.StaminaPotions = 0
+	if d := ai.ChooseAction(state, pc); d.Potion != "" {
+		t.Errorf("PC without potions chose %q", d.Potion)
+	}
+	ai.PotionHPThreshold = 0
+	pc.HP = 2
+	if d := ai.ChooseAction(state, pc); d.Potion != "" {
+		t.Errorf("threshold 0 should never drink, chose %q", d.Potion)
+	}
+}
+
+func TestAllyHealIsValuedByTheWoundedAlly(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	healer := models.NewCombatant("p1", "Healer", models.SidePlayer, 3, 10, 2, 10, 6)
+	ally := models.NewCombatant("p2", "Ally", models.SidePlayer, 3, 10, 2, 10, 6)
+	enemy := models.NewAdversary("e1", "Ogre", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	state := models.NewCombatState([]*models.Combatant{healer, ally}, []*models.Combatant{enemy}, 3, 3, 5)
+	effect := models.FeatureEffect{Category: models.FeatureEffectHPHeal, Magnitude: 2, TargetType: models.FeatureTargetAlly}
+
+	if v := ai.evaluateUnopposedEffect(effect, healer, enemy, state); v != 0 {
+		t.Errorf("nobody wounded: value %v, want 0", v)
+	}
+	// 2 HP healed, each worth the ally's Major threshold (3 + level 3 = 6)
+	ally.HP = 5
+	if v := ai.evaluateUnopposedEffect(effect, healer, enemy, state); v != 12 {
+		t.Errorf("ally missing 5: value %v, want 12", v)
+	}
+	ally.HP = 9
+	if v := ai.evaluateUnopposedEffect(effect, healer, enemy, state); v != 6 {
+		t.Errorf("ally missing 1: value %v, want 6 (overheal wasted)", v)
+	}
+}
+
+func TestProficiencyDiceScaleSpellDamage(t *testing.T) {
+	ai := NewAIDecisionMaker(rand.New(rand.NewSource(1)), DefaultGreedyConfig())
+	caster := models.NewCombatant("p1", "Mage", models.SidePlayer, 3, 10, 2, 10, 6)
+	enemy := models.NewAdversary("e1", "Ogre", "Tier 1", "Standard", 12, 2, 6, 3, []int{5, 9})
+	state := models.NewCombatState([]*models.Combatant{caster}, []*models.Combatant{enemy}, 3, 3, 5)
+	effect := models.FeatureEffect{Category: models.FeatureEffectDamage, DiceFormula: "1d8+2", ProficiencyDice: true}
+	// Proficiency 2 turns d8+2 into 2d8+2, average 11
+	if v := ai.evaluateUnopposedEffect(effect, caster, enemy, state); v != 11 {
+		t.Errorf("value %v, want 11", v)
+	}
+}

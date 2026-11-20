@@ -25,6 +25,7 @@ func (cf *ConfigForm) Render() app.UI {
 				settingField("Initial Hope (per PC)", "", &cf.Config.InitialHope, 0, 6),
 				settingField("Initial Fear Pool (-1 = 1 per PC)", "", &cf.Config.InitialFearPool, -1, 12),
 			),
+			settingField("Drink a Health Potion at or below (% HP)", "0 never drinks. Stamina Potions are drunk one Stress short of full.", &cf.Config.PotionHPThreshold, 0, 100),
 		),
 		section("Spotlight System",
 			settingField("Spotlight Threshold", "Tokens required to force selection", &cf.Config.SpotlightThreshold, 1, 10),

@@ -65,24 +65,60 @@ func (fr *FeatureResolver) resolveStressInflict(effect models.FeatureEffect, tar
 	return nil
 }
 
-func (fr *FeatureResolver) resolveStressClear(effect models.FeatureEffect, actor *models.Combatant) error {
+// recipients resolves a self, ally or allies effect to the combatants it reaches
+func (fr *FeatureResolver) recipients(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, need func(*models.Combatant) int) []*models.Combatant {
 	if actor == nil {
 		return nil
 	}
-	actor.ClearStress(effect.Magnitude)
-	return nil
+	if state == nil {
+		return []*models.Combatant{actor}
+	}
+	return state.Recipients(actor, effect.TargetType, need)
 }
 
-func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *models.Combatant) error {
-	if actor == nil {
-		return nil
-	}
+func (fr *FeatureResolver) resolveStressClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
 	amount, err := fr.rollAmount(effect)
 	if err != nil {
 		return err
 	}
-	actor.Heal(amount)
+	for _, c := range fr.recipients(effect, actor, state, models.StressHeld) {
+		c.ClearStress(amount)
+	}
 	return nil
+}
+
+func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+	amount, err := fr.rollAmount(effect)
+	if err != nil {
+		return err
+	}
+	for _, c := range fr.recipients(effect, actor, state, models.MissingHP) {
+		c.Heal(amount)
+	}
+	return nil
+}
+
+// lacksRecipient reports an ally-targeted heal or stress clear with nobody who would gain from it
+func lacksRecipient(effects []models.FeatureEffect, actor *models.Combatant, state *models.CombatState) bool {
+	if state == nil {
+		return false
+	}
+	for _, e := range effects {
+		if e.TargetType != models.FeatureTargetAlly {
+			continue
+		}
+		switch e.Category {
+		case models.FeatureEffectHPHeal:
+			if len(state.Recipients(actor, e.TargetType, models.MissingHP)) == 0 {
+				return true
+			}
+		case models.FeatureEffectStressClear:
+			if len(state.Recipients(actor, e.TargetType, models.StressHeld)) == 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant, state *models.CombatState) error {

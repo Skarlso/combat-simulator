@@ -75,6 +75,12 @@ func (ce *CombatEngine) executeTurn(actor *models.Combatant, decision *strategy.
 		return
 	}
 
+	if decision.Potion != "" {
+		ce.drinkPotion(actor, decision.Potion, state)
+		ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
+		return
+	}
+
 	if decision.ClearCondition {
 		ce.executeClearCondition(actor, state)
 		ce.resolver.ProcessConditionTicks(actor, models.TriggerTurnEnd)
@@ -105,9 +111,31 @@ func (ce *CombatEngine) executeTurn(actor *models.Combatant, decision *strategy.
 	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerEndTurn, false)
 }
 
+// drinkPotion spends the turn on an SRD Health or Stamina Potion: 1d4+1 cleared, no roll, spotlight kept
+func (ce *CombatEngine) drinkPotion(actor *models.Combatant, potion models.PotionType, state *models.CombatState) {
+	amount := ce.dice.RollDice(1, 4, 1)
+	result := "No potion left"
+	switch {
+	case potion == models.PotionHealth && actor.HealthPotions > 0:
+		actor.HealthPotions--
+		before := actor.HP
+		actor.Heal(amount)
+		result = fmt.Sprintf("Drinks a Health Potion: clears %d HP", actor.HP-before)
+	case potion == models.PotionStamina && actor.StaminaPotions > 0:
+		actor.StaminaPotions--
+		before := actor.Stress
+		actor.ClearStress(amount)
+		result = fmt.Sprintf("Drinks a Stamina Potion: clears %d Stress", before-actor.Stress)
+	}
+	state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionUseItem, Result: result})
+}
+
 func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name string, isFeature bool, err error, dcResult DCCheckResult, state *models.CombatState) {
 	result := "Success"
 	spotlightShift := dcResult.SpotlightShift
+	if dcResult.RedirectedTo != nil {
+		target = dcResult.RedirectedTo
+	}
 
 	if err != nil {
 		result = fmt.Sprintf("Failed: %v", err)
@@ -293,11 +321,15 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnHit, false)
 		ce.featureResolver.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnHitTaken, false)
 	}
+	hitBy := target
+	if result.Redirected != nil {
+		hitBy = result.Redirected
+	}
 
 	state.RecordAction(models.ActionParams{
 		Actor:           actor,
 		ActionType:      models.ActionAttack,
-		Target:          target,
+		Target:          hitBy,
 		Result:          resultStr,
 		DamageRoll:      result.DamageRoll,
 		ProcessedDamage: result.ProcessedDamage,

@@ -44,6 +44,9 @@ const (
 
 	// Summoning
 	FeatureEffectSummonAllies FeatureEffectCategory = "summon_allies"
+
+	// Protection: a passive with this effect steps in front of an ally about to take damage
+	FeatureEffectRedirectDamage FeatureEffectCategory = "redirect_damage"
 )
 
 // FeatureTargetType defines who can be targeted by an effect
@@ -53,6 +56,7 @@ const (
 	FeatureTargetSelf   FeatureTargetType = "self"
 	FeatureTargetSingle FeatureTargetType = "single"
 	FeatureTargetAOE    FeatureTargetType = "aoe"
+	FeatureTargetAlly   FeatureTargetType = "ally" // the ally who needs it most, never the actor
 	FeatureTargetAllies FeatureTargetType = "allies"
 )
 
@@ -66,6 +70,7 @@ const (
 	TriggerOnCritical    FeatureTriggerType = "on_critical"
 	TriggerStartTurn     FeatureTriggerType = "start_turn"
 	TriggerEndTurn       FeatureTriggerType = "end_turn"
+	TriggerOnAllyDamaged FeatureTriggerType = "on_ally_damaged" // an ally is about to take damage from an attack
 )
 
 type FeatureTriggerCondition struct {
@@ -80,10 +85,12 @@ type FeatureEffect struct {
 	DiceFormula string // "2d6+3" for variable effects
 	// Roll the actor's standard attack damage instead of DiceFormula
 	StandardAttack bool
-	Duration       string // "instant", "1_turn", "until_cleared", "permanent", "scene"
-	TargetType     FeatureTargetType
-	DamageType     string // "physical", "magic", empty for non-damage effects
-	ArmorCost      int    // Armor Slots a target marks to reduce this damage (0 = the usual 1)
+	// Roll Proficiency dice of DiceFormula's size, as spells "using your Proficiency" do
+	ProficiencyDice bool
+	Duration        string // "instant", "1_turn", "until_cleared", "permanent", "scene"
+	TargetType      FeatureTargetType
+	DamageType      string // "physical", "magic", empty for non-damage effects
+	ArmorCost       int    // Armor Slots a target marks to reduce this damage (0 = the usual 1)
 	// Fear the GM gains per target that has no Armor Slot left for armor_damage to mark
 	FallbackFear int
 

@@ -306,6 +306,35 @@ func (cs *CombatState) EligibleSpotlightAllies(actor *Combatant, effect FeatureE
 	return allies
 }
 
+// Recipients picks who a self, ally or allies effect lands on. need scores how much a
+// combatant would gain from it; an "ally" effect goes to the needful ally, or to nobody.
+func (cs *CombatState) Recipients(actor *Combatant, targetType FeatureTargetType, need func(*Combatant) int) []*Combatant {
+	switch targetType {
+	case FeatureTargetAllies:
+		return cs.GetAlliesOf(actor)
+	case FeatureTargetAlly:
+		var best *Combatant
+		for _, c := range cs.GetAlliesOf(actor) {
+			if c == actor || need(c) <= 0 {
+				continue
+			}
+			if best == nil || need(c) > need(best) {
+				best = c
+			}
+		}
+		if best == nil {
+			return nil
+		}
+		return []*Combatant{best}
+	default:
+		return []*Combatant{actor}
+	}
+}
+
+// MissingHP and StressHeld are the need scores for heals and stress clears
+func MissingHP(c *Combatant) int  { return c.HPMax - c.HP }
+func StressHeld(c *Combatant) int { return c.Stress }
+
 // matchesAllyName accepts the stat block name and the "Name #n" form summons get
 func matchesAllyName(name, want string) bool {
 	return name == want || strings.HasPrefix(name, want+" ")

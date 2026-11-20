@@ -70,7 +70,21 @@ type Combatant struct {
 	Fallen bool
 	// Set for the duration of a spotlight granted by an ally's feature that halves damage
 	HalfDamage bool
+
+	// SRD consumables: Health and Stamina Potions clear 1d4+1 Hit Points or Stress, up to five of each
+	HealthPotions  int
+	StaminaPotions int
 }
+
+// PotionType names the two consumables the simulator models
+type PotionType string
+
+const (
+	PotionHealth  PotionType = "health"
+	PotionStamina PotionType = "stamina"
+	// MaxPotionsEach is the SRD cap on how many of one consumable a character can carry
+	MaxPotionsEach = 5
+)
 
 // MaxHope is the most Hope a single PC can hold
 const MaxHope = 6
@@ -146,6 +160,18 @@ func NewAdversary(id, name, tier, adversaryType string, difficulty, atk, hpMax, 
 	c.ATK = atk
 	c.CustomThresholds = thresholds
 	return c
+}
+
+// Thresholds returns the Major and Severe damage thresholds: the stat block's own, or the
+// SRD defaults (PC 3+level / 6+level, adversary 4 / 7)
+func (c *Combatant) Thresholds() (major, severe int) {
+	if len(c.CustomThresholds) >= 2 {
+		return c.CustomThresholds[0], c.CustomThresholds[1]
+	}
+	if c.IsAdversary {
+		return 4, 7
+	}
+	return 3 + c.Level, 6 + c.Level
 }
 
 func (c *Combatant) MaxSpotlightsPerGMTurn() int {
@@ -474,6 +500,11 @@ func (c *Combatant) AttackDamageFormula() string {
 	if formula == "" {
 		formula = "1d6"
 	}
+	return c.ScaleToProficiency(formula)
+}
+
+// ScaleToProficiency rolls a PC's Proficiency in place of the first dice count ("d8+2 using your Proficiency")
+func (c *Combatant) ScaleToProficiency(formula string) string {
 	if c.IsAdversary || c.Proficiency <= 0 {
 		return formula
 	}

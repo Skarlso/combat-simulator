@@ -17,6 +17,38 @@ var adversaryFiles = []string{
 	"daggerheart_adversaries_tier4.json",
 }
 
+var domainFiles = []string{
+	"daggerheart_domain_arcana.json",
+	"daggerheart_domain_codex.json",
+	"daggerheart_domains_blade_bone.json",
+	"daggerheart_domains_remaining.json",
+}
+
+// LoadDomainCards builds the domain card library from the embedded mappings and SRD card data
+func LoadDomainCards() ([]parser.DomainCard, error) {
+	mappingData, err := EmbeddedDataFS.ReadFile("domain_mappings.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read domain mappings: %w", err)
+	}
+	domainData, err := readAll(domainFiles)
+	if err != nil {
+		return nil, err
+	}
+	return parser.LoadDomainCards(mappingData, domainData)
+}
+
+func readAll(names []string) ([][]byte, error) {
+	out := make([][]byte, 0, len(names))
+	for _, name := range names {
+		raw, err := EmbeddedDataFS.ReadFile(name)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read %s: %w", name, err)
+		}
+		out = append(out, raw)
+	}
+	return out, nil
+}
+
 // GetFeatureMappings reads the embedded feature mappings JSON
 func GetFeatureMappings() ([]byte, error) {
 	return EmbeddedDataFS.ReadFile("feature_mappings.json")
@@ -29,14 +61,9 @@ func NewEmbeddedAdversaryRegistry() (*parser.AdversaryRegistry, error) {
 		return nil, fmt.Errorf("failed to read feature mappings: %w", err)
 	}
 
-	adversaryData := make([][]byte, 0, len(adversaryFiles))
-	for _, name := range adversaryFiles {
-		raw, err := EmbeddedDataFS.ReadFile(name)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s: %w", name, err)
-		}
-		adversaryData = append(adversaryData, raw)
+	adversaryData, err := readAll(adversaryFiles)
+	if err != nil {
+		return nil, err
 	}
-
 	return parser.NewAdversaryRegistryFromBytes(mappingData, adversaryData)
 }

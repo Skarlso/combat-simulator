@@ -1,0 +1,176 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-11-19",
+    "note": "Domain cards the engine can run as player abilities. Keys are card names from the embedded domain data; effects use the feature mapping schema, with target_type self/ally/allies for heals and stress clears. Approximations are spelled out in note. proficiency_dice rolls the caster's Proficiency in dice of the formula's size."
+  },
+  "mappings": {
+    "Healing Hands": {
+      "stress_cost": 1,
+      "dc_type": "fixed",
+      "fixed_dc": 13,
+      "max_uses": 1,
+      "refresh_type": "scene",
+      "note": "SRD: a failure still clears 1, and the same target can't be healed again until a long rest. Modelled as success-only, once per combat.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 2,
+          "target_type": "ally",
+          "description": "Clear 2 Hit Points on the most wounded ally"
+        }
+      ]
+    },
+    "Healing Field": {
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "The 2 Hope upgrade to 2 Hit Points is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "allies",
+          "description": "You and all allies clear a Hit Point"
+        }
+      ]
+    },
+    "Healing Strike": {
+      "passive": true,
+      "trigger": "on_hit",
+      "hope_cost": 2,
+      "note": "Fires on a successful basic attack; only fires when an ally is wounded.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "ally",
+          "description": "Spend 2 Hope to clear a Hit Point on an ally"
+        }
+      ]
+    },
+    "Second Wind": {
+      "passive": true,
+      "trigger": "on_hit",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Always takes the Hit Point; the 3 Stress option and the Hope bonus for an ally are not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear a Hit Point"
+        }
+      ]
+    },
+    "Critical Inspiration": {
+      "passive": true,
+      "trigger": "on_critical",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Allies always take the Stress clear rather than the Hope.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "allies",
+          "description": "All allies clear a Stress"
+        }
+      ]
+    },
+    "I Am Your Shield": {
+      "passive": true,
+      "trigger": "on_ally_damaged",
+      "stress_cost": 1,
+      "note": "Steps in when healthier than the ally and the hit would not down them. Marking extra Armor Slots is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectRedirectDamage",
+          "description": "Mark a Stress to take the hit meant for an ally"
+        }
+      ]
+    },
+    "Bolt Beacon": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "note": "Hope is paid up front rather than on success.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "magic",
+          "description": "d8+2 magic damage",
+          "proficiency_dice": true
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "description": "Target becomes Vulnerable until cleared"
+        }
+      ]
+    },
+    "Cinder Grasp": {
+      "dc_type": "target",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d20+3",
+          "damage_type": "magic",
+          "description": "1d20+3 magic damage"
+        },
+        {
+          "category": "FeatureEffectApplyIgnite",
+          "magnitude": 1,
+          "duration": "until_cleared",
+          "damage_type": "magic",
+          "description": "Target is lit On Fire"
+        }
+      ]
+    },
+    "Vicious Entangle": {
+      "dc_type": "target",
+      "note": "The Hope option to Restrain a second adversary is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+1",
+          "damage_type": "physical",
+          "description": "1d8+1 physical damage"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "1_turn",
+          "description": "Target is temporarily Restrained"
+        }
+      ]
+    },
+    "Rain of Blades": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "note": "The extra 1d8 against Vulnerable targets is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8+2",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "d8+2 magic damage to all targets in reach",
+          "proficiency_dice": true
+        }
+      ]
+    },
+    "Corrosive Projectile": {
+      "dc_type": "target",
+      "note": "Corroded is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d6+4",
+          "damage_type": "magic",
+          "description": "d6+4 magic damage",
+          "proficiency_dice": true
+        }
+      ]
+    }
+  }
+}

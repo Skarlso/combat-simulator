@@ -21,12 +21,13 @@ func NewCombatResolver(dice DiceRoller, featureResolver *FeatureResolver) *Comba
 // AttackResult contains outcome of an attack
 type AttackResult struct {
 	Hit             bool
-	Roll            DCCheckResult // the attack roll, including Hope/Fear generated and spotlight shift
-	DamageRoll      int           // Raw damage rolled (total)
-	DamageDice      []int         // Individual dice values
-	DamageBonus     int           // Flat bonus
-	ProcessedDamage int           // Damage after resistance/immunity/vulnerability
-	HPDamage        int           // Actual HP damage (1/2/3 based on threshold)
+	Roll            DCCheckResult     // the attack roll, including Hope/Fear generated and spotlight shift
+	Redirected      *models.Combatant // the ally who took the hit instead of the defender, if any
+	DamageRoll      int               // Raw damage rolled (total)
+	DamageDice      []int             // Individual dice values
+	DamageBonus     int               // Flat bonus
+	ProcessedDamage int               // Damage after resistance/immunity/vulnerability
+	HPDamage        int               // Actual HP damage (1/2/3 based on threshold)
 	Threshold       models.DamageThreshold
 	DamageResult    *models.DamageResult
 }
@@ -52,8 +53,13 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 		damage.Total /= 2
 	}
 
+	recipient := defender
+	if guardian := cr.featureResolver.shieldFor(defender, damage.Total, state); guardian != nil {
+		recipient, result.Redirected = guardian, guardian
+	}
+
 	// Resistance and Vulnerability are applied inside TakeDamage so every damage source agrees
-	damageRes := defender.TakeDamage(damage.Total, models.DamagePhysical, cr.dice)
+	damageRes := recipient.TakeDamage(damage.Total, models.DamagePhysical, cr.dice)
 	result.DamageRoll = damage.Total
 	result.DamageDice = damage.DiceValues
 	result.DamageBonus = damage.FlatBonus
@@ -63,7 +69,7 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.DamageResult = &damageRes
 
 	if damageRes.HPDamage > 0 {
-		cr.featureResolver.ProcessTriggeredFeatures(defender, attacker, state, models.TriggerOnDamageTaken, false)
+		cr.featureResolver.ProcessTriggeredFeatures(recipient, attacker, state, models.TriggerOnDamageTaken, false)
 	}
 	return result
 }

@@ -37,6 +37,9 @@ type SimulationConfig struct {
 	// for "everyone within Very Close of a point" (0 = everyone).
 	AreaTargets int
 
+	// PCs drink a Health Potion at or below this HP percentage (0 = never)
+	PotionHPThreshold int
+
 	// Combat limits
 	MaxTurnsPerCombat int
 
@@ -57,6 +60,7 @@ func DefaultSimulationConfig() SimulationConfig {
 		InitialHope:           2,
 		InitialFearPool:       FearPerPC,
 		AreaTargets:           2,
+		PotionHPThreshold:     50,
 		SpotlightThreshold:    3,
 		SpotlightWeightFactor: 0.2,
 		PlayerStrategy:        strategy.DefaultDesperateConfig(),
@@ -152,6 +156,7 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 
 	decisionMaker := strategy.NewUnifiedDecisionMaker(sr.rng, sr.config.PlayerStrategy, sr.config.EnemyStrategy)
 	decisionMaker.SetAreaTargets(sr.config.AreaTargets)
+	decisionMaker.SetPotionThreshold(sr.config.PotionHPThreshold)
 
 	return combatEngine.RunCombat(state, decisionMaker, sr.config.MaxTurnsPerCombat, sr.config.EnemyStrategy.ResourceUsage)
 }

@@ -59,22 +59,13 @@ func DamageThresholdFromAmount(damage int, combatant *Combatant) DamageThreshold
 		return ThresholdNone
 	}
 
-	thresholds := combatant.CustomThresholds
-	if len(thresholds) < 2 {
-		if !combatant.IsAdversary {
-			minorThreshold := 3 + combatant.Level
-			majorThreshold := 6 + combatant.Level
-			thresholds = []int{minorThreshold, majorThreshold}
-		} else {
-			thresholds = []int{4, 7}
-		}
-	}
+	major, severe := combatant.Thresholds()
 
 	// A threshold of 0 is the stat block's "None": that tier can never be reached
 	switch {
-	case thresholds[1] > 0 && damage >= thresholds[1]:
+	case severe > 0 && damage >= severe:
 		return ThresholdSevere
-	case thresholds[0] > 0 && damage >= thresholds[0]:
+	case major > 0 && damage >= major:
 		return ThresholdMajor
 	default:
 		return ThresholdMinor
@@ -126,6 +117,7 @@ const (
 	ActionPass
 	ActionDeathMove
 	ActionReactionRoll
+	ActionUseItem
 )
 
 func (a ActionType) String() string {
@@ -142,6 +134,8 @@ func (a ActionType) String() string {
 		return "Death Move"
 	case ActionReactionRoll:
 		return "Reaction Roll"
+	case ActionUseItem:
+		return "Use Item"
 	default:
 		return "Unknown"
 	}

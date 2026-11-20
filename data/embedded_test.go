@@ -96,3 +96,18 @@ func TestEmbeddedRegistryCoversSRD2(t *testing.T) {
 		}
 	}
 }
+
+func TestEmbeddedDomainCardLibrary(t *testing.T) {
+	cards, err := LoadDomainCards()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cards) < 11 {
+		t.Fatalf("library has %d cards, want at least 11", len(cards))
+	}
+	for _, c := range cards {
+		if c.Description == "" || len(c.Ability.Effects) == 0 || c.Domain == "" {
+			t.Errorf("%s: description %q, %d effects, domain %q", c.Name, c.Description, len(c.Ability.Effects), c.Domain)
+		}
+	}
+}

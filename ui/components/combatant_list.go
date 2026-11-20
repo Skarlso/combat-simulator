@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"net/url"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -32,9 +33,12 @@ type CombatantList struct {
 	newDamageDice      string
 	newMinorThreshold  int
 	newMajorThreshold  int
+	newHealthPotions   int
+	newStaminaPotions  int
 	newDomainAbilities []*models.DomainAbility
 
-	importer importPanel
+	importer   importPanel
+	exportText string
 }
 
 // OnMount initializes default values
@@ -54,7 +58,11 @@ func (cl *CombatantList) Render() app.UI {
 			app.Button().Class("btn btn-small").Text("Import JSON").OnClick(func(ctx app.Context, e app.Event) {
 				cl.importer.toggle(ctx)
 			}),
+			app.Button().Class("btn btn-small").Text("Export JSON").Disabled(len(cl.Combatants) == 0).OnClick(func(ctx app.Context, e app.Event) {
+				cl.toggleExport(ctx)
+			}),
 		),
+		app.If(cl.exportText != "", func() app.UI { return cl.renderExportPanel() }),
 		app.If(cl.importer.show, func() app.UI {
 			return cl.importer.render(
 				"Import Characters from JSON",
@@ -84,6 +92,58 @@ func (cl *CombatantList) runImport(ctx app.Context) {
 	})
 }
 
+func (cl *CombatantList) toggleExport(ctx app.Context) {
+	if cl.exportText != "" {
+		cl.exportText = ""
+		ctx.Update()
+		return
+	}
+	raw, err := parser.ExportCharacters(cl.Combatants)
+	if err != nil {
+		app.Log("party export failed:", err)
+		return
+	}
+	cl.exportText = string(raw)
+	ctx.Update()
+}
+
+// renderExportPanel shows the party as import-ready JSON, to copy or download
+func (cl *CombatantList) renderExportPanel() app.UI {
+	return app.Div().Class("add-form").Body(
+		app.H4().Text("Party as JSON"),
+		app.P().Text("Paste this into Import JSON later to restore the party, or download it."),
+		app.Div().Class("form-group").Body(
+			app.Textarea().
+				Style("width", "100%").
+				Style("min-height", "200px").
+				Style("font-family", "monospace").
+				ReadOnly(true).
+				Rows(12).
+				Text(cl.exportText),
+		),
+		app.Div().Class("form-actions").Body(
+			app.Button().Class("btn btn-primary").Text("Download party.json").OnClick(func(ctx app.Context, e app.Event) {
+				downloadText("party.json", cl.exportText)
+			}),
+			app.Button().Class("btn btn-secondary").Text("Close").OnClick(func(ctx app.Context, e app.Event) {
+				cl.exportText = ""
+				ctx.Update()
+			}),
+		),
+	)
+}
+
+// downloadText saves text as a file through a temporary data-URL link
+func downloadText(filename, text string) {
+	doc := app.Window().Get("document")
+	link := doc.Call("createElement", "a")
+	link.Set("href", "data:application/json;charset=utf-8,"+url.PathEscape(text))
+	link.Set("download", filename)
+	doc.Get("body").Call("appendChild", link)
+	link.Call("click")
+	doc.Get("body").Call("removeChild", link)
+}
+
 // renderList renders the list of combatants
 func (cl *CombatantList) renderList() app.UI {
 	if len(cl.Combatants) == 0 {
@@ -109,6 +169,9 @@ func (cl *CombatantList) renderList() app.UI {
 					}),
 					app.If(len(combatant.DomainAbilities) > 0, func() app.UI {
 						return statChip("Abilities", fmt.Sprintf("%d", len(combatant.DomainAbilities)))
+					}),
+					app.If(combatant.HealthPotions+combatant.StaminaPotions > 0, func() app.UI {
+						return statChip("Potions", fmt.Sprintf("%d health, %d stamina", combatant.HealthPotions, combatant.StaminaPotions))
 					}),
 				),
 			),
@@ -170,6 +233,10 @@ func (cl *CombatantList) renderAddForm() app.UI {
 			numberField("Minor Threshold", &cl.newMinorThreshold, 1, 20),
 			numberField("Major Threshold", &cl.newMajorThreshold, 1, 30),
 		),
+		app.Div().Class("form-row").Body(
+			numberField("Health Potions", &cl.newHealthPotions, 0, models.MaxPotionsEach),
+			numberField("Stamina Potions", &cl.newStaminaPotions, 0, models.MaxPotionsEach),
+		),
 	)...)
 	body = append(body, cl.section("abilities", "Abilities",
 		&DomainAbilityForm{
@@ -212,6 +279,8 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 	combatant.ArmorSlots = cl.newArmor
 	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
+	combatant.HealthPotions = cl.newHealthPotions
+	combatant.StaminaPotions = cl.newStaminaPotions
 	for _, ability := range cl.newDomainAbilities {
 		combatant.DomainAbilities = append(combatant.DomainAbilities, *ability)
 	}
@@ -239,6 +308,8 @@ func (cl *CombatantList) resetForm() {
 	cl.newDamageDice = "1d6"
 	cl.newMinorThreshold = 4
 	cl.newMajorThreshold = 7
+	cl.newHealthPotions = 0
+	cl.newStaminaPotions = 0
 	cl.newDomainAbilities = make([]*models.DomainAbility, 0)
 	cl.sectionOpen = map[string]bool{"identity": true}
 }
