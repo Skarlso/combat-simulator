@@ -163,6 +163,38 @@ button, input, select, textarea {
 .app-footer p + p { margin-top: var(--space-2); font-size: var(--text-xs); }
 .app-footer a { color: inherit; }
 
+/* Help overlay */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--space-6) var(--space-4);
+  overflow: auto;
+  background: rgba(10, 11, 14, 0.55);
+}
+
+.help-overlay:focus-visible { box-shadow: none; }
+
+.help-card {
+  width: 100%;
+  max-width: 720px;
+  padding: var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-2);
+}
+
+.help-card h3 { margin: var(--space-5) 0 var(--space-2); }
+.help-card ol, .help-card ul { margin: 0; padding-left: var(--space-5); }
+.help-card li { margin-bottom: var(--space-2); color: var(--text-2); }
+.help-card li strong { color: var(--text); }
+.help-lead { margin-bottom: var(--space-4); color: var(--text-2); }
+.help-card p + ul { margin-top: var(--space-2); }
+
 /* Toolbar: tabs + run controls */
 .toolbar {
   position: sticky;

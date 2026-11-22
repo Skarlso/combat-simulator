@@ -99,7 +99,7 @@ Most unmodelled player entries only matter outside a single fight (rests, sessio
 There are about 38 effect types currently: damage, healing, conditions, area damage, summons, tokens, armor, Stress, Hope, Fear, etc.
 About 15 triggers, for example: `on_hit`, `on_damage_taken`, `start_combat` and costs in `Hope`, `Stress` or `Fear` with usage limits.
 
-### AI Presents
+### AI Presets
 
 Currently, there are four valid presets on how the AI should behave. The AI decides how to spend Hope and Fear basically.
 Which means, taking the spotlight, using Relentless, triggering Hope features, etc.

@@ -23,7 +23,7 @@ func main() {
 		Title:        ui.Title,
 		Description:  "Monte Carlo combat simulation, " + ui.Tagline,
 		Styles:       []string{"/web/static/app.css"},
-		Icon:         app.Icon{Default: "/web/static/icon.png"},
+		Icon:         app.Icon{Default: "/web/static/icon.png", Large: "/web/static/icon.png", SVG: "/web/static/icon.svg"},
 		LoadingLabel: "Loading " + ui.Title + "...",
 		RawHeaders:   []string{`<meta name="viewport" content="width=device-width, initial-scale=1">`},
 	}

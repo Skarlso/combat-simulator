@@ -2,6 +2,7 @@ package ui
 
 import (
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
+	"github.com/skarlso/combat-simulator/ui/components"
 	"github.com/skarlso/combat-simulator/ui/pages"
 )
 
@@ -16,7 +17,8 @@ const (
 type App struct {
 	app.Compo
 
-	theme string
+	theme    string
+	helpOpen bool
 }
 
 // OnMount restores the saved theme preference
@@ -45,6 +47,11 @@ func (a *App) Render() app.UI {
 						Body(
 							app.Button().
 								Class("btn btn-ghost btn-small").
+								Title("How to use the simulator").
+								Text("? Help").
+								OnClick(func(ctx app.Context, e app.Event) { a.helpOpen = true }),
+							app.Button().
+								Class("btn btn-ghost btn-small").
 								Title("Cycle theme: system, light, dark").
 								Text(a.themeLabel()).
 								OnClick(a.cycleTheme),
@@ -68,6 +75,9 @@ func (a *App) Render() app.UI {
 						app.Text(". There are no previous modifications by others."),
 					),
 				),
+			app.If(a.helpOpen, func() app.UI {
+				return &components.HelpDialog{OnClose: func(ctx app.Context) { a.helpOpen = false }}
+			}),
 		)
 }
 
