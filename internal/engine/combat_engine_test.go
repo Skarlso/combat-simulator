@@ -2,6 +2,7 @@ package engine
 
 import (
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -700,5 +701,193 @@ func TestReactionRollsAppearInTheLog(t *testing.T) {
 	}
 	if rogue.SpotlightShift || knight.SpotlightShift {
 		t.Error("reaction rolls never move the spotlight")
+	}
+}
+
+func TestAttackLogShowsCriticalsAndHPAfter(t *testing.T) {
+	crit := DualityRollResult{HopeDie: 4, FearDie: 4, Result: models.ResultCriticalHope, WithSpirit: 10, IsCritical: true}
+	ce := newMockEngine(&mockDiceRoller{damage: 5, d20: 20, dualityQueue: []DualityRollResult{crit}}, &firstPicker{})
+	hero := tPlayer("p1", "Hero")
+	hero.DamageDice = "1d8+1"
+	ogre := tEnemy("e1", "Ogre", 20)
+	ogre.Difficulty = 14
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 0, 0)
+
+	// Proficiency 2: 2d8 rolls 5, +1 flat, +16 for the critical = 22, Severe
+	ce.executeAttack(hero, ogre, state)
+	row := state.ActionHistory[len(state.ActionHistory)-1]
+	if row.Result != "Critical Hit" || !row.IsCritical || row.DamageRoll != 22 ||
+		len(row.DamageParts) != 1 || row.DamageParts[0] != (models.LogPart{Label: "critical", Value: 16}) {
+		t.Errorf("PC row: %q, critical %v, parts %v, roll %d; want Critical Hit / true / [critical 16] / 22", row.Result, row.IsCritical, row.DamageParts, row.DamageRoll)
+	}
+	if row.TargetHPBefore != 20 || row.TargetHPAfter != 17 {
+		t.Errorf("PC row: target HP %d -> %d, want 20 -> 17", row.TargetHPBefore, row.TargetHPAfter)
+	}
+
+	// The GM's natural 20 is a critical too
+	ce.executeAttack(ogre, hero, state)
+	row = state.ActionHistory[len(state.ActionHistory)-1]
+	if row.Result != "Critical Hit" || !row.IsCritical {
+		t.Errorf("GM row: %q, critical %v; want Critical Hit / true", row.Result, row.IsCritical)
+	}
+}
+
+func TestAreaDamageLogShowsTheTargetsOwnSeverity(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 3}, &firstPicker{})
+	hero, friend := tPlayer("p1", "Hero"), tPlayer("p2", "Friend")
+	hero.ArmorSlots = 1
+	ogre := tEnemy("e1", "Ogre", 20)
+	spit := models.AdversaryFeature{Name: "Spit Acid", DCType: "target", Effects: []models.FeatureEffect{
+		{Category: models.FeatureEffectAreaDamage, DiceFormula: "2d6", DamageType: "physical"},
+	}}
+	ogre.AdversaryFeatures = []models.AdversaryFeature{spit}
+	state := newStateWith([]*models.Combatant{hero, friend}, []*models.Combatant{ogre}, 0, 0)
+
+	// 3 is Minor for both: the hero's armor absorbs it, the friend marks 1 HP
+	ce.executeFeature(ogre, hero, &ogre.AdversaryFeatures[0], state)
+	row := state.ActionHistory[len(state.ActionHistory)-1]
+	if row.Threshold != "Minor" || row.TargetsHit != 2 || row.HPDamage != 1 || row.ProcessedDamage != 3 {
+		t.Errorf("row: %s, %d targets, %d HP, %d damage; want Minor / 2 / 1 / 3", row.Threshold, row.TargetsHit, row.HPDamage, row.ProcessedDamage)
+	}
+	if row.Target != "Hero" || row.TargetHPBefore != 10 || row.TargetHPAfter != 10 || !row.ArmorUsed || row.ArmorSlotsAfter != 0 {
+		t.Errorf("row: %s HP %d -> %d, armor used %v, slots after %d; want Hero 10 -> 10, armor used, 0 left",
+			row.Target, row.TargetHPBefore, row.TargetHPAfter, row.ArmorUsed, row.ArmorSlotsAfter)
+	}
+}
+
+// Spit Acid strips an Armor Slot and then deals damage: the row must show both, not only the
+// slot the damage roll used.
+func TestLogRowCoversEverythingTheActionCostTheTarget(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 6}, &firstPicker{})
+	hero := tPlayer("p1", "Hero")
+	hero.ArmorSlots = 3
+	ogre := tEnemy("e1", "Ogre", 20)
+	ogre.AdversaryFeatures = []models.AdversaryFeature{{Name: "Spit Acid", DCType: "target", Effects: []models.FeatureEffect{
+		{Category: models.FeatureEffectArmorDamage, Magnitude: 1, TargetType: models.FeatureTargetAOE, FallbackFear: 1},
+		{Category: models.FeatureEffectAreaDamage, DiceFormula: "2d6", DamageType: "physical"},
+	}}}
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 0, 0)
+	spit := func() models.ActionRecord {
+		ce.executeFeature(ogre, hero, &ogre.AdversaryFeatures[0], state)
+		return state.ActionHistory[len(state.ActionHistory)-1]
+	}
+
+	// 6 is Major: one slot to the acid, one to take the hit down to Minor
+	if row := spit(); row.ArmorSlotsBefore != 3 || row.ArmorSlotsAfter != 1 || row.TargetHPBefore != 10 || row.TargetHPAfter != 9 {
+		t.Errorf("first: armor %d -> %d, HP %d -> %d; want 3 -> 1 and 10 -> 9", row.ArmorSlotsBefore, row.ArmorSlotsAfter, row.TargetHPBefore, row.TargetHPAfter)
+	}
+	// The last slot goes to the acid, so the hit lands in full
+	if row := spit(); row.ArmorSlotsBefore != 1 || row.ArmorSlotsAfter != 0 || row.TargetHPBefore != 9 || row.TargetHPAfter != 7 {
+		t.Errorf("second: armor %d -> %d, HP %d -> %d; want 1 -> 0 and 9 -> 7", row.ArmorSlotsBefore, row.ArmorSlotsAfter, row.TargetHPBefore, row.TargetHPAfter)
+	}
+	// No slot left: the acid costs a Hit Point on top of the 2 from the damage
+	if row := spit(); row.ArmorUsed || row.TargetHPBefore != 7 || row.TargetHPAfter != 4 {
+		t.Errorf("third: armor used %v, HP %d -> %d; want no armor and 7 -> 4", row.ArmorUsed, row.TargetHPBefore, row.TargetHPAfter)
+	}
+}
+
+// The log must be able to say where every number came from: the trait on the roll, each
+// feature's share of the damage, and each step from the rolled severity to the Hit Points marked.
+func TestLogRowsNameWhereTheNumbersComeFrom(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 9}, &firstPicker{})
+	hero := tPlayer("p1", "Hero")
+	hero.Traits.Strength, hero.WeaponTrait = 2, "strength"
+	hero.DamageDice = "1d8+4"
+	hero.ArmorSlots = 1
+	hero.DomainAbilities = []models.DomainAbility{unstoppable(4)}
+	hero.DomainAbilities[0].TokensHeld = 3
+	ogre := tEnemy("e1", "Ogre", 20)
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 0, 0)
+
+	ce.executeAttack(hero, ogre, state)
+	row := state.ActionHistory[len(state.ActionHistory)-1]
+	if len(row.RollParts) != 1 || row.RollParts[0] != (models.LogPart{Label: "Strength", Value: 2}) {
+		t.Errorf("roll parts = %v, want [Strength 2]", row.RollParts)
+	}
+	// 2d8 rolls 9, +4 from the weapon, +3 from the Unstoppable Die
+	if row.DamageFormula != "2d8+4" || row.DamageBonus != 4 || row.DamageRoll != 16 ||
+		len(row.DamageParts) != 1 || row.DamageParts[0] != (models.LogPart{Label: "Unstoppable", Value: 3}) {
+		t.Errorf("damage: %s, weapon %d, parts %v, total %d; want 2d8+4 / 4 / [Unstoppable 3] / 16", row.DamageFormula, row.DamageBonus, row.DamageParts, row.DamageRoll)
+	}
+	if len(row.Severity) != 1 || row.Severity[0] != "Severe at 4/7" {
+		t.Errorf("severity = %v, want [Severe at 4/7]", row.Severity)
+	}
+
+	// The ogre hits back for 9: Severe for a level 3 PC, Major while Unstoppable, Minor after armor
+	ce.executeAttack(ogre, hero, state)
+	row = state.ActionHistory[len(state.ActionHistory)-1]
+	if len(row.RollParts) != 1 || row.RollParts[0] != (models.LogPart{Label: "ATK", Value: 5}) || !row.VsDefense {
+		t.Errorf("GM roll parts = %v, vs defense %v; want [ATK 5] against Evasion", row.RollParts, row.VsDefense)
+	}
+	want := []string{"Severe at 6/9", "Major by Unstoppable", "Minor by an Armor Slot"}
+	if strings.Join(row.Severity, " | ") != strings.Join(want, " | ") || row.HPDamage != 1 {
+		t.Errorf("severity = %v with %d HP, want %v with 1 HP", row.Severity, row.HPDamage, want)
+	}
+}
+
+func TestLogKeepsAFixedDifficultyAndNamesWhatCutTheDamage(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 6}, &firstPicker{})
+	hero := tPlayer("p1", "Hero")
+	hero.Traits.Knowledge, hero.SpellcastTrait = 3, "knowledge"
+	ward := passive("Rune Ward", models.TriggerOnDamageIncoming, "if_major_or_worse", models.FeatureEffect{Category: models.FeatureEffectDamageReduction, DiceFormula: "1d8"})
+	ward.HopeCost = 1
+	barrier := models.DomainAbility{Name: "Barrier", DCType: "fixed", FixedDC: 15, RollTrait: "spellcast",
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectHPHeal, Magnitude: 1, TargetType: models.FeatureTargetAllies}}}
+	hero.DomainAbilities = []models.DomainAbility{ward, barrier}
+	ogre := tEnemy("e1", "Ogre", 20)
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 1, 0)
+
+	ce.executeAttack(ogre, hero, state)
+	row := lastRow(state, models.ActionAttack)
+	if len(row.Reduced) != 1 || row.Reduced[0] != "Rune Ward -6" || row.ProcessedDamage != 0 {
+		t.Errorf("reduced = %v, %d left; want [Rune Ward -6] and 0", row.Reduced, row.ProcessedDamage)
+	}
+
+	hero.HP = 5
+	ce.executeAbility(hero, ogre, &hero.DomainAbilities[1], state)
+	row = state.ActionHistory[len(state.ActionHistory)-1]
+	if row.TargetDefense != 15 || row.VsDefense || row.RollParts[0] != (models.LogPart{Label: "Spellcast (Knowledge)", Value: 3}) {
+		t.Errorf("fixed roll: vs %d, vs defense %v, parts %v; want 15 / false / [Spellcast (Knowledge) 3]", row.TargetDefense, row.VsDefense, row.RollParts)
+	}
+}
+
+func lastRow(state *models.CombatState, kind models.ActionType) models.ActionRecord {
+	for i := len(state.ActionHistory) - 1; i >= 0; i-- {
+		if state.ActionHistory[i].ActionType == kind {
+			return state.ActionHistory[i]
+		}
+	}
+	return models.ActionRecord{}
+}
+
+// An attack's row comes first, as things stood when it landed; what it set off follows.
+func TestAttackRowComesBeforeWhatItSetsOff(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 7}, &firstPicker{})
+	hero := tPlayer("p1", "Hero")
+	hero.DomainAbilities = []models.DomainAbility{unstoppable(4)}
+	hero.DomainAbilities[0].TokensHeld, hero.DomainAbilities[0].UsesLeft = 4, 0
+	ogre := tEnemy("e1", "Ogre", 20)
+	ogre.AdversaryFeatures = []models.AdversaryFeature{{Name: "Acid Bath", Passive: true,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerOnDamageTaken, Filter: "if_took_severe"},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectAreaDamage, DiceFormula: "1d10", DamageType: "physical"}}}}
+	state := newStateWith([]*models.Combatant{hero}, []*models.Combatant{ogre}, 0, 0)
+
+	// 7 + 4 from the die is Severe: the die runs out, and the splash of 7 is Major on the hero
+	ce.executeAttack(hero, ogre, state)
+
+	var order []string
+	for _, row := range state.ActionHistory {
+		order = append(order, strings.TrimSpace(row.ActionType.String()+" "+row.FeatureName))
+	}
+	want := "Attack | Use Ability Unstoppable | Use Ability Acid Bath"
+	if got := strings.Join(order, " | "); got != want {
+		t.Fatalf("rows = %s, want %s", got, want)
+	}
+	attack, bath := state.ActionHistory[0], state.ActionHistory[2]
+	if attack.DamageRoll != 11 || attack.TargetHPAfter != 17 || attack.ActorState.HP != 10 {
+		t.Errorf("attack row: rolled %d, ogre at %d HP, hero at %d HP; want 11 / 17 / 10 (before the splash)", attack.DamageRoll, attack.TargetHPAfter, attack.ActorState.HP)
+	}
+	if bath.Target != "Hero" || bath.TargetHPBefore != 10 || bath.TargetHPAfter != 8 || hero.HP != 8 {
+		t.Errorf("Acid Bath row: %s %d -> %d HP (hero now %d); want Hero 10 -> 8", bath.Target, bath.TargetHPBefore, bath.TargetHPAfter, hero.HP)
 	}
 }

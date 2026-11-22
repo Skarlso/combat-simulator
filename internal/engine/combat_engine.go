@@ -130,11 +130,14 @@ func (ce *CombatEngine) drinkPotion(actor *models.Combatant, potion models.Potio
 	state.RecordAction(models.ActionParams{Actor: actor, ActionType: models.ActionUseItem, Result: result})
 }
 
-func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name string, isFeature bool, err error, dcResult DCCheckResult, state *models.CombatState) {
+func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, before *models.CombatantState, name string, isFeature bool, err error, dcResult DCCheckResult, state *models.CombatState) {
 	result := "Success"
+	if dcResult.IsCritical {
+		result = "Critical Success"
+	}
 	spotlightShift := dcResult.SpotlightShift
 	if dcResult.RedirectedTo != nil {
-		target = dcResult.RedirectedTo
+		target, before = dcResult.RedirectedTo, nil
 	}
 
 	if err != nil {
@@ -150,7 +153,12 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 		IsFeature:       isFeature,
 		Result:          result,
 		DamageRoll:      dcResult.DamageRoll,
+		DamageParts:     dcResult.DamageParts,
+		DamageFormula:   dcResult.DamageFormula,
+		RollParts:       dcResult.RollParts,
+		VsDefense:       dcResult.VsDefense,
 		ProcessedDamage: dcResult.ProcessedDamage,
+		TargetsHit:      dcResult.TargetsHit,
 		HPDamage:        dcResult.DamageDealt,
 		Threshold:       dcResult.Threshold,
 		HopeDie:         dcResult.HopeDie,
@@ -162,18 +170,24 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, name s
 		HopeGenerated:   dcResult.HopeGenerated,
 		FearGenerated:   dcResult.FearGenerated,
 		DamageResult:    dcResult.DamageResult,
+		TargetBefore:    before,
+		Main:            true,
 	})
 	recordReactions(state, name, dcResult)
 }
 
 func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
+	before := models.StateOf(target)
+	state.BeginAction()
 	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
-	ce.recordActivation(actor, target, ability.Name, false, err, dcResult, state)
+	ce.recordActivation(actor, target, before, ability.Name, false, err, dcResult, state)
 }
 
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
+	before := models.StateOf(target)
+	state.BeginAction()
 	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
-	ce.recordActivation(actor, target, feature.Name, true, err, dcResult, state)
+	ce.recordActivation(actor, target, before, feature.Name, true, err, dcResult, state)
 }
 
 // executeClearCondition spends the actor's turn clearing one harmful condition.
@@ -195,7 +209,7 @@ func (ce *CombatEngine) executeClearCondition(actor *models.Combatant, state *mo
 	if difficulty == 0 {
 		difficulty = models.DefaultClearDifficulty
 	}
-	roll := ce.featureResolver.rollDCCheck(actor, nil, "fixed", difficulty, state)
+	roll := ce.featureResolver.rollDCCheck(actor, nil, "fixed", difficulty, "", state)
 
 	result := fmt.Sprintf("Failed to clear %s", cond.Type)
 	if roll.Success {
@@ -210,6 +224,7 @@ func (ce *CombatEngine) executeClearCondition(actor *models.Combatant, state *mo
 		FearDie:        roll.FearDie,
 		TotalRoll:      roll.TotalRoll,
 		TargetDefense:  roll.DC,
+		RollParts:      roll.RollParts,
 		SpotlightShift: roll.SpotlightShift,
 		HopeGenerated:  roll.HopeGenerated,
 		FearGenerated:  roll.FearGenerated,
@@ -285,6 +300,7 @@ func (ce *CombatEngine) blazeOfGlory(pc *models.Combatant, state *models.CombatS
 	critDice := critRoller{ce.dice}
 	critFeatures := *ce.featureResolver
 	critFeatures.dice = critDice
+	state.BeginAction()
 	attack := NewCombatResolver(critDice, &critFeatures).ResolveAttack(pc, target, pc.AttackDamageFormula(), state)
 
 	state.RecordAction(models.ActionParams{
@@ -296,19 +312,27 @@ func (ce *CombatEngine) blazeOfGlory(pc *models.Combatant, state *models.CombatS
 		ProcessedDamage: attack.ProcessedDamage,
 		DamageDice:      attack.DamageDice,
 		DamageBonus:     attack.DamageBonus,
+		DamageParts:     attack.DamageParts,
+		DamageFormula:   attack.DamageFormula,
+		RollParts:       attack.Roll.RollParts,
+		VsDefense:       true,
 		HPDamage:        attack.HPDamage,
 		Threshold:       attack.Threshold,
 		HopeDie:         attack.Roll.HopeDie,
 		FearDie:         attack.Roll.FearDie,
 		TotalRoll:       attack.Roll.TotalRoll,
 		DamageResult:    attack.DamageResult,
+		Main:            true,
 	})
 }
 
 // executeAttack handles basic attack action
 func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Combatant, state *models.CombatState) {
+	before := models.StateOf(target)
 	ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnAttack, false)
 
+	// What the attack sets off (reactions, on-hit passives, a die running out) is logged after its own row
+	state.BeginAction()
 	result := ce.resolver.ResolveAttack(actor, target, actor.AttackDamageFormula(), state)
 
 	if result.Roll.IsCritical {
@@ -318,12 +342,18 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 	resultStr := "Miss"
 	if result.Hit {
 		resultStr = "Hit"
+		if result.Roll.IsCritical {
+			resultStr = "Critical Hit"
+		}
 		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnHit, false)
 		ce.featureResolver.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnHitTaken, false)
+	} else {
+		ce.featureResolver.ProcessTriggeredFeatures(actor, target, state, models.TriggerOnMiss, false)
+		ce.featureResolver.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnEvaded, false)
 	}
 	hitBy := target
 	if result.Redirected != nil {
-		hitBy = result.Redirected
+		hitBy, before = result.Redirected, nil
 	}
 
 	state.RecordAction(models.ActionParams{
@@ -335,6 +365,10 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		ProcessedDamage: result.ProcessedDamage,
 		DamageDice:      result.DamageDice,
 		DamageBonus:     result.DamageBonus,
+		DamageParts:     result.DamageParts,
+		DamageFormula:   result.DamageFormula,
+		RollParts:       result.Roll.RollParts,
+		VsDefense:       true,
 		HPDamage:        result.HPDamage,
 		Threshold:       result.Threshold,
 		HopeDie:         result.Roll.HopeDie,
@@ -346,6 +380,8 @@ func (ce *CombatEngine) executeAttack(actor *models.Combatant, target *models.Co
 		HopeGenerated:   result.Roll.HopeGenerated,
 		FearGenerated:   result.Roll.FearGenerated,
 		DamageResult:    result.DamageResult,
+		TargetBefore:    before,
+		Main:            true,
 	})
 }
 

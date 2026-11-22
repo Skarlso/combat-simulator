@@ -2,6 +2,7 @@ package engine
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
@@ -98,27 +99,66 @@ func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *mod
 	return nil
 }
 
-// lacksRecipient reports an ally-targeted heal or stress clear with nobody who would gain from it
+// lacksRecipient reports an ally-targeted heal or stress clear with nobody who would gain from it,
+// or an armor clear its recipient cannot use in full
 func lacksRecipient(effects []models.FeatureEffect, actor *models.Combatant, state *models.CombatState) bool {
 	if state == nil {
 		return false
 	}
+	// An ability that does nothing but restore waits until its whole amount is needed
+	onlyRestores := true
 	for _, e := range effects {
-		if e.TargetType != models.FeatureTargetAlly {
-			continue
+		switch e.Category {
+		case models.FeatureEffectHPHeal, models.FeatureEffectStressClear, models.FeatureEffectArmorClear:
+		default:
+			onlyRestores = false
 		}
+	}
+
+	for _, e := range effects {
+		var need func(*models.Combatant) int
 		switch e.Category {
 		case models.FeatureEffectHPHeal:
-			if len(state.Recipients(actor, e.TargetType, models.MissingHP)) == 0 {
+			need = models.MissingHP
+		case models.FeatureEffectStressClear:
+			need = models.StressHeld
+		case models.FeatureEffectArmorClear:
+			need = fullArmorClear(e)
+		default:
+			continue
+		}
+		switch {
+		case e.TargetType == models.FeatureTargetAlly:
+			if len(state.Recipients(actor, e.TargetType, need)) == 0 {
 				return true
 			}
-		case models.FeatureEffectStressClear:
-			if len(state.Recipients(actor, e.TargetType, models.StressHeld)) == 0 {
+		case e.TargetType == models.FeatureTargetAllies:
+			if onlyRestores && !slices.ContainsFunc(state.GetAlliesOf(actor), func(c *models.Combatant) bool { return need(c) > 0 }) {
+				return true
+			}
+		case e.Category == models.FeatureEffectArmorClear:
+			if need(actor) == 0 {
+				return true
+			}
+		case onlyRestores:
+			if need(actor) < max(e.Magnitude, 1) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// fullArmorClear scores a combatant for an armor clear: their marked slots, or 0 while
+// fewer are marked than the effect clears, so its cost is never spent on part of it
+func fullArmorClear(e models.FeatureEffect) func(*models.Combatant) int {
+	return func(c *models.Combatant) int {
+		marked := models.MarkedArmor(c)
+		if marked < min(e.Magnitude, c.ArmorMax) {
+			return 0
+		}
+		return marked
+	}
 }
 
 func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant, state *models.CombatState) error {
@@ -132,11 +172,31 @@ func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, targe
 	return nil
 }
 
-func (fr *FeatureResolver) resolveGrantArmor(effect models.FeatureEffect, target *models.Combatant) error {
+// resolveGrantArmor adds Armor Slots beyond the Armor Score to the actor's side
+func (fr *FeatureResolver) resolveGrantArmor(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+	for _, c := range fr.recipients(effect, actor, state, func(c *models.Combatant) int { return 1 }) {
+		c.ArmorSlots += effect.Magnitude
+	}
+	return nil
+}
+
+func (fr *FeatureResolver) resolveArmorClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+	for _, c := range fr.recipients(effect, actor, state, models.MarkedArmor) {
+		c.ClearArmorSlots(effect.Magnitude)
+	}
+	return nil
+}
+
+// resolveMarkHP forces the target to mark Hit Points, whatever their thresholds and armor
+func (fr *FeatureResolver) resolveMarkHP(effect models.FeatureEffect, target *models.Combatant, result *DCCheckResult) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
-	target.ArmorSlots += effect.Magnitude
+	before := target.HP
+	target.MarkHP(effect.Magnitude)
+	if result != nil {
+		result.DamageDealt += before - target.HP
+	}
 	return nil
 }
 

@@ -1,8 +1,8 @@
 {
   "metadata": {
     "version": "1.0",
-    "last_updated": "2026-11-19",
-    "note": "Domain cards the engine can run as player abilities. Keys are card names from the embedded domain data; effects use the feature mapping schema, with target_type self/ally/allies for heals and stress clears. Approximations are spelled out in note. proficiency_dice rolls the caster's Proficiency in dice of the formula's size."
+    "last_updated": "2026-11-22",
+    "note": "Domain cards the engine can run as player abilities. Keys are card names from the embedded domain data, or Book: Spell for a grimoire spell. Effects use the feature mapping schema, with target_type self/ally/allies for heals and clears. Approximations are spelled out in note. proficiency_dice rolls the PC's Proficiency in dice of the formula's size; scale_by multiplies an amount or dice count by level, tier, proficiency, spellcast (the PC's Spellcast trait) or a trait. roll_trait names the trait an ability rolls with: spells default to spellcast, everything else to the weapon trait. A passive with no trigger is always on (its trigger_filter says while what); one that uses tokens only while it holds some. The triggers on_damage_roll, on_damage_incoming and on_attacked pay their cost to change that one roll or hit."
   },
   "mappings": {
     "Healing Hands": {
@@ -169,6 +169,1350 @@
           "damage_type": "magic",
           "description": "d6+4 magic damage",
           "proficiency_dice": true
+        }
+      ]
+    },
+    "Rune Ward": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_major_or_worse",
+      "hope_cost": 1,
+      "note": "Used on hits that would be Major or worse. The ward never runs out (SRD: it ends on an 8) and can't be handed to an ally.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageReduction",
+          "dice_formula": "1d8",
+          "description": "Spend a Hope to reduce incoming damage by 1d8"
+        }
+      ]
+    },
+    "Unleash Chaos": {
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "Spends every token on one cast: a d10 per point of Spellcast trait, once per fight. The Stress refill is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10",
+          "damage_type": "magic",
+          "scale_by": "spellcast",
+          "description": "A d10 of magic damage per token"
+        }
+      ]
+    },
+    "Preservation Blast": {
+      "dc_type": "target",
+      "note": "Reaches up to the Area Targets setting. The push to Far range is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8+3",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "scale_by": "spellcast",
+          "description": "d8+3 magic damage using the Spellcast trait"
+        }
+      ]
+    },
+    "Chain Lightning": {
+      "stress_cost": 2,
+      "dc_type": "target",
+      "note": "The reaction Difficulty is fixed at 15 (SRD: the Spellcast Roll's result). Reaches up to the Area Targets setting. The chain to further targets is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8+4",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 15,
+          "description": "2d8+4 magic damage to targets who fail the reaction roll"
+        }
+      ]
+    },
+    "Telekinesis": {
+      "dc_type": "target",
+      "note": "One roll instead of two: the target is thrown at once.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12+4",
+          "damage_type": "physical",
+          "proficiency_dice": true,
+          "description": "d12+4 physical damage using Proficiency"
+        }
+      ]
+    },
+    "Arcana-Touched": {
+      "passive": true,
+      "note": "Assumes 4 Arcana cards in the loadout. The +1 applies to every action roll, not only Spellcast Rolls. The dice swap is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAttackBonus",
+          "magnitude": 1,
+          "description": "+1 to Spellcast Rolls"
+        }
+      ]
+    },
+    "Earthquake": {
+      "dc_type": "fixed",
+      "fixed_dc": 16,
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d10+8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 18,
+          "half_on_success": true,
+          "description": "3d10+8 physical damage, half on a successful Reaction Roll (18)"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "target_type": "aoe",
+          "duration": "1_turn",
+          "reaction_trait": "agility",
+          "reaction_dc": 18,
+          "description": "Targets who fail are temporarily Vulnerable"
+        }
+      ]
+    },
+    "Falling Sky": {
+      "stress_cost": 1,
+      "dc_type": "target",
+      "note": "Always marks 1 Stress. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d20+2",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "1d20+2 magic damage per Stress marked"
+        }
+      ]
+    },
+    "Get Back Up": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_severe",
+      "stress_cost": 1,
+      "effects": [
+        {
+          "category": "FeatureEffectSeverityReduction",
+          "magnitude": 1,
+          "description": "Mark a Stress to take Severe damage as Major"
+        }
+      ]
+    },
+    "Not Good Enough": {
+      "passive": true,
+      "note": "Rerolling 1s and 2s is approximated as +1 per weapon die (the true average gain on a d8 is about +0.75).",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 1,
+          "scale_by": "proficiency",
+          "description": "+1 damage per weapon die"
+        }
+      ]
+    },
+    "Whirlwind": {
+      "passive": true,
+      "trigger": "on_hit",
+      "hope_cost": 1,
+      "note": "Fires on every basic-attack hit while Hope lasts. The same roll is compared to each other target's Difficulty. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "standard_attack": true,
+          "half_damage": true,
+          "others_only": true,
+          "description": "The attack hits all other targets for half damage"
+        }
+      ]
+    },
+    "Reckless": {
+      "passive": true,
+      "trigger": "on_attack",
+      "stress_cost": 1,
+      "note": "Used on every basic attack. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyAdvantage",
+          "duration": "1_turn",
+          "description": "Mark a Stress to attack with advantage"
+        }
+      ]
+    },
+    "Scramble": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_major_or_worse",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Saved for a hit that would be Major or worse. Any attacker, not only one in Melee range.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "description": "Avoid the attack"
+        }
+      ]
+    },
+    "Versatile Fighter": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "stress_cost": 1,
+      "note": "+3 stands in for a d8's maximum instead of its roll. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 3,
+          "description": "Mark a Stress to use the maximum of one damage die"
+        }
+      ]
+    },
+    "Deadly Focus": {
+      "passive": true,
+      "trigger": "start_turn",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "uses_tokens": true,
+      "token_name": "Focus",
+      "tokens_max": 1,
+      "note": "Switches on at the start of the PC's first turn and lasts the fight. The focus is assumed to follow your target.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "standard_attack": true,
+          "description": "+1 Proficiency: one more weapon die"
+        }
+      ]
+    },
+    "Champion's Edge": {
+      "passive": true,
+      "trigger": "on_critical",
+      "hope_cost": 1,
+      "note": "Always spends 1 Hope on the extra Hit Point; the heal and Armor Slot options are not used.",
+      "effects": [
+        {
+          "category": "FeatureEffectMarkHP",
+          "magnitude": 1,
+          "description": "The target marks an additional Hit Point"
+        }
+      ]
+    },
+    "Rage Up": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "stress_cost": 1,
+      "note": "Paid when the damage is rolled rather than before the attack, and once per attack. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 2,
+          "scale_by": "strength",
+          "description": "Mark a Stress for a damage bonus of twice your Strength"
+        }
+      ]
+    },
+    "Blade-Touched": {
+      "passive": true,
+      "note": "Assumes 4 Blade cards in the loadout. Add the +4 Severe threshold to the PC's stats.",
+      "effects": [
+        {
+          "category": "FeatureEffectAttackBonus",
+          "magnitude": 2,
+          "description": "+2 to attack rolls"
+        }
+      ]
+    },
+    "Glancing Blow": {
+      "passive": true,
+      "trigger": "on_miss",
+      "stress_cost": 1,
+      "note": "Half damage stands in for half your Proficiency. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "damage_type": "physical",
+          "standard_attack": true,
+          "half_damage": true,
+          "description": "Mark a Stress to deal weapon damage on a failed attack"
+        }
+      ]
+    },
+    "Frenzy": {
+      "passive": true,
+      "trigger": "start_turn",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "uses_tokens": true,
+      "token_name": "Frenzy",
+      "tokens_max": 1,
+      "note": "Switches on at the start of the PC's first turn and lasts the fight. Losing Armor Slots and the +8 Severe threshold are not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 10,
+          "description": "+10 to damage rolls"
+        }
+      ]
+    },
+    "Gore and Glory": {
+      "passive": true,
+      "trigger": "on_critical",
+      "note": "Takes the Stress clear on a critical. The bonus for defeating an enemy is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear an additional Stress on a critical"
+        }
+      ]
+    },
+    "Reaper's Strike": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "One target, the one attacked.",
+      "effects": [
+        {
+          "category": "FeatureEffectMarkHP",
+          "magnitude": 5,
+          "description": "The target marks 5 Hit Points"
+        }
+      ]
+    },
+    "I See It Coming": {
+      "passive": true,
+      "trigger": "on_attacked",
+      "stress_cost": 1,
+      "note": "Decided after seeing the roll, and only when a d4 could turn it. Any attack, not only from beyond Melee range.",
+      "effects": [
+        {
+          "category": "FeatureEffectEvasionBonus",
+          "dice_formula": "1d4",
+          "description": "Mark a Stress to add a d4 to Evasion against the attack"
+        }
+      ]
+    },
+    "Brace": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "stress_cost": 1,
+      "note": "Used when the hit would still mark a Hit Point after the first Armor Slot.",
+      "effects": [
+        {
+          "category": "FeatureEffectSeverityReduction",
+          "magnitude": 1,
+          "description": "The second Armor Slot drops the severity again"
+        },
+        {
+          "category": "FeatureEffectArmorDamage",
+          "magnitude": 1,
+          "description": "Mark an additional Armor Slot"
+        }
+      ]
+    },
+    "Boost": {
+      "stress_cost": 1,
+      "dc_type": "target",
+      "note": "+5 stands in for the d10. Advantage on the attack is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "magnitude": 5,
+          "damage_type": "physical",
+          "standard_attack": true,
+          "description": "Weapon damage plus a d10"
+        }
+      ]
+    },
+    "Rapid Riposte": {
+      "passive": true,
+      "trigger": "on_evaded",
+      "stress_cost": 1,
+      "note": "Any failed attack, not only from Melee range. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "damage_type": "physical",
+          "standard_attack": true,
+          "description": "Mark a Stress to deal weapon damage to the attacker"
+        }
+      ]
+    },
+    "Bone-Touched": {
+      "passive": true,
+      "trigger": "on_attacked",
+      "hope_cost": 3,
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Assumes 4 Bone cards in the loadout. Add the +1 Agility to the PC's stats.",
+      "effects": [
+        {
+          "category": "FeatureEffectEvasionBonus",
+          "magnitude": 99,
+          "description": "Spend 3 Hope to make an attack that succeeded fail"
+        }
+      ]
+    },
+    "Cruel Precision": {
+      "passive": true,
+      "note": "Uses Finesse; the SRD lets you pick Finesse or Agility.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 1,
+          "scale_by": "finesse",
+          "description": "Damage bonus equal to your Finesse"
+        }
+      ]
+    },
+    "Breaking Blow": {
+      "passive": true,
+      "trigger": "on_hit",
+      "stress_cost": 1,
+      "uses_tokens": true,
+      "token_name": "Breaking Blow",
+      "tokens_max": 1,
+      "note": "The extra damage goes to your own next hit, whoever it lands on. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "dice_formula": "2d12",
+          "description": "The next successful attack deals an extra 2d12"
+        },
+        {
+          "category": "FeatureEffectTokenOnDamage",
+          "magnitude": -99,
+          "description": "Used up by that hit"
+        }
+      ]
+    },
+    "On the Brink": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_minor+if_low_hp",
+      "effects": [
+        {
+          "category": "FeatureEffectSeverityReduction",
+          "magnitude": 1,
+          "description": "No Minor damage while 2 or fewer Hit Points remain"
+        }
+      ]
+    },
+    "Splintering Strike": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "The damage is not split by choice: every target hit takes half the roll. The extra die per target is not modelled. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "standard_attack": true,
+          "half_damage": true,
+          "description": "Weapon damage shared between the targets"
+        }
+      ]
+    },
+    "Deathrun": {
+      "hope_cost": 3,
+      "dc_type": "target",
+      "note": "Every target takes the full weapon roll; the extra Proficiency and the shrinking dice pool are not modelled. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "standard_attack": true,
+          "description": "Weapon damage to every adversary along the path"
+        }
+      ]
+    },
+    "Swift Step": {
+      "passive": true,
+      "trigger": "on_evaded",
+      "note": "The Hope gained when there is no Stress to clear is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear a Stress when an attack against you fails"
+        }
+      ]
+    },
+    "Book of Ava: Power Push": {
+      "dc_type": "target",
+      "note": "The knock-back is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d10+2",
+          "damage_type": "magic",
+          "proficiency_dice": true,
+          "description": "d10+2 magic damage using Proficiency"
+        }
+      ]
+    },
+    "Book of Ava: Ice Spike": {
+      "dc_type": "target",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d6",
+          "damage_type": "physical",
+          "proficiency_dice": true,
+          "description": "d6 physical damage using Proficiency"
+        }
+      ]
+    },
+    "Book of Illiat: Slumber": {
+      "dc_type": "target",
+      "note": "Asleep is modelled as Stunned for one turn.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyStunned",
+          "duration": "1_turn",
+          "description": "The target falls Asleep"
+        }
+      ]
+    },
+    "Book of Illiat: Arcane Barrage": {
+      "hope_cost": 2,
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Always spends 2 Hope.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d6",
+          "damage_type": "magic",
+          "description": "A d6 of magic damage per Hope spent"
+        }
+      ]
+    },
+    "Book of Tyfar: Wild Flame": {
+      "dc_type": "target",
+      "note": "Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d6",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "2d6 magic damage"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "description": "Targets hit mark a Stress"
+        }
+      ]
+    },
+    "Book of Korvax: Rune Circle": {
+      "stress_cost": 1,
+      "note": "Reaches up to the Area Targets setting. The knock-back is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d12+4",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "2d12+4 magic damage to adversaries in Melee range"
+        }
+      ]
+    },
+    "Book of Norai: Mystic Tether": {
+      "dc_type": "target",
+      "note": "Restrained has no effect without ranges.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "description": "The target marks a Stress"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "1_turn",
+          "description": "The target is temporarily Restrained"
+        }
+      ]
+    },
+    "Book of Norai: Fireball": {
+      "dc_type": "target",
+      "note": "Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d20+5",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "proficiency_dice": true,
+          "reaction_trait": "agility",
+          "reaction_dc": 13,
+          "half_on_success": true,
+          "description": "d20+5 magic damage using Proficiency, half on a successful Reaction Roll (13)"
+        }
+      ]
+    },
+    "Book of Grynn: Arcane Deflection": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_major_or_worse",
+      "hope_cost": 1,
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "Only protects the caster, and is saved for a hit that would be Major or worse.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageResistance",
+          "magnitude": 100,
+          "description": "Spend a Hope to negate the damage of an attack"
+        }
+      ]
+    },
+    "Book of Ronin: Eternal Enervation": {
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "The GM can still spend a spotlight clearing it.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "description": "The target becomes permanently Vulnerable"
+        }
+      ]
+    },
+    "Blighting Strike": {
+      "dc_type": "target",
+      "note": "d8+1 stands in for d6+1 with Hope or d10+1 with Fear. The halved next attack and the cost of failing are not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+1",
+          "damage_type": "magic",
+          "proficiency_dice": true,
+          "description": "Magic damage using Proficiency"
+        }
+      ]
+    },
+    "Voice of Dread": {
+      "dc_type": "target",
+      "note": "Restrained has no effect without ranges.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "description": "The target marks a Stress"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "1_turn",
+          "description": "The target is temporarily Restrained"
+        }
+      ]
+    },
+    "Siphon Essence": {
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "note": "Clears 2 Hit Points rather than the number the target marked. The use is spent even on a failed roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d12+4",
+          "damage_type": "magic",
+          "proficiency_dice": true,
+          "description": "d12+4 magic damage using Proficiency"
+        },
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 2,
+          "target_type": "self",
+          "description": "Clear Hit Points equal to those the target marked"
+        }
+      ]
+    },
+    "Terrify": {
+      "dc_type": "target",
+      "note": "Vulnerable on a success with Fear is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "dice_formula": "1d4",
+          "description": "The target marks 1d4 Stress"
+        }
+      ]
+    },
+    "Summon Horror": {
+      "stress_cost": 1,
+      "max_uses": 1,
+      "refresh_type": "scene",
+      "note": "The Stress on a failed Reaction Roll (12) is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d8+1",
+          "damage_type": "magic",
+          "scale_by": "spellcast",
+          "description": "d8+1 magic damage using the Spellcast trait"
+        }
+      ]
+    },
+    "Dire Strike": {
+      "passive": true,
+      "trigger": "on_damage_dealt",
+      "hope_cost": 1,
+      "note": "Fires on every attack that marks a Hit Point while the GM holds Fear.",
+      "effects": [
+        {
+          "category": "FeatureEffectFearGenerate",
+          "magnitude": -1,
+          "description": "Spend a Hope: the GM loses a Fear"
+        }
+      ]
+    },
+    "Darkfire": {
+      "hope_cost": 2,
+      "max_uses": 1,
+      "refresh_type": "scene",
+      "note": "Always spends 2 Hope. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8+6",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "scale_by": "spellcast",
+          "reaction_trait": "agility",
+          "reaction_dc": 15,
+          "half_on_success": true,
+          "description": "d8+6 magic damage using the Spellcast trait, half on a successful Reaction Roll (15)"
+        }
+      ]
+    },
+    "Jump Scare": {
+      "passive": true,
+      "trigger": "on_damage_dealt",
+      "stress_cost": 1,
+      "note": "Fires on any attack of yours that marks a Hit Point, not only magic damage. Vulnerable lasts until cleared. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "until_cleared",
+          "description": "Mark a Stress: the target is Vulnerable"
+        }
+      ]
+    },
+    "Dark Army": {
+      "passive": true,
+      "trigger": "start_turn",
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "uses_tokens": true,
+      "token_name": "Fiends",
+      "tokens_max": 8,
+      "note": "Switches on at the start of the PC's first turn and lasts the fight. The Spellcast Roll (14) is skipped, one fiend adds its d8 to each damage roll that marks a Hit Point, and spending fiends to reduce damage is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 8,
+          "description": "Starts with 8 tokens"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "dice_formula": "1d8",
+          "description": "A fiend adds 1d8 to the damage roll"
+        },
+        {
+          "category": "FeatureEffectTokenOnDamage",
+          "magnitude": -1,
+          "description": "The fiend disappears"
+        }
+      ]
+    },
+    "Damnation": {
+      "stress_cost": 2,
+      "dc_type": "target",
+      "note": "Always marks 2 Stress for 2d20. The Stress on other adversaries when the target is defeated is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "2d20",
+          "damage_type": "magic",
+          "description": "A d20 of magic damage per Stress marked"
+        }
+      ]
+    },
+    "Savor the Anguish": {
+      "passive": true,
+      "trigger": "on_damage_dealt",
+      "trigger_filter": "if_dealt_severe",
+      "note": "Only your own attacks count.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear a Stress when an adversary takes Severe damage"
+        }
+      ]
+    },
+    "Invoke Torment": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "trigger_filter": "if_target_fully_stressed",
+      "note": "The Hope for defeating such a target is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageMultiplier",
+          "magnitude": 2,
+          "description": "Double damage to targets with all their Stress marked"
+        }
+      ]
+    },
+    "Inspirational Words": {
+      "passive": true,
+      "trigger": "start_turn",
+      "max_uses": 2,
+      "refresh_type": "long_rest",
+      "note": "Assumes Presence 2: two uses. Each clears a Hit Point on the most wounded ally, free at the start of your turn.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "ally",
+          "description": "An ally clears a Hit Point"
+        }
+      ]
+    },
+    "Troublemaker": {
+      "dc_type": "target",
+      "roll_trait": "presence",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "One d4, not the highest of your Proficiency in d4s. The use is spent even on a failed roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "dice_formula": "1d4",
+          "description": "The target marks Stress"
+        }
+      ]
+    },
+    "Hypnotic Shimmer": {
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Reaches up to the Area Targets setting. The use is spent even on a failed roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyStunned",
+          "target_type": "aoe",
+          "duration": "1_turn",
+          "description": "Targets are temporarily Stunned"
+        },
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "description": "Targets mark a Stress"
+        }
+      ]
+    },
+    "Never Upstaged": {
+      "passive": true,
+      "trigger": "on_damage_taken",
+      "stress_cost": 1,
+      "uses_tokens": true,
+      "token_name": "Upstaged",
+      "note": "One token per hit taken, not per Hit Point marked. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 5,
+          "per_token": true,
+          "description": "+5 damage per token on the next damage roll"
+        },
+        {
+          "category": "FeatureEffectTokenOnDamage",
+          "magnitude": -99,
+          "description": "The tokens are cleared"
+        }
+      ]
+    },
+    "Mass Enrapture": {
+      "stress_cost": 1,
+      "dc_type": "target",
+      "note": "Cast and ended in one action: the Enraptured condition itself is not modelled. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "target_type": "aoe",
+          "description": "Mark a Stress to force every Enraptured target to mark one"
+        }
+      ]
+    },
+    "Midnight Spirit": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "dice_formula": "1d6",
+          "damage_type": "magic",
+          "scale_by": "spellcast",
+          "description": "A d6 of magic damage per point of Spellcast trait"
+        }
+      ]
+    },
+    "Shadowbind": {
+      "dc_type": "target",
+      "note": "Restrained has no effect without ranges, so the AI never picks this.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "target_type": "aoe",
+          "duration": "1_turn",
+          "description": "Targets are temporarily Restrained"
+        }
+      ]
+    },
+    "Chokehold": {
+      "stress_cost": 1,
+      "note": "The extra 2d6 from attackers is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "description": "The target is temporarily Vulnerable"
+        }
+      ]
+    },
+    "Glyph of Nightfall": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "note": "Needs Knowledge of 1 or more on the PC. Lasts the fight.",
+      "effects": [
+        {
+          "category": "FeatureEffectDefensePenalty",
+          "magnitude": 1,
+          "scale_by": "knowledge",
+          "description": "The target's Difficulty drops by your Knowledge"
+        }
+      ]
+    },
+    "Midnight-Touched": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "stress_cost": 1,
+      "note": "Assumes 4 Midnight cards in the loadout. A d12 stands in for the Fear Die. Marks Stress only up to half the track.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "dice_formula": "1d12",
+          "description": "Mark a Stress to add the Fear Die to the damage roll"
+        }
+      ]
+    },
+    "Spellcharge": {
+      "passive": true,
+      "trigger": "on_damage_taken",
+      "uses_tokens": true,
+      "token_name": "Charge",
+      "tokens_max": 3,
+      "note": "Charged by any damage, one token per hit, up to 3. All tokens go into the next damage roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectDamageBonus",
+          "dice_formula": "1d6",
+          "per_token": true,
+          "description": "A d6 per token on the next damage roll"
+        },
+        {
+          "category": "FeatureEffectTokenOnDamage",
+          "magnitude": -99,
+          "description": "The tokens are spent"
+        }
+      ]
+    },
+    "Conjure Swarm": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "note": "Fire Flies only; the Armored Beetles are not modelled. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d8+3",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "2d8+3 magic damage"
+        }
+      ]
+    },
+    "Towering Stalk": {
+      "stress_cost": 1,
+      "dc_type": "target",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Reaches up to the Area Targets setting. The use is spent even on a failed roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "proficiency_dice": true,
+          "description": "d8 physical damage using Proficiency"
+        }
+      ]
+    },
+    "Death Grip": {
+      "dc_type": "target",
+      "note": "Always the constrict option. Restrained has no effect without ranges.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 2,
+          "description": "The target marks 2 Stress"
+        },
+        {
+          "category": "FeatureEffectApplyRestrained",
+          "duration": "1_turn",
+          "description": "The target is temporarily Restrained"
+        }
+      ]
+    },
+    "Thorn Skin": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "trigger_filter": "if_major_or_worse",
+      "max_uses": 3,
+      "refresh_type": "rest",
+      "note": "Assumes Spellcast trait 3: three uses of one d6 each, on hits that would be Major or worse. The Hope to activate is not charged and nothing is dealt back.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageReduction",
+          "dice_formula": "1d6",
+          "description": "Spend a token to reduce incoming damage by 1d6"
+        }
+      ]
+    },
+    "Wild Surge": {
+      "passive": true,
+      "trigger": "start_turn",
+      "stress_cost": 1,
+      "max_uses": 1,
+      "refresh_type": "long_rest",
+      "uses_tokens": true,
+      "token_name": "Wild Surge Die",
+      "tokens_max": 6,
+      "note": "Switches on at the start of the PC's first turn and lasts the fight. The die steps up on damage rolls that mark a Hit Point rather than on every action roll, so it lasts longer. The Stress when it ends is not marked.",
+      "effects": [
+        {
+          "category": "FeatureEffectTokenPlace",
+          "magnitude": 1,
+          "description": "Switches on"
+        },
+        {
+          "category": "FeatureEffectTokenOnDamage",
+          "magnitude": 1,
+          "description": "The Wild Surge Die goes up by one"
+        },
+        {
+          "category": "FeatureEffectAttackBonus",
+          "magnitude": 1,
+          "per_token": true,
+          "description": "Add the die's value to action rolls"
+        }
+      ]
+    },
+    "Rejuvenation Barrier": {
+      "dc_type": "fixed",
+      "fixed_dc": 15,
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "The resistance to physical damage is not modelled. The use is spent even on a failed roll.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "dice_formula": "1d4",
+          "target_type": "allies",
+          "description": "You and all allies clear 1d4 Hit Points"
+        }
+      ]
+    },
+    "Force of Nature": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "hope_cost": 1,
+      "note": "The Hope is spent per hit for the +10 rather than before every action roll. The Stress to transform is not charged.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 10,
+          "description": "+10 to the damage roll"
+        }
+      ]
+    },
+    "Tempest": {
+      "dc_type": "target",
+      "note": "Always the Blizzard. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "2d20+8",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "2d20+8 magic damage"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "target_type": "aoe",
+          "duration": "1_turn",
+          "description": "Targets are temporarily Vulnerable"
+        }
+      ]
+    },
+    "Voice of Reason": {
+      "passive": true,
+      "trigger_filter": "if_fully_stressed",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "standard_attack": true,
+          "description": "+1 Proficiency while all Stress is marked: one more weapon die"
+        }
+      ]
+    },
+    "Smite": {
+      "passive": true,
+      "trigger": "on_damage_roll",
+      "hope_cost": 3,
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Charged and spent on the same hit. The damage stays physical.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamageMultiplier",
+          "magnitude": 2,
+          "description": "Spend 3 Hope to double the damage roll"
+        }
+      ]
+    },
+    "Restoration": {
+      "passive": true,
+      "trigger": "start_turn",
+      "max_uses": 3,
+      "refresh_type": "long_rest",
+      "note": "Assumes Spellcast trait 3: three uses. Each clears 2 Hit Points on the most wounded ally, free at the start of your turn.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 2,
+          "target_type": "ally",
+          "description": "Spend a token to clear 2 Hit Points"
+        }
+      ]
+    },
+    "Stunning Sunlight": {
+      "hope_cost": 2,
+      "dc_type": "target",
+      "note": "Always spends 2 Hope. Every target hit takes 3d20+3; those who fail the reaction should take 4d20+5. Reaches up to the Area Targets setting.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "3d20+3",
+          "damage_type": "magic",
+          "target_type": "aoe",
+          "description": "3d20+3 magic damage"
+        },
+        {
+          "category": "FeatureEffectApplyStunned",
+          "target_type": "aoe",
+          "duration": "1_turn",
+          "reaction_trait": "agility",
+          "reaction_dc": 14,
+          "description": "Targets who fail a Reaction Roll (14) are temporarily Stunned"
+        }
+      ]
+    },
+    "Salvation Beam": {
+      "stress_cost": 2,
+      "dc_type": "fixed",
+      "fixed_dc": 16,
+      "note": "Always marks 2 Stress to clear 2 Hit Points on the most wounded ally.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 2,
+          "target_type": "ally",
+          "description": "Clear Hit Points equal to the Stress marked"
+        }
+      ]
+    },
+    "Forceful Push": {
+      "hope_cost": 1,
+      "dc_type": "target",
+      "note": "Always spends the Hope for Vulnerable. The d6 on a success with Hope is not added.",
+      "effects": [
+        {
+          "category": "FeatureEffectDamage",
+          "damage_type": "physical",
+          "standard_attack": true,
+          "description": "Weapon damage"
+        },
+        {
+          "category": "FeatureEffectApplyVulnerable",
+          "duration": "1_turn",
+          "description": "Spend a Hope to make the target temporarily Vulnerable"
+        }
+      ]
+    },
+    "Body Basher": {
+      "passive": true,
+      "effects": [
+        {
+          "category": "FeatureEffectDamageBonus",
+          "magnitude": 1,
+          "damage_type": "physical",
+          "scale_by": "strength",
+          "description": "Damage bonus equal to your Strength"
+        }
+      ]
+    },
+    "Goad Them On": {
+      "dc_type": "target",
+      "roll_trait": "presence",
+      "note": "Being forced to target you is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressInflict",
+          "magnitude": 1,
+          "description": "The target marks a Stress"
+        },
+        {
+          "category": "FeatureEffectApplyDisadvantage",
+          "duration": "1_turn",
+          "description": "Their next attack has disadvantage"
+        }
+      ]
+    },
+    "Rousing Strike": {
+      "passive": true,
+      "trigger": "on_critical",
+      "max_uses": 1,
+      "refresh_type": "rest",
+      "note": "Always the Hit Point.",
+      "effects": [
+        {
+          "category": "FeatureEffectHPHeal",
+          "magnitude": 1,
+          "target_type": "allies",
+          "description": "You and all allies clear a Hit Point"
+        }
+      ]
+    },
+    "Rise Up": {
+      "passive": true,
+      "trigger": "on_damage_taken",
+      "note": "Add the Severe threshold bonus (your Proficiency) to the PC's stats.",
+      "effects": [
+        {
+          "category": "FeatureEffectStressClear",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear a Stress when an attack marks a Hit Point on you"
+        }
+      ]
+    },
+    "Shrug It Off": {
+      "passive": true,
+      "trigger": "on_damage_incoming",
+      "stress_cost": 1,
+      "max_uses": 2,
+      "refresh_type": "scene",
+      "note": "Limited to 2 uses, the average before the d6 sends the card to the vault.",
+      "effects": [
+        {
+          "category": "FeatureEffectSeverityReduction",
+          "magnitude": 1,
+          "description": "Mark a Stress to reduce the severity by one threshold"
+        }
+      ]
+    },
+    "Valor-Touched": {
+      "passive": true,
+      "trigger": "on_damage_taken",
+      "trigger_filter": "if_out_of_armor",
+      "note": "Assumes 4 Valor cards in the loadout. Fires when a hit marks a Hit Point and no Armor Slot is left. Add the +1 Armor Score to the PC's stats.",
+      "effects": [
+        {
+          "category": "FeatureEffectArmorClear",
+          "magnitude": 1,
+          "target_type": "self",
+          "description": "Clear an Armor Slot"
+        }
+      ]
+    },
+    "Ground Pound": {
+      "hope_cost": 2,
+      "dc_type": "target",
+      "roll_trait": "strength",
+      "note": "Reaches up to the Area Targets setting. The throw to Far range is not modelled.",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "4d10+8",
+          "damage_type": "physical",
+          "target_type": "aoe",
+          "reaction_trait": "agility",
+          "reaction_dc": 17,
+          "half_on_success": true,
+          "description": "4d10+8 damage, half on a successful Reaction Roll (17)"
         }
       ]
     }

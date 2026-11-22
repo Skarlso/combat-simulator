@@ -20,21 +20,30 @@ var adversaryFiles = []string{
 var domainFiles = []string{
 	"daggerheart_domain_arcana.json",
 	"daggerheart_domain_codex.json",
+	"daggerheart_domain_dread.json",
 	"daggerheart_domains_blade_bone.json",
 	"daggerheart_domains_remaining.json",
 }
 
-// LoadDomainCards builds the domain card library from the embedded mappings and SRD card data
-func LoadDomainCards() ([]parser.DomainCard, error) {
-	mappingData, err := EmbeddedDataFS.ReadFile("domain_mappings.json")
+var playerFeatureFiles = []string{"daggerheart_player_features.json"}
+
+var abilityMappingFiles = []string{"domain_mappings.json", "player_feature_mappings.json"}
+
+// LoadAbilityLibrary builds the player ability library from the embedded SRD text and mappings
+func LoadAbilityLibrary() ([]parser.LibraryAbility, error) {
+	mappingData, err := readAll(abilityMappingFiles)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read domain mappings: %w", err)
+		return nil, err
 	}
 	domainData, err := readAll(domainFiles)
 	if err != nil {
 		return nil, err
 	}
-	return parser.LoadDomainCards(mappingData, domainData)
+	featureData, err := readAll(playerFeatureFiles)
+	if err != nil {
+		return nil, err
+	}
+	return parser.LoadAbilityLibrary(mappingData, domainData, featureData)
 }
 
 func readAll(names []string) ([][]byte, error) {

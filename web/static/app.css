@@ -621,6 +621,7 @@ button, input, select, textarea {
 }
 
 .tag-muted { background: var(--surface-3); color: var(--text-2); }
+.tag-modelled { background: var(--success-soft); color: var(--success); }
 
 .item-actions { display: flex; gap: var(--space-1); flex-shrink: 0; }
 
@@ -694,6 +695,9 @@ button, input, select, textarea {
 .library-row:hover { border-color: var(--border-strong); }
 
 .library-main { flex: 1; min-width: 0; }
+
+.library-filters .checkbox-label { margin: 0; white-space: nowrap; }
+.library-filters .checkbox-label input { flex: none; min-width: 0; }
 
 .btn.active { background: var(--surface-3); border-color: var(--text-muted); }
 
@@ -790,10 +794,14 @@ button, input, select, textarea {
 
 .legend-value { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 
-/* Combat log */
-.combat-log-section {
-  border-top: 1px solid var(--border);
-  padding-top: var(--space-4);
+/* Combat log: its own full-width card under the workspace */
+.log-panel {
+  margin: 0 var(--space-5) var(--space-5);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  padding: var(--space-5);
+  min-width: 0;
 }
 
 .combat-log-header {
@@ -805,7 +813,7 @@ button, input, select, textarea {
   flex-wrap: wrap;
 }
 
-.combat-log-header h3 { margin-bottom: 0; }
+.combat-log-header h2 { margin-bottom: 0; }
 
 .log-controls { display: flex; gap: var(--space-1); align-items: center; flex-wrap: wrap; }
 
@@ -834,19 +842,20 @@ button, input, select, textarea {
 
 .log-table {
   overflow: auto;
-  max-height: 600px;
+  max-height: 80vh;
   border: 1px solid var(--border);
   border-radius: var(--radius-m);
 }
 
 .log-row {
   display: grid;
-  grid-template-columns: 70px 120px 170px 110px 170px 150px minmax(240px, 1fr) 100px;
+  grid-template-columns: 56px 190px 150px 190px minmax(200px, 1fr) minmax(280px, 1.7fr) minmax(220px, 1.2fr) 112px;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
   font-size: var(--text-xs);
-  min-width: 1180px;
+  /* The columns' own minimums plus gaps and padding: narrower than this and cells would spill past the row's background */
+  min-width: calc(56px + 190px + 150px + 190px + 200px + 280px + 220px + 112px + 7 * var(--space-2) + 2 * var(--space-3));
   align-items: start;
 }
 
@@ -870,21 +879,29 @@ button, input, select, textarea {
 .log-row-feature { background: var(--fear-soft); box-shadow: inset 3px 0 0 var(--fear); }
 
 .log-col-turn,
-.log-col-actor,
-.log-col-target,
-.log-col-dice,
-.log-col-damage,
-.log-col-pools {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.log-col-pools { white-space: nowrap; }
 
 .log-col-turn { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .log-col-actor { font-weight: 500; }
 
+.log-col-actor,
+.log-col-target,
 .log-col-action,
-.log-col-result { white-space: normal; overflow-wrap: anywhere; line-height: 1.35; }
+.log-col-dice,
+.log-col-damage,
+.log-col-result { white-space: normal; overflow-wrap: break-word; line-height: 1.4; }
+
+.log-damage-roll { display: block; }
+.log-damage-marked { font-weight: 700; }
+.log-severity { color: var(--text-2); font-weight: 400; }
+
+.log-state {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
 
 .log-col-result { color: var(--text-2); }
 

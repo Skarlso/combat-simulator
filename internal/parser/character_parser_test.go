@@ -14,7 +14,8 @@ const testCharacterJSON = `{
 			"level": 3,
 			"evasion": 12,
 			"proficiency": 2,
-			"attack_trait": 3,
+			"traits": {"finesse": 3},
+			"weapon_trait": "finesse",
 			"hp": 15,
 			"stress": 8,
 			"armor": 2,
@@ -157,16 +158,19 @@ func TestLoadCharactersFromBytesEmptyArray(t *testing.T) {
 	}
 }
 
-func TestLoadCharactersFromBytesAttackTrait(t *testing.T) {
+func TestLoadCharactersFromBytesWeaponTrait(t *testing.T) {
 	combatants, err := LoadCharactersFromBytes([]byte(testCharacterJSON))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if combatants[0].GetAttackBonus() != 3 {
-		t.Errorf("GetAttackBonus = %d, want 3 (attack_trait)", combatants[0].GetAttackBonus())
+		t.Errorf("GetAttackBonus = %d, want 3 (Finesse, the weapon trait)", combatants[0].GetAttackBonus())
 	}
 	if combatants[1].GetAttackBonus() != 0 {
-		t.Errorf("GetAttackBonus = %d, want 0 when attack_trait is omitted", combatants[1].GetAttackBonus())
+		t.Errorf("GetAttackBonus = %d, want 0 when no weapon trait is named", combatants[1].GetAttackBonus())
+	}
+	if _, err := LoadCharactersFromBytes([]byte(`{"characters": [{"name": "Kira", "weapon_trait": "luck"}]}`)); err == nil {
+		t.Error("an unknown weapon trait should be rejected")
 	}
 }
 

@@ -1,6 +1,7 @@
 package data
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -97,17 +98,86 @@ func TestEmbeddedRegistryCoversSRD2(t *testing.T) {
 	}
 }
 
-func TestEmbeddedDomainCardLibrary(t *testing.T) {
-	cards, err := LoadDomainCards()
+// SRD 2.0 has 210 domain cards (the 13 grimoires listed as their 33 spells) and 229 other
+// player features; modelled ones must be runnable.
+func TestEmbeddedAbilityLibrary(t *testing.T) {
+	library, err := LoadAbilityLibrary()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(cards) < 11 {
-		t.Fatalf("library has %d cards, want at least 11", len(cards))
-	}
-	for _, c := range cards {
-		if c.Description == "" || len(c.Ability.Effects) == 0 || c.Domain == "" {
-			t.Errorf("%s: description %q, %d effects, domain %q", c.Name, c.Description, len(c.Ability.Effects), c.Domain)
+	counts := map[string]int{}
+	modelled := 0
+	for _, entry := range library {
+		counts[entry.Source]++
+		if entry.Description == "" || entry.Group == "" || entry.Ability.Name != entry.Name {
+			t.Errorf("%s: description %q, group %q, ability name %q", entry.Name, entry.Description, entry.Group, entry.Ability.Name)
+		}
+		if entry.Modelled {
+			modelled++
+			if len(entry.Ability.Effects) == 0 {
+				t.Errorf("%s: modelled with no effects", entry.Name)
+			}
 		}
 	}
+	want := map[string]int{
+		parser.SourceDomainCard: 230, parser.SourceClass: 36, parser.SourceSubclass: 118,
+		parser.SourceAncestry: 48, parser.SourceCommunity: 15, parser.SourceTransformation: 12,
+	}
+	for source, n := range want {
+		if counts[source] != n {
+			t.Errorf("%s: %d entries, want %d", source, counts[source], n)
+		}
+	}
+	if modelled < 170 {
+		t.Errorf("%d modelled abilities, want at least 170", modelled)
+	}
+}
+
+// A party built from the library must survive Export JSON and Import JSON unchanged.
+func TestLibraryAbilitiesRoundTripThroughCharacterJSON(t *testing.T) {
+	library, err := LoadAbilityLibrary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pc := models.NewCombatant("pc1", "Hero", models.SidePlayer, 5, 11, 2, 8, 6)
+	for _, entry := range library {
+		if entry.Modelled {
+			pc.DomainAbilities = append(pc.DomainAbilities, entry.AbilityAt(pc.Level))
+		}
+	}
+	raw, err := parser.ExportCharacters([]*models.Combatant{pc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := parser.LoadCharactersFromBytes(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, want := range pc.DomainAbilities {
+		if got := loaded[0].DomainAbilities[i]; !reflect.DeepEqual(got, want) {
+			t.Errorf("%s changed in the round trip:\n got %+v\nwant %+v", want.Name, got, want)
+		}
+	}
+}
+
+// Acid Bath is a reaction to Severe damage only: it needs the trigger filter from the mapping.
+func TestEmbeddedAcidBathReactsToSevereDamage(t *testing.T) {
+	registry, err := NewEmbeddedAdversaryRegistry()
+	if err != nil {
+		t.Fatal(err)
+	}
+	burrower, err := registry.CloneTemplate("Acid Burrower", "e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range burrower.AdversaryFeatures {
+		if f.Name != "Acid Bath" {
+			continue
+		}
+		if !f.Passive || f.Trigger.Type != models.TriggerOnDamageTaken || f.Trigger.Filter != "if_took_severe" {
+			t.Errorf("Acid Bath: passive %v, trigger %q, filter %q; want a passive on_damage_taken / if_took_severe", f.Passive, f.Trigger.Type, f.Trigger.Filter)
+		}
+		return
+	}
+	t.Error("Acid Burrower has no Acid Bath feature")
 }

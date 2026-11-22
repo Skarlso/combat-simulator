@@ -94,6 +94,10 @@ func (p *SimulatorPage) Render() app.UI {
 						return p.renderResults()
 					}),
 				),
+			// The log gets the full page width, below the builder and the summary
+			app.If(p.result != nil, func() app.UI {
+				return app.Div().Class("log-panel").Body(&components.CombatLog{Result: p.result})
+			}),
 		)
 }
 

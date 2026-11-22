@@ -1,7 +1,11 @@
 package components
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/data"
@@ -9,12 +13,14 @@ import (
 	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
 )
 
-// DomainAbilityForm manages adding/editing domain abilities (player skills)
+// DomainAbilityForm manages a PC's abilities: domain cards, class and heritage features, or custom ones
 type DomainAbilityForm struct {
 	app.Compo
 
 	Abilities []*models.DomainAbility
 	OnChange  func([]*models.DomainAbility)
+	// PCLevel reports the level of the PC being built; some library abilities scale with it
+	PCLevel func() int
 
 	showForm         bool
 	editingIndex     int
@@ -29,6 +35,7 @@ type DomainAbilityForm struct {
 	newMaxUses       int
 	newDCType        string
 	newFixedDC       int
+	newRollTrait     string
 	newDiceFormula   string
 	newDamageType    string
 	newEffectType    string
@@ -38,21 +45,39 @@ type DomainAbilityForm struct {
 	newTokenName     string
 	newTokensMax     int
 	newTargetType    string
-	// The library card or ability being edited; effects this form cannot show are kept from it
+	// The library entry or ability being edited; effects this form cannot show are kept from it
 	baseAbility *models.DomainAbility
 
-	library      []parser.DomainCard
-	selectedCard string
+	library         []parser.LibraryAbility
+	libraryClasses  []string
+	showLibrary     bool
+	librarySearch   string
+	librarySource   string
+	libraryClass    string
+	libraryModelled bool
 }
+
+// Rows the library panel draws at once; the full SRD list is too long to scroll
+const libraryRowLimit = 60
 
 var (
 	abilityTriggerOptions = []selectOption{
 		{"", "None (manual)"}, {"on_attack", "On Attack"}, {"on_hit", "On Hit"}, {"on_critical", "On Critical"},
-		{"on_damage_taken", "On Damage Taken"}, {"on_ally_damaged", "When an ally would take damage"},
+		{"on_miss", "On a failed attack"}, {"on_damage_roll", "On Damage Roll (adds to it)"},
+		{"on_damage_dealt", "When your attack marks HP"},
+		{"on_damage_taken", "On Damage Taken"}, {"on_hit_taken", "When an attack succeeds against you"},
+		{"on_damage_incoming", "Before marking HP (softens the hit)"}, {"on_attacked", "When an attack would hit you (evade)"},
+		{"on_evaded", "When an attack against you fails"}, {"on_ally_damaged", "When an ally would take damage"},
 		{"start_turn", "Start of Turn"}, {"end_turn", "End of Turn"},
 	}
 	triggerFilterOptions = []selectOption{
 		{"", "None"}, {"if_target_below_50_hp", "Target below 50% HP"}, {"if_hidden", "If hidden"}, {"if_ally_adjacent", "If ally adjacent"},
+		{"if_target_vulnerable", "Target is Vulnerable"}, {"if_target_fully_stressed", "Target has all Stress marked"},
+		{"if_dealt_severe", "You dealt Severe damage"}, {"if_took_severe", "You took Severe damage"},
+		{"if_severe", "The hit is Severe"}, {"if_major_or_worse", "The hit is Major or worse"}, {"if_minor", "The hit is Minor"},
+		{"if_vulnerable", "While you are Vulnerable"}, {"if_low_hp", "While at 2 or fewer HP"},
+		{"if_fully_stressed", "While all your Stress is marked"}, {"if_hope_2", "While you hold 2 Hope"},
+		{"if_out_of_armor", "While out of Armor Slots"}, {"if_rolled_fear", "You rolled with Fear"}, {"if_rolled_hope", "You rolled with Hope"},
 	}
 	refreshOptions = []selectOption{
 		{"unlimited", "Unlimited"}, {"rest", "Per Rest"}, {"long_rest", "Per Long Rest"}, {"scene", "Per Scene"},
@@ -62,34 +87,57 @@ var (
 		{"stress_inflict", "Inflict Stress"}, {"stress_clear", "Clear Stress"},
 		{"apply_vulnerable", "Apply Vulnerable"}, {"apply_poison", "Apply Poison"}, {"apply_ignite", "Apply Burning"},
 		{"apply_stunned", "Apply Stunned"}, {"apply_restrained", "Apply Restrained"},
-		{"armor_damage", "Damage Armor Slots"}, {"grant_armor", "Grant Armor Slots"}, {"damage_reduction", "Damage Reduction (Ward)"},
-		{"token_place", "Place Token"}, {"token_spend", "Spend Token"},
+		{"armor_damage", "Damage Armor Slots"}, {"armor_clear", "Clear Armor Slots"}, {"grant_armor", "Grant Extra Armor Slots"},
+		{"damage_reduction", "Damage Reduction (Ward)"},
+		{"damage_bonus", "Damage Bonus (passive)"}, {"damage_multiplier", "Damage Multiplier (on damage roll)"},
+		{"attack_bonus", "Attack Roll Bonus (passive)"}, {"evasion_bonus", "Evasion Bonus (passive)"},
+		{"severity_reduction", "Reduce Damage Severity (passive)"},
+		{"mark_hp", "Target Marks HP"}, {"apply_advantage", "Attack with Advantage"},
+		{"apply_disadvantage", "Target Attacks with Disadvantage"}, {"defense_penalty", "Lower Target's Difficulty"},
+		{"token_place", "Place Token"}, {"token_spend", "Spend Token"}, {"token_on_damage", "Token Die (steps up on damage)"},
 		{"resistance", "Resistance (50%)"}, {"immunity", "Immunity (100%)"},
 		{"redirect_damage", "Shield an ally (take their hit)"},
 	}
+	rollTraitOptions  = append([]selectOption{{"", "Weapon trait"}, {"spellcast", "Spellcast trait"}}, traitOptions("")...)
+	librarySourceTabs = []selectOption{
+		{"", "All"}, {parser.SourceClass, "Class"}, {parser.SourceSubclass, "Subclass"}, {parser.SourceDomainCard, "Cards"},
+		{parser.SourceAncestry, "Ancestry"}, {parser.SourceCommunity, "Community"}, {parser.SourceTransformation, "Transformation"},
+	}
 )
 
-// OnMount initializes default values and loads the domain card library
+// OnMount initializes default values and loads the ability library
 func (daf *DomainAbilityForm) OnMount(ctx app.Context) {
 	daf.resetForm()
-	cards, err := data.LoadDomainCards()
+	library, err := data.LoadAbilityLibrary()
 	if err != nil {
-		app.Log("domain card library failed to load:", err)
+		app.Log("ability library failed to load:", err)
 		return
 	}
-	daf.library = cards
+	daf.library = library
+	for _, entry := range library {
+		if entry.Source == parser.SourceClass && !slices.Contains(daf.libraryClasses, entry.Group) {
+			daf.libraryClasses = append(daf.libraryClasses, entry.Group)
+		}
+	}
 }
 
-// Render renders the ability list and form
+// Render renders the ability list, the library picker and the custom form
 func (daf *DomainAbilityForm) Render() app.UI {
 	return app.Div().Class("domain-ability-form").Body(
 		app.Div().Class("ability-header").Body(
-			app.Label().Text("Domain Abilities"),
-			app.Button().Class("btn btn-small").Text("+ Add Ability").OnClick(func(ctx app.Context, e app.Event) {
-				daf.showForm = !daf.showForm
-				ctx.Update()
-			}),
+			app.Label().Text("Domain Cards and Features"),
+			app.Div().Class("item-actions").Body(
+				app.Button().Class(toggleClass("btn btn-small", daf.showLibrary, "active")).Text("Library").OnClick(func(ctx app.Context, e app.Event) {
+					daf.showLibrary = !daf.showLibrary
+					ctx.Update()
+				}),
+				app.Button().Class(toggleClass("btn btn-small", daf.showForm, "active")).Text("+ Custom").OnClick(func(ctx app.Context, e app.Event) {
+					daf.showForm = !daf.showForm
+					ctx.Update()
+				}),
+			),
 		),
+		app.If(daf.showLibrary, func() app.UI { return daf.renderLibraryPanel() }),
 		daf.renderAbilityList(),
 		app.If(daf.showForm, func() app.UI { return daf.renderAddForm() }),
 	)
@@ -106,7 +154,8 @@ func (daf *DomainAbilityForm) renderAbilityList() app.UI {
 	return app.Div().Class("ability-list").Body(items...)
 }
 
-func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, idx int) app.UI {
+// abilityMeta is the one-line summary of when an ability works and what it costs
+func abilityMeta(ability *models.DomainAbility) string {
 	cost := joinParts(" + ", countText(ability.HopeCost, "Hope"), countText(ability.StressCost, "Stress"))
 	if cost == "" {
 		cost = "Free"
@@ -117,12 +166,23 @@ func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, i
 	} else if ability.RefreshType != "unlimited" {
 		uses = fmt.Sprintf(" | Refreshes on %s", ability.RefreshType)
 	}
-	effectText := ""
-	if len(ability.Effects) > 0 {
-		effectText = describeEffect(ability.Effects[0])
+	switch ability.DCType {
+	case "target":
+		uses += fmt.Sprintf(" | %s roll vs Difficulty", optionLabel(rollTraitOptions, ability.RollTrait))
+	case "fixed":
+		uses += fmt.Sprintf(" | %s roll (%d)", optionLabel(rollTraitOptions, ability.RollTrait), ability.FixedDC)
 	}
+	if ability.Passive {
+		uses += " | Passive" + triggerSuffix(ability.Trigger)
+	}
+	if ability.UsesTokens {
+		uses += fmt.Sprintf(" | %s, max %d", cmp.Or(ability.TokenName, "Tokens"), ability.TokensMax)
+	}
+	return cost + uses
+}
 
-	return editableItem(daf.editingIndex == idx, ability.Name, cost+uses, effectText, ability.Description,
+func (daf *DomainAbilityForm) renderAbilityItem(ability *models.DomainAbility, idx int) app.UI {
+	return editableItem(daf.editingIndex == idx, ability.Name, abilityMeta(ability), describeEffects(ability.Effects), ability.Description,
 		func(ctx app.Context, e app.Event) { daf.startEditing(ctx, idx) },
 		func(ctx app.Context, e app.Event) { daf.removeAbility(ctx, idx) },
 	)
@@ -152,7 +212,6 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 
 	return app.Div().Class("ability-add-form").Body(
 		app.H4().Text(formTitle),
-		app.If(daf.editingIndex < 0 && len(daf.library) > 0, func() app.UI { return daf.renderLibraryPicker() }),
 		app.Div().Class("form-row").Body(
 			textField("Name", "Rune Strike", &daf.newName, false),
 			textField("Description", "Channel runic power...", &daf.newDescription, false),
@@ -175,6 +234,9 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 			app.If(daf.newRefreshType != "unlimited", func() app.UI { return numberField("Max Uses", &daf.newMaxUses, 0, 10) }),
 		),
 		dcFields(&daf.newDCType, &daf.newFixedDC, "Target's Difficulty"),
+		app.If(daf.newDCType != "none", func() app.UI {
+			return selectField("Roll with", daf.newRollTrait, rollTraitOptions, bindSelect(&daf.newRollTrait, false))
+		}),
 		tokenFields(&daf.newUsesTokens, &daf.newTokenName, &daf.newTokensMax),
 		app.Div().Class("form-subsection").Body(effect...),
 		formActions(saveText, daf.newName == "" || diceErr != "",
@@ -188,33 +250,204 @@ func (daf *DomainAbilityForm) renderAddForm() app.UI {
 	)
 }
 
-func (daf *DomainAbilityForm) renderLibraryPicker() app.UI {
-	options := []selectOption{{customLibraryOption, "-- Custom Ability --"}}
-	note := ""
-	for _, c := range daf.library {
-		options = append(options, selectOption{c.Name, fmt.Sprintf("%s (%s, level %d)", c.Name, c.Domain, c.Level)})
-		if c.Name == daf.selectedCard {
-			note = c.Note
+// libraryMatches applies the panel's search and filters to one entry
+func (daf *DomainAbilityForm) libraryMatches(entry parser.LibraryAbility, query string) bool {
+	if daf.librarySource != "" && entry.Source != daf.librarySource {
+		return false
+	}
+	if daf.libraryClass != "" && !slices.Contains(entry.Classes, daf.libraryClass) {
+		return false
+	}
+	if daf.libraryModelled && !entry.Modelled {
+		return false
+	}
+	if query == "" {
+		return true
+	}
+	for _, text := range []string{entry.Name, entry.Group, entry.Type, entry.Description} {
+		if strings.Contains(strings.ToLower(text), query) {
+			return true
 		}
 	}
-	current := daf.selectedCard
-	if current == "" {
-		current = customLibraryOption
+	return false
+}
+
+// renderLibraryPanel renders the searchable picker over every SRD domain card and player feature
+func (daf *DomainAbilityForm) renderLibraryPanel() app.UI {
+	if len(daf.library) == 0 {
+		return app.Div().Class("library-panel").Body(
+			app.P().Class("empty-state").Text("Ability library failed to load."),
+		)
 	}
 
-	return app.Div().Class("form-subsection").Body(
-		app.H5().Text("Domain Card Library"),
-		selectField(fmt.Sprintf("Start from card (%d available)", len(daf.library)), current, options, func(ctx app.Context, key string) {
-			daf.selectedCard = key
-			for i := range daf.library {
-				if daf.library[i].Name == key {
-					daf.loadAbility(&daf.library[i].Ability)
-				}
-			}
-			ctx.Update()
-		}),
-		app.If(note != "", func() app.UI { return app.Div().Class("form-hint").Text(note) }),
+	query := strings.ToLower(strings.TrimSpace(daf.librarySearch))
+	matches, modelled := 0, 0
+	rows := make([]app.UI, 0, libraryRowLimit)
+	for i, entry := range daf.library {
+		if !daf.libraryMatches(entry, query) {
+			continue
+		}
+		matches++
+		if entry.Modelled {
+			modelled++
+		}
+		if len(rows) < libraryRowLimit {
+			rows = append(rows, daf.renderLibraryRow(i, entry))
+		}
+	}
+
+	sourceTabs := make([]app.UI, len(librarySourceTabs))
+	for i, tab := range librarySourceTabs {
+		sourceTabs[i] = app.Button().
+			Class(toggleClass("tab", daf.librarySource == tab.Value, "active")).
+			Text(tab.Label).
+			OnClick(func(ctx app.Context, e app.Event) {
+				daf.librarySource = tab.Value
+				ctx.Update()
+			}, app.EventScope(tab.Label))
+	}
+	classOptions := []selectOption{{"", "Any class"}}
+	for _, class := range daf.libraryClasses {
+		classOptions = append(classOptions, selectOption{class, class})
+	}
+
+	count := fmt.Sprintf("%d of %d abilities, %d modelled", matches, len(daf.library), modelled)
+	if matches > len(rows) {
+		count += fmt.Sprintf(". Showing the first %d: narrow the search to see the rest.", len(rows))
+	}
+	var list app.UI = app.Div().Class("empty-state").Text("No abilities match.")
+	if len(rows) > 0 {
+		list = app.Div().Class("library-list").Body(rows...)
+	}
+
+	return app.Div().Class("library-panel").Body(
+		app.Div().Class("library-filters").Body(
+			app.Input().
+				Type("search").
+				Placeholder("Search name, domain, class or rules text").
+				Value(daf.librarySearch).
+				OnInput(func(ctx app.Context, e app.Event) {
+					daf.librarySearch = ctx.JSSrc().Get("value").String()
+					ctx.Update()
+				}),
+			app.Select().
+				OnChange(func(ctx app.Context, e app.Event) {
+					daf.libraryClass = selectedOption(ctx, classOptions)
+					ctx.Update()
+				}).
+				Body(optionElements(classOptions, daf.libraryClass)...),
+			app.Label().Class("checkbox-label").Body(
+				app.Input().Type("checkbox").Checked(daf.libraryModelled).OnChange(func(ctx app.Context, e app.Event) {
+					daf.libraryModelled = ctx.JSSrc().Get("checked").Bool()
+					ctx.Update()
+				}),
+				app.Text(" Modelled only"),
+			),
+		),
+		app.Div().Class("library-filters").Body(app.Div().Class("tabs tabs-compact").Body(sourceTabs...)),
+		app.Div().Class("library-count").Text(count),
+		list,
 	)
+}
+
+// libraryTag names where an entry comes from: "Valor 1 Ability", "Guardian: Stalwart Foundation"
+func libraryTag(entry parser.LibraryAbility) string {
+	switch entry.Source {
+	case parser.SourceDomainCard:
+		return fmt.Sprintf("%s %d %s", entry.Group, entry.Level, entry.Type)
+	case parser.SourceSubclass:
+		return fmt.Sprintf("%s: %s %s", strings.Join(entry.Classes, "/"), entry.Group, entry.Type)
+	default:
+		return entry.Group + " " + entry.Type
+	}
+}
+
+func (daf *DomainAbilityForm) renderLibraryRow(idx int, entry parser.LibraryAbility) app.UI {
+	status := app.Span().Class("tag tag-muted").Text("Text only")
+	if entry.Modelled {
+		status = app.Span().Class("tag tag-modelled").Text("Modelled")
+	}
+	// go-app matches handlers by function pointer, so a captured index goes stale
+	// when filtering reorders rows; the DOM attribute is always current.
+	pick := func(use func(app.Context, parser.LibraryAbility)) func(app.Context, app.Event) {
+		return func(ctx app.Context, e app.Event) {
+			i, err := strconv.Atoi(ctx.JSSrc().Get("dataset").Get("idx").String())
+			if err == nil && i >= 0 && i < len(daf.library) {
+				use(ctx, daf.library[i])
+			}
+		}
+	}
+
+	return app.Div().Class("library-row").Body(
+		app.Div().Class("library-main").Body(
+			app.Div().Class("item-title").Body(
+				app.Text(entry.Name),
+				app.Span().Class("tag").Text(libraryTag(entry)),
+				status,
+			),
+			app.Div().Class("ability-desc").Text(entry.Description),
+			app.If(entry.Modelled, func() app.UI {
+				return app.Div().Class("ability-effect").Text(joinParts(" ",
+					"Simulated as: "+abilityMeta(&entry.Ability)+" | "+describeEffects(entry.Ability.Effects)+".", entry.Note))
+			}),
+		),
+		app.Div().Class("item-actions").Body(
+			app.If(entry.Modelled, func() app.UI {
+				return app.Button().Class("btn btn-small btn-primary").Text("Add").DataSet("idx", idx).OnClick(pick(daf.addFromLibrary), app.EventScope("add"))
+			}),
+			app.Button().Class("btn btn-small").Text("Customize").DataSet("idx", idx).OnClick(pick(daf.customizeFromLibrary), app.EventScope("customize")),
+		),
+	)
+}
+
+func (daf *DomainAbilityForm) libraryAbility(entry parser.LibraryAbility) *models.DomainAbility {
+	level := 1
+	if daf.PCLevel != nil {
+		level = daf.PCLevel()
+	}
+	ability := entry.AbilityAt(level)
+	return &ability
+}
+
+func (daf *DomainAbilityForm) addFromLibrary(ctx app.Context, entry parser.LibraryAbility) {
+	daf.Abilities = append(daf.Abilities, daf.libraryAbility(entry))
+	daf.notify()
+	ctx.Update()
+}
+
+// customizeFromLibrary opens the form on a library entry, so a text-only one can be given an effect
+func (daf *DomainAbilityForm) customizeFromLibrary(ctx app.Context, entry parser.LibraryAbility) {
+	daf.resetForm()
+	daf.loadAbility(daf.libraryAbility(entry))
+	daf.showForm = true
+	daf.showLibrary = false
+	ctx.Update()
+}
+
+func optionLabel(options []selectOption, value string) string {
+	for _, option := range options {
+		if option.Value == value {
+			return option.Label
+		}
+	}
+	return value
+}
+
+// triggerSuffix names a passive's trigger and filter: ": On Hit, Target is Vulnerable"
+func triggerSuffix(trigger models.FeatureTriggerCondition) string {
+	var parts []string
+	if trigger.Type != "" {
+		parts = append(parts, optionLabel(abilityTriggerOptions, string(trigger.Type)))
+	}
+	if trigger.Filter != "" {
+		for _, filter := range strings.Split(trigger.Filter, "+") {
+			parts = append(parts, optionLabel(triggerFilterOptions, filter))
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ": " + strings.Join(parts, ", ")
 }
 
 func (daf *DomainAbilityForm) startEditing(ctx app.Context, idx int) {
@@ -244,6 +477,7 @@ func (daf *DomainAbilityForm) loadAbility(ability *models.DomainAbility) {
 	daf.newMaxUses = ability.MaxUses
 	daf.newDCType = ability.DCType
 	daf.newFixedDC = ability.FixedDC
+	daf.newRollTrait = ability.RollTrait
 	daf.newUsesTokens = ability.UsesTokens
 	daf.newTokenName = ability.TokenName
 	daf.newTokensMax = ability.TokensMax
@@ -276,10 +510,19 @@ func (daf *DomainAbilityForm) buildAbility() *models.DomainAbility {
 		effect = daf.baseAbility.Effects[0]
 	}
 	effect.Category = category
-	effect.Magnitude = resistanceMagnitude(daf.newEffectType, daf.newMagnitude)
-	effect.DiceFormula = daf.newDiceFormula
-	effect.Duration = daf.newDuration
-	effect.DamageType = daf.newDamageType
+	// Only fields the form shows for this effect type are written; hidden defaults must not leak in
+	if needsMagnitude(daf.newEffectType) || oneOf(daf.newEffectType, "resistance", "immunity") {
+		effect.Magnitude = resistanceMagnitude(daf.newEffectType, daf.newMagnitude)
+	}
+	if needsDiceFormula(daf.newEffectType) {
+		effect.DiceFormula = daf.newDiceFormula
+	}
+	if needsDuration(daf.newEffectType) {
+		effect.Duration = daf.newDuration
+	}
+	if needsDamageType(daf.newEffectType) {
+		effect.DamageType = daf.newDamageType
+	}
 	if needsRecipient(daf.newEffectType) {
 		effect.TargetType = models.FeatureTargetType(daf.newTargetType)
 	}
@@ -303,6 +546,7 @@ func (daf *DomainAbilityForm) buildAbility() *models.DomainAbility {
 		UsesLeft:    daf.newMaxUses,
 		DCType:      daf.newDCType,
 		FixedDC:     daf.newFixedDC,
+		RollTrait:   daf.newRollTrait,
 		UsesTokens:  daf.newUsesTokens,
 		TokenName:   daf.newTokenName,
 		TokensMax:   daf.newTokensMax,
@@ -357,10 +601,10 @@ func (daf *DomainAbilityForm) resetForm() {
 	daf.newDuration = "until_cleared"
 	daf.newDCType = "none"
 	daf.newFixedDC = 12
+	daf.newRollTrait = ""
 	daf.newUsesTokens = false
 	daf.newTokenName = ""
 	daf.newTokensMax = 5
 	daf.newTargetType = "self"
 	daf.baseAbility = nil
-	daf.selectedCard = customLibraryOption
 }

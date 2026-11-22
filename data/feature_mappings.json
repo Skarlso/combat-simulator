@@ -6079,14 +6079,28 @@
           "spotlight_count": 1
         }
       ]
+    },
+    "Acid Burrower::Acid Bath": {
+      "category": "reactive_area_damage",
+      "passive": true,
+      "trigger": "on_damage_taken",
+      "trigger_filter": "if_took_severe",
+      "effects": [
+        {
+          "category": "FeatureEffectAreaDamage",
+          "dice_formula": "1d10",
+          "damage_type": "physical",
+          "description": "When the Burrower takes Severe damage, all creatures within Close range take 1d10 physical damage. The acid pool left on the ground (1d6 to those who move through it) is not modelled."
+        }
+      ]
     }
   },
   "metadata": {
     "version": "2.0",
-    "mapped_features": 339,
+    "mapped_features": 340,
     "total_features": 905,
-    "coverage": "47.4%",
-    "last_updated": "2026-11-18",
+    "coverage": "47.5%",
+    "last_updated": "2026-11-22",
     "note": "Keys are feature names, or Adversary::Feature when the same name carries different numbers. Entries with generated=true were derived from SRD 2.0 text by rule; hand-written ones take precedence."
   }
 }

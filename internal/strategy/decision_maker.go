@@ -302,12 +302,12 @@ func (ai *AIDecisionMaker) shouldSpendResources(state *models.CombatState, actor
 // evaluateBasicAttack estimates expected value of a basic attack
 func (ai *AIDecisionMaker) evaluateBasicAttack(actor *models.Combatant, target *models.Combatant) float64 {
 	avgDamage := ai.estimateAverageDamage(actor.AttackDamageFormula())
-	hitChance := ai.estimateSuccessProbability(actor, target, "target", 0)
+	hitChance := ai.estimateSuccessProbability(actor, target, "target", 0, "")
 	return avgDamage * hitChance
 }
 
 // estimateSuccessProbability estimates the chance of success against a DC
-func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, target *models.Combatant, dcType string, fixedDC int) float64 {
+func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, target *models.Combatant, dcType string, fixedDC int, rollTrait string) float64 {
 	if dcType == "" || dcType == "none" {
 		return 1.0 // Auto-succeed
 	}
@@ -330,7 +330,7 @@ func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, t
 	if actor.Side != models.SidePlayer {
 		avgRoll, odds = 10, [4]float64{0.80, 0.60, 0.40, 0.20}
 	}
-	switch diff := avgRoll + actor.GetAttackBonus() - dc; {
+	switch diff := avgRoll + actor.RollModifier(rollTrait) - dc; {
 	case diff >= 5:
 		return odds[0]
 	case diff >= 0:
@@ -343,24 +343,24 @@ func (ai *AIDecisionMaker) estimateSuccessProbability(actor *models.Combatant, t
 }
 
 // evaluateEffects values a set of effects, scaled by how likely the roll is to succeed
-func (ai *AIDecisionMaker) evaluateEffects(state *models.CombatState, actor, target *models.Combatant, effects []models.FeatureEffect, dcType string, fixedDC int) float64 {
+func (ai *AIDecisionMaker) evaluateEffects(state *models.CombatState, actor, target *models.Combatant, effects []models.FeatureEffect, dcType string, fixedDC int, rollTrait string) float64 {
 	value := 0.0
 	for _, effect := range effects {
 		value += ai.evaluateEffect(effect, actor, target, state)
 	}
-	return value * ai.estimateSuccessProbability(actor, target, dcType, fixedDC)
+	return value * ai.estimateSuccessProbability(actor, target, dcType, fixedDC, rollTrait)
 }
 
 // evaluateAbility estimates expected value of a domain ability; Hope is dearer than Stress
 func (ai *AIDecisionMaker) evaluateAbility(state *models.CombatState, actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility) float64 {
-	value := ai.evaluateEffects(state, actor, target, ability.Effects, ability.DCType, ability.FixedDC)
+	value := ai.evaluateEffects(state, actor, target, ability.Effects, ability.DCType, ability.FixedDC, ability.RollTrait)
 	return value - float64(ability.HopeCost)*1.5 - float64(ability.StressCost)*0.5
 }
 
 // evaluateFeature estimates expected value of an adversary feature. Features are the
 // stat block's designed moves, so they get a flat preference over a generic attack.
 func (ai *AIDecisionMaker) evaluateFeature(state *models.CombatState, actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature) float64 {
-	value := ai.evaluateEffects(state, actor, target, feature.Effects, feature.DCType, feature.FixedDC)
+	value := ai.evaluateEffects(state, actor, target, feature.Effects, feature.DCType, feature.FixedDC, "")
 	return value - float64(feature.FearCost)*0.5 - float64(feature.StressCost)*0.5 + 2.0
 }
 
@@ -385,6 +385,8 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		effect.DiceFormula = actor.AttackDamageFormula()
 	case effect.ProficiencyDice:
 		effect.DiceFormula = actor.ScaleToProficiency(effect.DiceFormula)
+	default:
+		effect.DiceFormula = actor.ScaleDice(effect.DiceFormula, effect.ScaleBy)
 	}
 
 	avgAmount := ai.estimateAverageDamage(effect.DiceFormula) + float64(effect.Magnitude)
@@ -411,7 +413,7 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		return 1.5
 
 	case models.FeatureEffectApplyVulnerable:
-		if target.HasCondition(models.ConditionVulnerable) {
+		if target.HasCondition(models.ConditionVulnerable) || target.ImmuneTo(models.ConditionVulnerable) {
 			return 0.0
 		}
 		// Very valuable on high HP targets
@@ -431,7 +433,22 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 		return 0.0
 
 	case models.FeatureEffectStressInflict:
-		return float64(effect.Magnitude) * 0.3
+		return avgAmount * 0.3
+
+	case models.FeatureEffectMarkHP:
+		// A forced Hit Point is worth the damage it takes to mark one: the target's Major threshold
+		major, _ := target.Thresholds()
+		return float64(min(effect.Magnitude, target.HP) * max(major, 1))
+
+	case models.FeatureEffectApplyDisadvantage:
+		if target.HasCondition(models.ConditionDisadvantage) {
+			return 0.0
+		}
+		return 3.0
+
+	case models.FeatureEffectDefensePenalty:
+		gain := actor.RiderAmount(effect, 0, nil) - target.DefensePenalty
+		return float64(max(gain, 0)) * 1.5
 
 	case models.FeatureEffectHPHeal:
 		// Damage effects are valued in raw damage, so a healed Hit Point is worth the
@@ -456,6 +473,15 @@ func (ai *AIDecisionMaker) evaluateUnopposedEffect(effect models.FeatureEffect, 
 			return 2.0
 		}
 		return 3.0
+
+	case models.FeatureEffectArmorClear:
+		// A cleared slot will absorb one Hit Point later, so it is valued like a healed one
+		value := 0.0
+		for _, c := range state.Recipients(actor, effect.TargetType, models.MarkedArmor) {
+			major, _ := c.Thresholds()
+			value += min(avgAmount, float64(models.MarkedArmor(c))) * float64(max(major, 1))
+		}
+		return value
 
 	case models.FeatureEffectGrantArmor:
 		if actor.ArmorSlots < 2 {

@@ -25,7 +25,9 @@ type AttackResult struct {
 	Redirected      *models.Combatant // the ally who took the hit instead of the defender, if any
 	DamageRoll      int               // Raw damage rolled (total)
 	DamageDice      []int             // Individual dice values
-	DamageBonus     int               // Flat bonus
+	DamageBonus     int               // The weapon's flat bonus
+	DamageParts     []models.LogPart  // Everything else in the roll: the critical, feature bonuses, multipliers
+	DamageFormula   string            // The weapon dice rolled
 	ProcessedDamage int               // Damage after resistance/immunity/vulnerability
 	HPDamage        int               // Actual HP damage (1/2/3 based on threshold)
 	Threshold       models.DamageThreshold
@@ -34,7 +36,7 @@ type AttackResult struct {
 
 // ResolveAttack handles a basic attack from attacker to defender
 func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, damageDice string, state *models.CombatState) AttackResult {
-	roll := cr.featureResolver.rollDCCheck(attacker, defender, "target", 0, state)
+	roll := cr.featureResolver.rollDCCheck(attacker, defender, "target", 0, "", state)
 	result := AttackResult{Hit: roll.Success, Roll: roll}
 	if !roll.Success {
 		return result
@@ -46,12 +48,19 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	}
 
 	damage := rollNotationDetailed(cr.dice, notation)
+	result.DamageFormula = notation.String()
+	var parts []models.LogPart
 	if roll.IsCritical {
-		damage.Total += notation.MaxDice()
+		parts = append(parts, models.LogPart{Label: "critical", Value: notation.MaxDice()})
 	}
+	parts = append(parts, attacker.DamageBonusParts(models.DamagePhysical, cr.dice)...)
+	riders, factor, multipliers := cr.featureResolver.damageRiders(attacker, defender, state)
+	parts = append(parts, riders...)
+	var halvings []string
 	if attacker.HalfDamage {
-		damage.Total /= 2
+		halvings = append(halvings, "halved")
 	}
+	damage.Total, result.DamageParts = finishDamage(damage.Total+models.SumParts(parts), parts, factor, multipliers, halvings...)
 
 	recipient := defender
 	if guardian := cr.featureResolver.shieldFor(defender, damage.Total, state); guardian != nil {
@@ -68,7 +77,11 @@ func (cr *CombatResolver) ResolveAttack(attacker, defender *models.Combatant, da
 	result.Threshold = damageRes.Threshold
 	result.DamageResult = &damageRes
 
+	logReactions(state, recipient, damageRes)
+
 	if damageRes.HPDamage > 0 {
+		cr.featureResolver.afterDamageDealt(attacker, state)
+		cr.featureResolver.ProcessTriggeredFeatures(attacker, recipient, state, models.TriggerOnDamageDealt, false)
 		cr.featureResolver.ProcessTriggeredFeatures(recipient, attacker, state, models.TriggerOnDamageTaken, false)
 	}
 	return result

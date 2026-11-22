@@ -340,3 +340,25 @@ func TestRecordActionWithDamageResult(t *testing.T) {
 		t.Errorf("ArmorSlotsBefore = %d, want 2", record.ArmorSlotsBefore)
 	}
 }
+
+func TestRecordActionSnapshotsActorAndTarget(t *testing.T) {
+	state := newTestState()
+	pc, enemy := state.Players[0], state.Enemies[0]
+	pc.Hope, pc.Stress, pc.ArmorSlots, pc.ArmorMax = 3, 2, 1, 4
+	enemy.HP, enemy.Stress = 4, 1
+
+	state.RecordAction(ActionParams{Actor: pc, ActionType: ActionAttack, Target: enemy, Result: "Hit"})
+	state.RecordAction(ActionParams{Actor: &Combatant{Name: "GM"}, ActionType: ActionPass, Result: "Spends 1 Fear"})
+
+	row := state.ActionHistory[0]
+	want := CombatantState{IsPC: true, HP: pc.HP, HPMax: pc.HPMax, Stress: 2, StressMax: pc.StressMax, Hope: 3, Armor: 1, ArmorMax: 4}
+	if row.ActorState == nil || *row.ActorState != want {
+		t.Errorf("actor state = %+v, want %+v", row.ActorState, want)
+	}
+	if row.TargetState == nil || row.TargetState.IsPC || row.TargetState.HP != 4 || row.TargetState.Stress != 1 {
+		t.Errorf("target state = %+v, want the adversary at 4 HP and 1 Stress", row.TargetState)
+	}
+	if gm := state.ActionHistory[1]; gm.ActorState != nil || gm.TargetState != nil {
+		t.Errorf("the GM's row should carry no state: %+v / %+v", gm.ActorState, gm.TargetState)
+	}
+}

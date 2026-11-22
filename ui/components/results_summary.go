@@ -2,10 +2,8 @@ package components
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
 )
 
@@ -13,9 +11,7 @@ import (
 type ResultsSummary struct {
 	app.Compo
 
-	Result          *simulation.SimulationResult
-	showCombatLog   bool
-	selectedOutcome int
+	Result *simulation.SimulationResult
 }
 
 // Render renders the results summary
@@ -29,7 +25,6 @@ func (rs *ResultsSummary) Render() app.UI {
 		Body(
 			rs.renderOverview(),
 			rs.renderStatistics(),
-			rs.renderCombatLogSection(),
 		)
 }
 
@@ -46,7 +41,7 @@ func (rs *ResultsSummary) renderOverview() app.UI {
 				Body(
 					rs.renderStatCard("Player wins", fmt.Sprintf("%.1f%%", r.PlayerWinRate*100), fmt.Sprintf("%d of %d", r.PlayerWins, r.TotalRuns), "success"),
 					rs.renderStatCard("Enemy wins", fmt.Sprintf("%.1f%%", r.EnemyWinRate*100), fmt.Sprintf("%d of %d", r.EnemyWins, r.TotalRuns), "danger"),
-					rs.renderStatCard("Draws", fmt.Sprintf("%d", draws), "hit the turn limit", "info"),
+					rs.renderStatCard("Draws", fmt.Sprintf("%d", draws), "both sides down, or the turn limit", "info"),
 				),
 			rs.renderWinRateChart(),
 		)
@@ -126,212 +121,4 @@ func (rs *ResultsSummary) renderWinRateChart() app.UI {
 					}),
 				),
 		)
-}
-
-// renderCombatLogSection renders collapsible combat log viewer
-func (rs *ResultsSummary) renderCombatLogSection() app.UI {
-	if len(rs.Result.CombatOutcomes) == 0 {
-		return app.Div()
-	}
-
-	return app.Div().
-		Class("combat-log-section").
-		Body(
-			app.Div().
-				Class("combat-log-header").
-				Body(
-					app.H3().Text("Combat Log"),
-					app.Div().
-						Class("log-controls").
-						Body(
-							app.Button().
-								Class("btn btn-small").
-								Text("◀ Prev").
-								Disabled(rs.selectedOutcome <= 0).
-								OnClick(func(ctx app.Context, e app.Event) {
-									if rs.selectedOutcome > 0 {
-										rs.selectedOutcome--
-										ctx.Update()
-									}
-								}),
-							app.Span().
-								Class("run-indicator").
-								Text(fmt.Sprintf("Run %d/%d", rs.selectedOutcome+1, len(rs.Result.CombatOutcomes))),
-							app.Button().
-								Class("btn btn-small").
-								Text("Next ▶").
-								Disabled(rs.selectedOutcome >= len(rs.Result.CombatOutcomes)-1).
-								OnClick(func(ctx app.Context, e app.Event) {
-									if rs.selectedOutcome < len(rs.Result.CombatOutcomes)-1 {
-										rs.selectedOutcome++
-										ctx.Update()
-									}
-								}),
-							app.Button().
-								Class("btn btn-small").
-								Text(logToggleLabel(rs.showCombatLog)).
-								OnClick(func(ctx app.Context, e app.Event) {
-									rs.showCombatLog = !rs.showCombatLog
-									ctx.Update()
-								}),
-						),
-				),
-			app.If(rs.showCombatLog, func() app.UI {
-				return rs.renderCombatLog()
-			}),
-		)
-}
-
-// renderCombatLog renders the detailed action log
-func (rs *ResultsSummary) renderCombatLog() app.UI {
-	outcome := rs.Result.CombatOutcomes[rs.selectedOutcome]
-
-	// Determine winner
-	outcomeText := "Draw"
-	outcomeClass := "outcome-draw"
-	if outcome.PlayerVictory {
-		outcomeText = "✓ Players Victory"
-		outcomeClass = "outcome-player-win"
-	} else if outcome.EnemyVictory {
-		outcomeText = "✓ Enemies Victory"
-		outcomeClass = "outcome-enemy-win"
-	}
-
-	// Build table rows
-	rows := []app.UI{
-		// Header row
-		app.Div().Class("log-row log-header").Body(
-			app.Span().Class("log-col-turn").Text("Round/Turn"),
-			app.Span().Class("log-col-actor").Text("Actor"),
-			app.Span().Class("log-col-action").Text("Action"),
-			app.Span().Class("log-col-target").Text("Target"),
-			app.Span().Class("log-col-dice").Text("Dice Roll"),
-			app.Span().Class("log-col-damage").Text("Damage"),
-			app.Span().Class("log-col-result").Text("Result"),
-			app.Span().Class("log-col-pools").Text("Hope/Fear"),
-		),
-	}
-
-	for _, action := range outcome.ActionHistory {
-		rowClass := "log-row"
-		if action.IsCritical {
-			rowClass += " log-row-critical"
-		} else if action.IsFeature {
-			rowClass += " log-row-feature"
-		}
-
-		actionText := action.ActionType.String()
-		if action.IsFeature && action.FeatureName != "" {
-			actionText += ": " + action.FeatureName
-		}
-
-		targetText := action.Target
-		if targetText == "" {
-			targetText = "-"
-		}
-
-		rows = append(rows, app.Div().Class(rowClass).Body(
-			app.Span().Class("log-col-turn").Text(fmt.Sprintf("R%d T%d", action.Round, action.Turn)),
-			app.Span().Class("log-col-actor").Text(action.Actor),
-			app.Span().Class("log-col-action").Text(actionText),
-			app.Span().Class("log-col-target").Text(targetText),
-			app.Span().Class("log-col-dice").Body(diceRollCell(action)),
-			app.Span().Class("log-col-damage").Text(damageText(action)),
-			app.Span().Class("log-col-result").Text(resultText(action)),
-			app.Span().Class("log-col-pools").Text(poolsText(action)),
-		))
-	}
-
-	return app.Div().
-		Class("combat-log-viewer").
-		Body(
-			app.Div().
-				Class("log-info").
-				Body(
-					app.Span().Text(fmt.Sprintf("%d actions, %d turns - ", len(outcome.ActionHistory), outcome.Turns)),
-					app.Span().Class(outcomeClass).Text(outcomeText),
-				),
-			app.Div().
-				Class("log-table").
-				Body(rows...),
-		)
-}
-
-func logToggleLabel(shown bool) string {
-	if shown {
-		return "Hide Log"
-	}
-	return "Show Log"
-}
-
-// diceRollCell shows Duality Dice with the winning die marked, or the GM's d20
-func diceRollCell(action models.ActionRecord) app.UI {
-	switch {
-	case action.FearDie > 0:
-		hopeClass, fearClass := "dice-hope", "dice-fear"
-		if action.FearDie > action.HopeDie {
-			fearClass += " dice-winner"
-		} else {
-			hopeClass += " dice-winner"
-		}
-		return app.Span().Body(
-			app.Span().Class(hopeClass).Text(fmt.Sprintf("H:%d", action.HopeDie)),
-			app.Text(" "),
-			app.Span().Class(fearClass).Text(fmt.Sprintf("F:%d", action.FearDie)),
-			app.Text(fmt.Sprintf(" = %d (vs %d)", action.TotalRoll, action.TargetDefense)),
-		)
-	case action.D20Roll > 0:
-		return app.Text(fmt.Sprintf("d20:%d = %d (vs %d)", action.D20Roll, action.TotalRoll, action.TargetDefense))
-	default:
-		return app.Text("-")
-	}
-}
-
-// damageText lists the dice rolled, the damage that counted after resistance, and the HP marked
-func damageText(action models.ActionRecord) string {
-	if action.DamageRoll <= 0 {
-		return "-"
-	}
-	dice := fmt.Sprintf("%d", action.DamageRoll)
-	if len(action.DamageDice) > 0 {
-		parts := make([]string, 0, len(action.DamageDice)+1)
-		for _, val := range action.DamageDice {
-			parts = append(parts, fmt.Sprintf("%d", val))
-		}
-		if action.DamageBonus > 0 {
-			parts = append(parts, fmt.Sprintf("%d", action.DamageBonus))
-		}
-		dice = strings.Join(parts, "+")
-	}
-	counted := action.DamageRoll
-	if action.ProcessedDamage > 0 {
-		counted = action.ProcessedDamage
-	}
-	return fmt.Sprintf("%s=%d→%dHP [%s]", dice, counted, action.HPDamage, action.Threshold)
-}
-
-// resultText appends the target's HP change, and armor use, to the outcome
-func resultText(action models.ActionRecord) string {
-	if action.Target == "" {
-		return action.Result
-	}
-	if action.TargetHPBefore <= 0 {
-		return fmt.Sprintf("%s (HP:%d)", action.Result, action.TargetHPAfter)
-	}
-	text := fmt.Sprintf("%s - %s: %d HP → %d HP", action.Result, action.Target, action.TargetHPBefore, action.TargetHPAfter)
-	if action.ArmorUsed {
-		text += fmt.Sprintf(" (armor: %d→%d slots)", action.ArmorSlotsBefore, action.ArmorSlotsAfter)
-	}
-	return text
-}
-
-func poolsText(action models.ActionRecord) string {
-	switch {
-	case action.HopeGenerated > 0:
-		return fmt.Sprintf("H:%d(+%d) F:%d", action.HopePoolAfter, action.HopeGenerated, action.FearPoolAfter)
-	case action.FearGenerated > 0:
-		return fmt.Sprintf("H:%d F:%d(+%d)", action.HopePoolAfter, action.FearPoolAfter, action.FearGenerated)
-	default:
-		return fmt.Sprintf("H:%d F:%d", action.HopePoolAfter, action.FearPoolAfter)
-	}
 }

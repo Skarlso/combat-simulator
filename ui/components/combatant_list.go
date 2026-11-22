@@ -25,8 +25,9 @@ type CombatantList struct {
 	newLevel           int
 	newEvasion         int
 	newProficiency     int
-	newAttackTrait     int
 	newTraits          models.Traits
+	newWeaponTrait     string
+	newSpellcastTrait  string
 	newHP              int
 	newStress          int
 	newArmor           int
@@ -66,7 +67,7 @@ func (cl *CombatantList) Render() app.UI {
 		app.If(cl.importer.show, func() app.UI {
 			return cl.importer.render(
 				"Import Characters from JSON",
-				`Paste a JSON document matching {"characters":[...]}. Each entry requires a name; level, evasion, proficiency, attack_trait, traits, hp, stress, thresholds, and domain_abilities are optional.`,
+				`Paste a JSON document matching {"characters":[...]}. Each entry requires a name; level, evasion, proficiency, traits, weapon_trait, spellcast_trait, hp, stress, thresholds, and domain_abilities are optional.`,
 				`{"characters": [{"name": "...", "level": 3, ...}]}`,
 				cl.runImport,
 			)
@@ -163,7 +164,10 @@ func (cl *CombatantList) renderList() app.UI {
 					statChip("Stress", fmt.Sprintf("%d", combatant.StressMax)),
 					statChip("Evasion", fmt.Sprintf("%d", combatant.Evasion)),
 					statChip("Prof", fmt.Sprintf("%d", combatant.Proficiency)),
-					statChip("Trait", fmt.Sprintf("%+d", combatant.AttackTrait)),
+					statChip("Attack", fmt.Sprintf("%s %+d", combatant.RollLabel(""), combatant.RollModifier(""))),
+					app.If(combatant.SpellcastTrait != "", func() app.UI {
+						return statChip("Spellcast", fmt.Sprintf("%s %+d", traitLabel(combatant.SpellcastTrait), combatant.RollModifier("spellcast")))
+					}),
 					app.If(combatant.ArmorSlots > 0, func() app.UI {
 						return statChip("Armor", fmt.Sprintf("%d", combatant.ArmorSlots))
 					}),
@@ -210,7 +214,6 @@ func (cl *CombatantList) renderAddForm() app.UI {
 			numberField("HP Max", &cl.newHP, 1, 50),
 			numberField("Evasion", &cl.newEvasion, 1, 20),
 			numberField("Proficiency", &cl.newProficiency, 0, 5),
-			numberField("Attack Trait", &cl.newAttackTrait, -5, 10),
 		),
 		app.Div().Class("form-row-3").Body(
 			numberField("Agility", &cl.newTraits.Agility, -5, 10),
@@ -221,6 +224,10 @@ func (cl *CombatantList) renderAddForm() app.UI {
 			numberField("Instinct", &cl.newTraits.Instinct, -5, 10),
 			numberField("Presence", &cl.newTraits.Presence, -5, 10),
 			numberField("Knowledge", &cl.newTraits.Knowledge, -5, 10),
+		),
+		app.Div().Class("form-row").Body(
+			selectField("Weapon trait (attack rolls)", cl.newWeaponTrait, traitOptions(""), bindSelect(&cl.newWeaponTrait, false)),
+			selectField("Spellcast trait", cl.newSpellcastTrait, traitOptions("None"), bindSelect(&cl.newSpellcastTrait, false)),
 		),
 		app.Div().Class("form-row-3").Body(
 			numberField("Stress Max", &cl.newStress, 1, 10),
@@ -242,6 +249,7 @@ func (cl *CombatantList) renderAddForm() app.UI {
 		&DomainAbilityForm{
 			Abilities: cl.newDomainAbilities,
 			OnChange:  func(updated []*models.DomainAbility) { cl.newDomainAbilities = updated },
+			PCLevel:   func() int { return cl.newLevel },
 		},
 	)...)
 	body = append(body, formActions("Add Combatant", cl.newName == "",
@@ -274,8 +282,8 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 		fmt.Sprintf("%s-%d", cl.Side, len(cl.Combatants)),
 		cl.newName, cl.Side, cl.newLevel, cl.newEvasion, cl.newProficiency, cl.newHP, cl.newStress,
 	)
-	combatant.AttackTrait = cl.newAttackTrait
 	combatant.Traits = cl.newTraits
+	combatant.WeaponTrait, combatant.SpellcastTrait = cl.newWeaponTrait, cl.newSpellcastTrait
 	combatant.ArmorSlots = cl.newArmor
 	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
@@ -300,8 +308,9 @@ func (cl *CombatantList) resetForm() {
 	cl.newLevel = 1
 	cl.newEvasion = 10
 	cl.newProficiency = 1
-	cl.newAttackTrait = 2
-	cl.newTraits = models.Traits{}
+	cl.newTraits = models.Traits{Strength: 2}
+	cl.newWeaponTrait = "strength"
+	cl.newSpellcastTrait = ""
 	cl.newHP = 5
 	cl.newStress = 6
 	cl.newArmor = 0

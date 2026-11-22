@@ -39,7 +39,7 @@ func (fr *FeatureResolver) shieldFor(defender *models.Combatant, damage int, sta
 				continue
 			}
 			err, dcResult := fr.ActivateDomainAbility(ability, ally, defender, state)
-			recordTriggered(state, ally, ability.Name, err, dcResult)
+			recordTriggered(state, ally, defender, ability.Name, err, dcResult)
 			if err != nil {
 				continue
 			}

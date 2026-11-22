@@ -60,9 +60,16 @@ func TestGetDefense(t *testing.T) {
 
 func TestGetAttackBonus(t *testing.T) {
 	player := newTestPlayer()
-	player.AttackTrait = 1
+	player.Traits = Traits{Strength: 1, Knowledge: 3, Presence: -1}
+	player.WeaponTrait, player.SpellcastTrait = "strength", "knowledge"
 	if player.GetAttackBonus() != 1 {
-		t.Errorf("player GetAttackBonus() = %d, want 1 (trait, not proficiency)", player.GetAttackBonus())
+		t.Errorf("player GetAttackBonus() = %d, want 1 (the weapon trait, not proficiency)", player.GetAttackBonus())
+	}
+	if got := player.RollModifier("spellcast"); got != 3 || player.RollLabel("spellcast") != "Spellcast (Knowledge)" {
+		t.Errorf("spellcast roll = %+d %q, want +3 Spellcast (Knowledge)", got, player.RollLabel("spellcast"))
+	}
+	if got := player.RollModifier("presence"); got != -1 || player.RollLabel("presence") != "Presence" {
+		t.Errorf("presence roll = %+d %q, want -1 Presence", got, player.RollLabel("presence"))
 	}
 
 	adv := newTestAdversary()
@@ -875,5 +882,137 @@ func TestEligibleSpotlightAlliesFiltersByName(t *testing.T) {
 	}
 	if all := state.EligibleSpotlightAllies(leader, FeatureEffect{}); len(all) != 3 {
 		t.Errorf("unfiltered eligible = %d, want 3", len(all))
+	}
+}
+
+func unstoppableDie(held, limit int) DomainAbility {
+	return DomainAbility{
+		Name: "Unstoppable", Passive: true, UsesTokens: true, TokensHeld: held, TokensMax: limit,
+		Effects: []FeatureEffect{
+			{Category: FeatureEffectTokenOnDamage, Magnitude: 1},
+			{Category: FeatureEffectDamageBonus, Magnitude: 1, PerToken: true},
+			{Category: FeatureEffectSeverityReduction, Magnitude: 1, DamageType: "physical"},
+			{Category: FeatureEffectConditionImmunity, Conditions: []ConditionType{ConditionRestrained, ConditionVulnerable}},
+		},
+	}
+}
+
+// Level 3 PC: Major 6, Severe 9
+func TestSeverityReductionDropsPhysicalDamageOneThreshold(t *testing.T) {
+	tests := []struct {
+		name       string
+		damage     int
+		damageType DamageType
+		held       int
+		wantHP     int
+	}{
+		{"Severe becomes Major", 9, DamagePhysical, 1, 2},
+		{"Major becomes Minor", 6, DamagePhysical, 1, 1},
+		{"Minor becomes None", 3, DamagePhysical, 1, 0},
+		{"magic damage is untouched", 9, DamageMagic, 1, 3},
+		{"no die, no reduction", 9, DamagePhysical, 0, 3},
+	}
+	for _, tt := range tests {
+		pc := newTestPlayer()
+		pc.DomainAbilities = []DomainAbility{unstoppableDie(tt.held, 4)}
+		if got := pc.TakeDamage(tt.damage, tt.damageType, nil).HPDamage; got != tt.wantHP {
+			t.Errorf("%s: marked %d HP, want %d", tt.name, got, tt.wantHP)
+		}
+	}
+}
+
+func TestSeverityReductionToNoneSavesTheArmorSlot(t *testing.T) {
+	pc := newTestPlayer()
+	pc.ArmorSlots = 2
+	pc.DomainAbilities = []DomainAbility{unstoppableDie(1, 4)}
+
+	if res := pc.TakeDamage(3, DamagePhysical, nil); res.ArmorUsed || pc.ArmorSlots != 2 || pc.HP != pc.HPMax {
+		t.Errorf("Minor hit: armor used %v, slots %d, HP %d; want no armor, 2 slots, full HP", res.ArmorUsed, pc.ArmorSlots, pc.HP)
+	}
+	// Severe drops to Major, then armor takes it to Minor
+	if res := pc.TakeDamage(9, DamagePhysical, nil); res.HPDamage != 1 || pc.ArmorSlots != 1 {
+		t.Errorf("Severe hit: marked %d HP, %d slots left; want 1 HP, 1 slot", res.HPDamage, pc.ArmorSlots)
+	}
+}
+
+func TestDamageBonusFollowsTheTokenDie(t *testing.T) {
+	pc := newTestPlayer()
+	pc.DomainAbilities = []DomainAbility{unstoppableDie(3, 4)}
+	if got := pc.DamageBonus(DamagePhysical, nil); got != 3 {
+		t.Errorf("bonus at die value 3 = %d, want 3", got)
+	}
+	pc.DomainAbilities[0].TokensHeld = 0
+	if got := pc.DamageBonus(DamagePhysical, nil); got != 0 {
+		t.Errorf("bonus with no die = %d, want 0", got)
+	}
+
+	// Without tokens a passive bonus is simply always on
+	pc.DomainAbilities = []DomainAbility{{Passive: true, Effects: []FeatureEffect{{Category: FeatureEffectDamageBonus, Magnitude: 2}}}}
+	if got := pc.DamageBonus(DamagePhysical, nil); got != 2 {
+		t.Errorf("flat passive bonus = %d, want 2", got)
+	}
+}
+
+func TestTokenDieStepsUpAndEndsPastItsMaximum(t *testing.T) {
+	pc := newTestPlayer()
+	pc.DomainAbilities = []DomainAbility{unstoppableDie(3, 4)}
+
+	if ended := pc.StepTokensOnDamage(); len(ended) != 0 || pc.DomainAbilities[0].TokensHeld != 4 {
+		t.Fatalf("3 -> %d (ended %v), want 4 and still going", pc.DomainAbilities[0].TokensHeld, ended)
+	}
+	if ended := pc.StepTokensOnDamage(); len(ended) != 1 || ended[0] != "Unstoppable" || pc.DomainAbilities[0].TokensHeld != 0 {
+		t.Fatalf("4 -> %d (ended %v), want the die removed", pc.DomainAbilities[0].TokensHeld, ended)
+	}
+	// Once removed it stays off: there is no die left to step
+	if ended := pc.StepTokensOnDamage(); len(ended) != 0 || pc.DomainAbilities[0].TokensHeld != 0 {
+		t.Errorf("a removed die must not restart: held %d, ended %v", pc.DomainAbilities[0].TokensHeld, ended)
+	}
+}
+
+func TestConditionImmunityLastsWhileTheDieDoes(t *testing.T) {
+	pc := newTestPlayer()
+	pc.AddCondition(&ActiveCondition{Type: ConditionRestrained, Duration: DurationUntilCleared})
+	pc.AddCondition(&ActiveCondition{Type: ConditionBurning, Duration: DurationUntilCleared})
+	pc.DomainAbilities = []DomainAbility{unstoppableDie(4, 4)}
+
+	pc.DropBlockedConditions()
+	if pc.HasCondition(ConditionRestrained) || !pc.HasCondition(ConditionBurning) {
+		t.Errorf("becoming immune should end Restrained and leave Burning: %v", pc.Conditions)
+	}
+	pc.AddCondition(&ActiveCondition{Type: ConditionVulnerable, Duration: DurationUntilCleared})
+	pc.AddStress(pc.StressMax)
+	if pc.HasCondition(ConditionVulnerable) || !pc.IsFullyStressed {
+		t.Errorf("Vulnerable = %v, fully stressed = %v; want immune but fully stressed", pc.HasCondition(ConditionVulnerable), pc.IsFullyStressed)
+	}
+
+	pc.StepTokensOnDamage()
+	if !pc.HasCondition(ConditionVulnerable) {
+		t.Error("full Stress should make the PC Vulnerable once the die is gone")
+	}
+}
+
+func TestClearArmorSlotsStopsAtTheArmorScore(t *testing.T) {
+	pc := newTestPlayer()
+	pc.ArmorSlots = 3
+	clone := CloneCombatant(pc, "p1")
+	if clone.ArmorMax != 3 {
+		t.Fatalf("ArmorMax = %d, want 3 from the template's slots", clone.ArmorMax)
+	}
+
+	clone.ArmorSlots = 2
+	if cleared := clone.ClearArmorSlots(2); cleared != 1 || clone.ArmorSlots != 3 {
+		t.Errorf("cleared %d, slots %d; want 1 cleared, 3 slots", cleared, clone.ArmorSlots)
+	}
+}
+
+// The log reads HP and armor "after" from the result, so they must be the values left behind.
+func TestDamageResultReportsHPAndArmorAfter(t *testing.T) {
+	pc := newTestPlayer()
+	pc.ArmorSlots = 2
+
+	// Level 3: 9 is Severe, armor makes it Major
+	res := pc.TakeDamage(9, DamagePhysical, nil)
+	if res.HPBefore != 15 || res.HPAfter != 13 || res.ArmorSlotsBefore != 2 || res.ArmorSlotsAfter != 1 {
+		t.Errorf("HP %d -> %d, armor %d -> %d; want 15 -> 13 and 2 -> 1", res.HPBefore, res.HPAfter, res.ArmorSlotsBefore, res.ArmorSlotsAfter)
 	}
 }

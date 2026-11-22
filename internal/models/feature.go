@@ -8,6 +8,7 @@ const (
 	FeatureEffectDamage       FeatureEffectCategory = "damage"
 	FeatureEffectDirectDamage FeatureEffectCategory = "direct_damage"
 	FeatureEffectAreaDamage   FeatureEffectCategory = "area_damage"
+	FeatureEffectMarkHP       FeatureEffectCategory = "mark_hp" // the target marks Magnitude Hit Points outright
 
 	// Status application
 	FeatureEffectApplyVulnerable FeatureEffectCategory = "apply_vulnerable"
@@ -17,6 +18,10 @@ const (
 	FeatureEffectApplyHidden     FeatureEffectCategory = "apply_hidden"
 	FeatureEffectApplyStunned    FeatureEffectCategory = "apply_stunned"
 	FeatureEffectApplyRestrained FeatureEffectCategory = "apply_restrained"
+	// Roll modifiers: the actor attacks with advantage this turn, the target attacks with disadvantage
+	FeatureEffectApplyAdvantage    FeatureEffectCategory = "apply_advantage"
+	FeatureEffectApplyDisadvantage FeatureEffectCategory = "apply_disadvantage"
+	FeatureEffectDefensePenalty    FeatureEffectCategory = "defense_penalty" // lowers the target's Difficulty or Evasion
 
 	// Resource manipulation
 	FeatureEffectStressInflict FeatureEffectCategory = "stress_inflict"
@@ -24,15 +29,27 @@ const (
 	FeatureEffectHPHeal        FeatureEffectCategory = "hp_heal"
 	FeatureEffectArmorDamage   FeatureEffectCategory = "armor_damage"
 	FeatureEffectGrantArmor    FeatureEffectCategory = "grant_armor"
+	FeatureEffectArmorClear    FeatureEffectCategory = "armor_clear" // unmark Armor Slots, up to the armor's score
 	FeatureEffectHopeDrain     FeatureEffectCategory = "hope_drain"
 	FeatureEffectFearGenerate  FeatureEffectCategory = "fear_generate"
 
 	// Defensive
 	FeatureEffectDamageReduction FeatureEffectCategory = "damage_reduction"
 
+	// Standing effects: in force while their passive is, never resolved on activation.
+	// On a passive with a reactive trigger they apply to the one roll or hit it reacts to instead.
+	FeatureEffectDamageBonus       FeatureEffectCategory = "damage_bonus"       // added to the owner's damage rolls
+	FeatureEffectDamageMultiplier  FeatureEffectCategory = "damage_multiplier"  // on_damage_roll only: multiplies the roll
+	FeatureEffectSeverityReduction FeatureEffectCategory = "severity_reduction" // incoming damage drops Magnitude thresholds
+	FeatureEffectConditionImmunity FeatureEffectCategory = "condition_immunity" // the owner can't gain Conditions
+	FeatureEffectAttackBonus       FeatureEffectCategory = "attack_bonus"       // added to the owner's attack and action rolls
+	FeatureEffectEvasionBonus      FeatureEffectCategory = "evasion_bonus"      // added to the owner's Evasion
+
 	// Token mechanics
 	FeatureEffectTokenPlace FeatureEffectCategory = "token_place"
 	FeatureEffectTokenSpend FeatureEffectCategory = "token_spend"
+	// A die that counts up: +Magnitude after the owner's damage roll marks a Hit Point, removed once it would pass TokensMax
+	FeatureEffectTokenOnDamage FeatureEffectCategory = "token_on_damage"
 
 	// Resistance
 	FeatureEffectDamageResistance    FeatureEffectCategory = "damage_resistance"
@@ -71,7 +88,20 @@ const (
 	TriggerStartTurn     FeatureTriggerType = "start_turn"
 	TriggerEndTurn       FeatureTriggerType = "end_turn"
 	TriggerOnAllyDamaged FeatureTriggerType = "on_ally_damaged" // an ally is about to take damage from an attack
+	TriggerOnMiss        FeatureTriggerType = "on_miss"         // the owner's basic attack failed
+	TriggerOnDamageDealt FeatureTriggerType = "on_damage_dealt" // the owner's attack marked a Hit Point on its target
+	TriggerOnEvaded      FeatureTriggerType = "on_evaded"       // an attack against the owner failed
+
+	// Reactive triggers: the passive pays its cost to change one roll or hit as it happens
+	TriggerOnDamageRoll     FeatureTriggerType = "on_damage_roll"     // the owner rolls damage for a weapon attack that hit
+	TriggerOnDamageIncoming FeatureTriggerType = "on_damage_incoming" // the owner is about to mark Hit Points
+	TriggerOnAttacked       FeatureTriggerType = "on_attacked"        // an attack roll is about to succeed against the owner
 )
+
+// IsReactive reports a trigger whose effects apply to a single roll or hit, never as standing effects
+func (t FeatureTriggerType) IsReactive() bool {
+	return t == TriggerOnDamageRoll || t == TriggerOnDamageIncoming || t == TriggerOnAttacked
+}
 
 type FeatureTriggerCondition struct {
 	Type   FeatureTriggerType
@@ -110,6 +140,16 @@ type FeatureEffect struct {
 	SpotlightCount int
 	AllyName       string
 	HalfDamage     bool
+
+	// PerToken multiplies a standing effect's Magnitude and dice by the tokens its feature holds
+	PerToken bool
+	// ScaleBy multiplies the amount (for damage effects, the dice count) by one of the actor's numbers:
+	// "level", "tier", "proficiency", "spellcast" (the Spellcast trait) or a trait name. Empty means no scaling.
+	ScaleBy string
+	// OthersOnly keeps an area effect off the attack's own target ("all other targets")
+	OthersOnly bool
+	// Conditions a condition_immunity effect keeps off its owner
+	Conditions []ConditionType
 }
 
 // AdversaryFeature represents passive or AI-triggered abilities for enemies
@@ -153,6 +193,8 @@ type DomainAbility struct {
 	// Difficulty Check
 	DCType  string // "none" (auto-succeed), "target" (roll vs target's Difficulty), "fixed" (roll vs FixedDC)
 	FixedDC int    // DC value if DCType is "fixed"
+	// Trait the roll is made with: "" for the weapon trait, "spellcast", or a trait name
+	RollTrait string
 
 	// Token mechanics (for abilities like Unleash Chaos)
 	UsesTokens bool   // Whether this ability uses tokens

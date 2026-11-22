@@ -136,7 +136,7 @@ func (al *AdversaryList) renderLibraryPanel() app.UI {
 			app.Div().Class("tabs tabs-compact").Body(tierChips...),
 			app.Select().
 				OnChange(func(ctx app.Context, e app.Event) {
-					al.libraryType = ctx.JSSrc().Get("value").String()
+					al.libraryType = selectedOption(ctx, typeOptions)
 					ctx.Update()
 				}).
 				Body(optionElements(typeOptions, al.libraryType)...),

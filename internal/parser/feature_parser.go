@@ -3,6 +3,8 @@ package parser
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
@@ -15,6 +17,7 @@ type FeatureMapping struct {
 	CostOnSuccess bool                   `json:"cost_on_success,omitempty"`
 	Passive       bool                   `json:"passive"`
 	Trigger       string                 `json:"trigger,omitempty"`
+	TriggerFilter string                 `json:"trigger_filter,omitempty"`
 	DCType        string                 `json:"dc_type,omitempty"`
 	FixedDC       int                    `json:"fixed_dc,omitempty"`
 	UsesTokens    bool                   `json:"uses_tokens,omitempty"`
@@ -45,7 +48,12 @@ type FeatureMappingEffect struct {
 	SpotlightCount  int    `json:"spotlight_count,omitempty"`
 	AllyName        string `json:"ally_name,omitempty"`
 	HalfDamage      bool   `json:"half_damage,omitempty"`
-	Description     string `json:"description"`
+	PerToken        bool   `json:"per_token,omitempty"`
+	ScaleBy         string `json:"scale_by,omitempty"`
+	OthersOnly      bool   `json:"others_only,omitempty"`
+	// Conditions a condition_immunity effect blocks
+	Conditions  []string `json:"conditions,omitempty"`
+	Description string   `json:"description"`
 }
 
 // FeatureMappingFile represents the JSON structure of feature_mappings.json
@@ -73,6 +81,11 @@ func NewFeatureParserFromBytes(data []byte) (*FeatureParser, error) {
 	}
 
 	for name, mapping := range mappingFile.Mappings {
+		for _, part := range strings.Split(mapping.TriggerFilter, "+") {
+			if !slices.Contains(knownFilters, part) {
+				return nil, fmt.Errorf("mapping %q: unknown trigger filter %q", name, part)
+			}
+		}
 		for i, effect := range mapping.Effects {
 			if _, err := convertMappingEffect(effect); err != nil {
 				return nil, fmt.Errorf("mapping %q effect %d: %w", name, i, err)
@@ -115,7 +128,7 @@ func (fp *FeatureParser) ParseFeatureFor(adversaryName, name, description string
 		Name:          name,
 		Description:   description,
 		Passive:       mapping.Passive,
-		Trigger:       models.FeatureTriggerCondition{Type: models.FeatureTriggerType(mapping.Trigger)},
+		Trigger:       models.FeatureTriggerCondition{Type: models.FeatureTriggerType(mapping.Trigger), Filter: mapping.TriggerFilter},
 		FearCost:      mapping.FearCost,
 		StressCost:    mapping.StressCost,
 		CostOnSuccess: mapping.CostOnSuccess,
@@ -147,6 +160,13 @@ func convertMappingEffect(m FeatureMappingEffect) (models.FeatureEffect, error) 
 	if err != nil {
 		return models.FeatureEffect{}, err
 	}
+	conditions, err := stringsToConditions(m.Conditions)
+	if err != nil {
+		return models.FeatureEffect{}, err
+	}
+	if !slices.Contains(scaleNames, m.ScaleBy) {
+		return models.FeatureEffect{}, fmt.Errorf("unknown scale_by %q", m.ScaleBy)
+	}
 
 	return models.FeatureEffect{
 		Category:        category,
@@ -167,7 +187,46 @@ func convertMappingEffect(m FeatureMappingEffect) (models.FeatureEffect, error) 
 		SpotlightCount:  m.SpotlightCount,
 		AllyName:        m.AllyName,
 		HalfDamage:      m.HalfDamage,
+		PerToken:        m.PerToken,
+		ScaleBy:         m.ScaleBy,
+		OthersOnly:      m.OthersOnly,
+		Conditions:      conditions,
 	}, nil
+}
+
+// scaleNames are the values scale_by accepts; see Combatant.ScaleValue
+var scaleNames = []string{"", "level", "tier", "proficiency", "spellcast", "agility", "strength", "finesse", "instinct", "presence", "knowledge"}
+
+// traitNames are the six traits a PC can roll with
+var traitNames = []string{"agility", "strength", "finesse", "instinct", "presence", "knowledge"}
+
+// checkTrait accepts a trait name, an empty string, or any of the extra names given
+func checkTrait(field, value string, extra ...string) error {
+	if value == "" || slices.Contains(traitNames, value) || slices.Contains(extra, value) {
+		return nil
+	}
+	return fmt.Errorf("unknown %s %q", field, value)
+}
+
+var knownConditions = []models.ConditionType{
+	models.ConditionBurning, models.ConditionPoisoned, models.ConditionVulnerable, models.ConditionResistant,
+	models.ConditionStunned, models.ConditionRestrained, models.ConditionAdvantage, models.ConditionDisadvantage,
+	models.ConditionTaunted, models.ConditionHidden,
+}
+
+func stringsToConditions(names []string) ([]models.ConditionType, error) {
+	if len(names) == 0 {
+		return nil, nil
+	}
+	out := make([]models.ConditionType, 0, len(names))
+	for _, name := range names {
+		cond := models.ConditionType(name)
+		if !slices.Contains(knownConditions, cond) {
+			return nil, fmt.Errorf("unknown condition %q", name)
+		}
+		out = append(out, cond)
+	}
+	return out, nil
 }
 
 var effectCategoryMap = map[string]models.FeatureEffectCategory{
@@ -195,6 +254,18 @@ var effectCategoryMap = map[string]models.FeatureEffectCategory{
 	"FeatureEffectTokenSpend":          models.FeatureEffectTokenSpend,
 	"FeatureEffectAreaDamage":          models.FeatureEffectAreaDamage,
 	"FeatureEffectGrantArmor":          models.FeatureEffectGrantArmor,
+	"FeatureEffectArmorClear":          models.FeatureEffectArmorClear,
+	"FeatureEffectDamageBonus":         models.FeatureEffectDamageBonus,
+	"FeatureEffectSeverityReduction":   models.FeatureEffectSeverityReduction,
+	"FeatureEffectConditionImmunity":   models.FeatureEffectConditionImmunity,
+	"FeatureEffectTokenOnDamage":       models.FeatureEffectTokenOnDamage,
+	"FeatureEffectMarkHP":              models.FeatureEffectMarkHP,
+	"FeatureEffectApplyAdvantage":      models.FeatureEffectApplyAdvantage,
+	"FeatureEffectApplyDisadvantage":   models.FeatureEffectApplyDisadvantage,
+	"FeatureEffectDefensePenalty":      models.FeatureEffectDefensePenalty,
+	"FeatureEffectDamageMultiplier":    models.FeatureEffectDamageMultiplier,
+	"FeatureEffectAttackBonus":         models.FeatureEffectAttackBonus,
+	"FeatureEffectEvasionBonus":        models.FeatureEffectEvasionBonus,
 	"FeatureEffectDamageReduction":     models.FeatureEffectDamageReduction,
 	"FeatureEffectRedirectDamage":      models.FeatureEffectRedirectDamage,
 }

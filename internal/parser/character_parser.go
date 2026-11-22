@@ -19,8 +19,9 @@ type CharacterJSON struct {
 	Level           int                 `json:"level"`
 	Evasion         int                 `json:"evasion"`
 	Proficiency     int                 `json:"proficiency"`
-	AttackTrait     int                 `json:"attack_trait,omitempty"`
 	Traits          CharacterTraits     `json:"traits"`
+	WeaponTrait     string              `json:"weapon_trait,omitempty"`
+	SpellcastTrait  string              `json:"spellcast_trait,omitempty"`
 	HP              int                 `json:"hp"`
 	Stress          int                 `json:"stress"`
 	Armor           int                 `json:"armor,omitempty"`
@@ -58,6 +59,7 @@ type DomainAbilityJSON struct {
 	MaxUses       int                     `json:"max_uses,omitempty"`
 	DCType        string                  `json:"dc_type,omitempty"`
 	FixedDC       int                     `json:"fixed_dc,omitempty"`
+	RollTrait     string                  `json:"roll_trait,omitempty"`
 	UsesTokens    bool                    `json:"uses_tokens,omitempty"`
 	TokenName     string                  `json:"token_name,omitempty"`
 	TokensMax     int                     `json:"tokens_max,omitempty"`
@@ -68,16 +70,22 @@ type DomainAbilityJSON struct {
 
 // DomainAbilityEffectJS is the import schema for a single effect.
 type DomainAbilityEffectJS struct {
-	Category        string `json:"category"`
-	Magnitude       int    `json:"magnitude,omitempty"`
-	DiceFormula     string `json:"dice_formula,omitempty"`
-	ProficiencyDice bool   `json:"proficiency_dice,omitempty"`
-	Duration        string `json:"duration,omitempty"`
-	TargetType      string `json:"target_type,omitempty"`
-	DamageType      string `json:"damage_type,omitempty"`
-	ReactionTrait   string `json:"reaction_trait,omitempty"`
-	ReactionDC      int    `json:"reaction_dc,omitempty"`
-	HalfOnSuccess   bool   `json:"half_on_success,omitempty"`
+	Category        string   `json:"category"`
+	Magnitude       int      `json:"magnitude,omitempty"`
+	DiceFormula     string   `json:"dice_formula,omitempty"`
+	ProficiencyDice bool     `json:"proficiency_dice,omitempty"`
+	Duration        string   `json:"duration,omitempty"`
+	TargetType      string   `json:"target_type,omitempty"`
+	DamageType      string   `json:"damage_type,omitempty"`
+	ReactionTrait   string   `json:"reaction_trait,omitempty"`
+	ReactionDC      int      `json:"reaction_dc,omitempty"`
+	HalfOnSuccess   bool     `json:"half_on_success,omitempty"`
+	PerToken        bool     `json:"per_token,omitempty"`
+	StandardAttack  bool     `json:"standard_attack,omitempty"`
+	HalfDamage      bool     `json:"half_damage,omitempty"`
+	ScaleBy         string   `json:"scale_by,omitempty"`
+	OthersOnly      bool     `json:"others_only,omitempty"`
+	Conditions      []string `json:"conditions,omitempty"`
 }
 
 // LoadCharactersFromBytes parses a CharacterFile JSON blob and returns combatants.
@@ -107,8 +115,14 @@ func parseCharacter(c CharacterJSON, idx int) (*models.Combatant, error) {
 	id := fmt.Sprintf("%s_%d", strings.ToLower(strings.ReplaceAll(c.Name, " ", "_")), idx)
 
 	combatant := models.NewCombatant(id, c.Name, models.SidePlayer, c.Level, c.Evasion, c.Proficiency, c.HP, c.Stress)
-	combatant.AttackTrait = c.AttackTrait
 	combatant.Traits = models.Traits(c.Traits)
+	if err := checkTrait("weapon_trait", c.WeaponTrait); err != nil {
+		return nil, err
+	}
+	if err := checkTrait("spellcast_trait", c.SpellcastTrait); err != nil {
+		return nil, err
+	}
+	combatant.WeaponTrait, combatant.SpellcastTrait = c.WeaponTrait, c.SpellcastTrait
 	combatant.ArmorSlots = c.Armor
 	combatant.DamageDice = c.DamageDice
 	combatant.HealthPotions = min(max(c.HealthPotions, 0), models.MaxPotionsEach)
@@ -144,6 +158,12 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 			ReactionTrait:   e.ReactionTrait,
 			ReactionDC:      e.ReactionDC,
 			HalfOnSuccess:   e.HalfOnSuccess,
+			PerToken:        e.PerToken,
+			StandardAttack:  e.StandardAttack,
+			HalfDamage:      e.HalfDamage,
+			ScaleBy:         e.ScaleBy,
+			OthersOnly:      e.OthersOnly,
+			Conditions:      e.Conditions,
 		})
 		if err != nil {
 			return models.DomainAbility{}, err
@@ -151,6 +171,9 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 		effects = append(effects, effect)
 	}
 
+	if err := checkTrait("roll_trait", a.RollTrait, "spellcast"); err != nil {
+		return models.DomainAbility{}, err
+	}
 	return models.DomainAbility{
 		Name:        a.Name,
 		Description: a.Description,
@@ -163,6 +186,7 @@ func buildDomainAbility(a DomainAbilityJSON) (models.DomainAbility, error) {
 		UsesLeft:    a.MaxUses,
 		DCType:      a.DCType,
 		FixedDC:     a.FixedDC,
+		RollTrait:   a.RollTrait,
 		UsesTokens:  a.UsesTokens,
 		TokenName:   a.TokenName,
 		TokensMax:   a.TokensMax,
@@ -185,8 +209,9 @@ func characterToJSON(pc *models.Combatant) CharacterJSON {
 		Level:          pc.Level,
 		Evasion:        pc.Evasion,
 		Proficiency:    pc.Proficiency,
-		AttackTrait:    pc.AttackTrait,
 		Traits:         CharacterTraits(pc.Traits),
+		WeaponTrait:    pc.WeaponTrait,
+		SpellcastTrait: pc.SpellcastTrait,
 		HP:             pc.HPMax,
 		Stress:         pc.StressMax,
 		Armor:          pc.ArmorSlots,
@@ -214,6 +239,7 @@ func domainAbilityToJSON(a models.DomainAbility) DomainAbilityJSON {
 		MaxUses:       a.MaxUses,
 		DCType:        a.DCType,
 		FixedDC:       a.FixedDC,
+		RollTrait:     a.RollTrait,
 		UsesTokens:    a.UsesTokens,
 		TokenName:     a.TokenName,
 		TokensMax:     a.TokensMax,
@@ -221,6 +247,10 @@ func domainAbilityToJSON(a models.DomainAbility) DomainAbilityJSON {
 		TriggerFilter: a.Trigger.Filter,
 	}
 	for _, e := range a.Effects {
+		var conditions []string
+		for _, cond := range e.Conditions {
+			conditions = append(conditions, string(cond))
+		}
 		out.Effects = append(out.Effects, DomainAbilityEffectJS{
 			Category:        effectCategoryName(e.Category),
 			Magnitude:       e.Magnitude,
@@ -232,6 +262,12 @@ func domainAbilityToJSON(a models.DomainAbility) DomainAbilityJSON {
 			ReactionTrait:   e.ReactionTrait,
 			ReactionDC:      e.ReactionDC,
 			HalfOnSuccess:   e.HalfOnSuccess,
+			PerToken:        e.PerToken,
+			StandardAttack:  e.StandardAttack,
+			HalfDamage:      e.HalfDamage,
+			ScaleBy:         e.ScaleBy,
+			OthersOnly:      e.OthersOnly,
+			Conditions:      conditions,
 		})
 	}
 	return out

@@ -76,12 +76,22 @@ func optionElements(options []selectOption, current string) []app.UI {
 	return out
 }
 
+// selectedOption is the value of the option a select's change event picked. An empty value
+// renders no value attribute, and the browser then reports the label, so it is looked up by position.
+func selectedOption(ctx app.Context, options []selectOption) string {
+	i := ctx.JSSrc().Get("selectedIndex").Int()
+	if i < 0 || i >= len(options) {
+		return ""
+	}
+	return options[i].Value
+}
+
 // selectField is a labelled select; onChange receives the chosen value
 func selectField(label, current string, options []selectOption, onChange func(app.Context, string)) app.UI {
 	return app.Div().Class("form-group").Body(
 		app.Label().Text(label),
 		app.Select().
-			OnChange(func(ctx app.Context, e app.Event) { onChange(ctx, ctx.JSSrc().Get("value").String()) }, app.EventScope(label)).
+			OnChange(func(ctx app.Context, e app.Event) { onChange(ctx, selectedOption(ctx, options)) }, app.EventScope(label)).
 			Body(optionElements(options, current)...),
 	)
 }
@@ -215,6 +225,18 @@ var uiEffectCategoryMap = map[string]models.FeatureEffectCategory{
 	"apply_restrained":   models.FeatureEffectApplyRestrained,
 	"armor_damage":       models.FeatureEffectArmorDamage,
 	"grant_armor":        models.FeatureEffectGrantArmor,
+	"armor_clear":        models.FeatureEffectArmorClear,
+	"damage_bonus":       models.FeatureEffectDamageBonus,
+	"severity_reduction": models.FeatureEffectSeverityReduction,
+	"condition_immunity": models.FeatureEffectConditionImmunity,
+	"token_on_damage":    models.FeatureEffectTokenOnDamage,
+	"mark_hp":            models.FeatureEffectMarkHP,
+	"apply_advantage":    models.FeatureEffectApplyAdvantage,
+	"apply_disadvantage": models.FeatureEffectApplyDisadvantage,
+	"defense_penalty":    models.FeatureEffectDefensePenalty,
+	"damage_multiplier":  models.FeatureEffectDamageMultiplier,
+	"attack_bonus":       models.FeatureEffectAttackBonus,
+	"evasion_bonus":      models.FeatureEffectEvasionBonus,
 	"damage_reduction":   models.FeatureEffectDamageReduction,
 	"token_place":        models.FeatureEffectTokenPlace,
 	"token_spend":        models.FeatureEffectTokenSpend,
@@ -228,11 +250,11 @@ var uiEffectCategoryMap = map[string]models.FeatureEffectCategory{
 	"redirect_damage":    models.FeatureEffectRedirectDamage,
 }
 
-// recipientOptions are the targets a heal or stress clear can reach
-var recipientOptions = []selectOption{{"self", "Self"}, {"ally", "Most wounded ally"}, {"allies", "Self and all allies"}}
+// recipientOptions are the targets a heal, stress clear or armor effect can reach
+var recipientOptions = []selectOption{{"self", "Self"}, {"ally", "Ally who needs it most"}, {"allies", "Self and all allies"}}
 
 func needsRecipient(effectType string) bool {
-	return oneOf(effectType, "heal", "stress_clear")
+	return oneOf(effectType, "heal", "stress_clear", "armor_clear", "grant_armor")
 }
 
 func recipientLabel(t models.FeatureTargetType) string {
@@ -279,31 +301,115 @@ func resistanceMagnitude(effectType string, magnitude int) int {
 	return magnitude
 }
 
+// effectAmount is an effect's size in words: "2d6+3", "1d6 per tier", "5 per token", "one weapon die"
+func effectAmount(effect models.FeatureEffect) string {
+	amount := effect.DiceFormula
+	if effect.Magnitude != 0 {
+		amount = joinParts("+", amount, fmt.Sprintf("%d", effect.Magnitude))
+	}
+	switch {
+	case effect.StandardAttack && effect.Category == models.FeatureEffectDamageBonus:
+		amount = "one weapon die"
+	case effect.StandardAttack:
+		amount = "standard attack"
+	case effect.ProficiencyDice:
+		amount += " using Proficiency"
+	}
+	if effect.ScaleBy != "" {
+		amount += " per " + strings.ReplaceAll(effect.ScaleBy, "_", " ")
+	}
+	if effect.PerToken {
+		amount += " per token"
+	}
+	return amount
+}
+
 // describeEffect summarises an effect for list rows
 func describeEffect(effect models.FeatureEffect) string {
+	amount := effectAmount(effect)
+	typed := strings.TrimSpace(effect.DamageType + " damage")
 	switch effect.Category {
-	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage:
-		return fmt.Sprintf("%s %s damage", effect.DiceFormula, effect.DamageType)
+	case models.FeatureEffectDamage, models.FeatureEffectDirectDamage, models.FeatureEffectAreaDamage:
+		text := amount + " " + typed
+		if effect.HalfDamage {
+			text += ", halved"
+		}
+		switch {
+		case effect.OthersOnly:
+			text += " to the other targets"
+		case isAreaEffect(effect):
+			text += " to an area"
+		}
+		return text
+	case models.FeatureEffectMarkHP:
+		return fmt.Sprintf("Target marks %d HP", effect.Magnitude)
 	case models.FeatureEffectHPHeal:
-		amount := effect.DiceFormula
-		if amount == "" {
-			amount = fmt.Sprintf("%d HP", effect.Magnitude)
+		if effect.DiceFormula == "" {
+			amount += " HP"
 		}
 		return "Heal " + amount + recipientLabel(effect.TargetType)
 	case models.FeatureEffectStressInflict:
-		return fmt.Sprintf("Inflict %d stress", effect.Magnitude)
+		return "Inflict " + amount + " stress"
 	case models.FeatureEffectStressClear:
-		return fmt.Sprintf("Clear %d stress", effect.Magnitude) + recipientLabel(effect.TargetType)
+		return "Clear " + amount + " stress" + recipientLabel(effect.TargetType)
+	case models.FeatureEffectFearGenerate:
+		if effect.Magnitude < 0 {
+			return fmt.Sprintf("GM loses %d Fear", -effect.Magnitude)
+		}
+		return fmt.Sprintf("GM gains %d Fear", effect.Magnitude)
 	case models.FeatureEffectRedirectDamage:
 		return "Takes hits meant for allies"
 	case models.FeatureEffectArmorDamage:
 		return fmt.Sprintf("Damage %d armor slot(s)", effect.Magnitude)
 	case models.FeatureEffectGrantArmor:
-		return fmt.Sprintf("Grant %d armor slot(s)", effect.Magnitude)
-	case models.FeatureEffectApplyPoison:
-		return "Apply poison"
-	case models.FeatureEffectApplyVulnerable:
-		return "Apply vulnerable"
+		return fmt.Sprintf("Grant %d armor slot(s)", effect.Magnitude) + recipientLabel(effect.TargetType)
+	case models.FeatureEffectArmorClear:
+		return fmt.Sprintf("Clear %d armor slot(s)", effect.Magnitude) + recipientLabel(effect.TargetType)
+	case models.FeatureEffectTokenPlace:
+		return "Place " + amount + " token(s)"
+	case models.FeatureEffectTokenSpend:
+		return fmt.Sprintf("Spend %d token(s)", effect.Magnitude)
+	case models.FeatureEffectTokenOnDamage:
+		if effect.Magnitude < 0 {
+			return fmt.Sprintf("Loses up to %d token(s) after a damage roll that marks HP", -effect.Magnitude)
+		}
+		return fmt.Sprintf("+%d token after a damage roll that marks HP, ends past the max", effect.Magnitude)
+	case models.FeatureEffectDamageBonus:
+		return "+" + amount + " to " + typed + " rolls"
+	case models.FeatureEffectDamageMultiplier:
+		return fmt.Sprintf("Damage x%d", effect.Magnitude)
+	case models.FeatureEffectAttackBonus:
+		return "+" + amount + " to attack rolls"
+	case models.FeatureEffectEvasionBonus:
+		return "+" + amount + " Evasion"
+	case models.FeatureEffectDefensePenalty:
+		return "-" + amount + " to the target's Difficulty"
+	case models.FeatureEffectDamageReduction:
+		return "Reduce incoming damage by " + amount
+	case models.FeatureEffectDamageResistance:
+		if effect.Magnitude >= 100 {
+			return "Negate incoming " + typed
+		}
+		return "Halve incoming " + typed
+	case models.FeatureEffectSeverityReduction:
+		return fmt.Sprintf("Incoming %s %d threshold(s) less severe", typed, effect.Magnitude)
+	case models.FeatureEffectConditionImmunity:
+		names := make([]string, len(effect.Conditions))
+		for i, cond := range effect.Conditions {
+			names[i] = string(cond)
+		}
+		return "Can't be " + strings.Join(names, " or ")
+	case models.FeatureEffectApplyAdvantage:
+		return "Attack with advantage"
+	case models.FeatureEffectApplyDisadvantage:
+		return "Target attacks with disadvantage"
+	case models.FeatureEffectApplyPoison, models.FeatureEffectApplyVulnerable, models.FeatureEffectApplyIgnite,
+		models.FeatureEffectApplyStunned, models.FeatureEffectApplyRestrained, models.FeatureEffectApplyTaunt, models.FeatureEffectApplyHidden:
+		text := "Apply " + strings.TrimPrefix(string(effect.Category), "apply_")
+		if isAreaEffect(effect) {
+			text += " to an area"
+		}
+		return text
 	case models.FeatureEffectSummonAllies:
 		quantity := fmt.Sprintf("%d", effect.Magnitude)
 		if effect.DiceFormula != "" {
@@ -313,6 +419,19 @@ func describeEffect(effect models.FeatureEffect) string {
 	default:
 		return string(effect.Category)
 	}
+}
+
+func isAreaEffect(effect models.FeatureEffect) bool {
+	return effect.Category == models.FeatureEffectAreaDamage || effect.TargetType == models.FeatureTargetAOE
+}
+
+// describeEffects summarises every effect of a feature for list rows
+func describeEffects(effects []models.FeatureEffect) string {
+	parts := make([]string, len(effects))
+	for i, effect := range effects {
+		parts[i] = describeEffect(effect)
+	}
+	return strings.Join(parts, "; ")
 }
 
 // joinParts joins the non-empty parts with sep
@@ -362,20 +481,23 @@ func oneOf(s string, options ...string) bool {
 }
 
 func needsDamageType(effectType string) bool {
-	return oneOf(effectType, "damage", "direct_damage", "resistance", "immunity")
+	return oneOf(effectType, "damage", "direct_damage", "resistance", "immunity", "severity_reduction")
 }
 
 func needsDuration(effectType string) bool {
-	return oneOf(effectType, "apply_vulnerable", "apply_poison", "apply_ignite", "apply_stunned", "apply_restrained", "apply_taunt")
+	return oneOf(effectType, "apply_vulnerable", "apply_poison", "apply_ignite", "apply_stunned", "apply_restrained", "apply_taunt",
+		"apply_advantage", "apply_disadvantage")
 }
 
 func needsDiceFormula(effectType string) bool {
-	return oneOf(effectType, "damage", "direct_damage", "area_damage", "heal", "damage_reduction")
+	return oneOf(effectType, "damage", "direct_damage", "area_damage", "heal", "damage_reduction", "damage_bonus")
 }
 
 func needsMagnitude(effectType string) bool {
 	return oneOf(effectType, "stress_inflict", "stress_clear", "apply_poison", "apply_ignite", "armor_damage",
-		"grant_armor", "token_place", "token_spend", "fear_generate", "hope_drain", "spotlight_modifier")
+		"grant_armor", "token_place", "token_spend", "fear_generate", "hope_drain", "spotlight_modifier",
+		"armor_clear", "severity_reduction", "token_on_damage", "mark_hp", "defense_penalty", "damage_multiplier",
+		"attack_bonus", "evasion_bonus")
 }
 
 func needsArmorCost(effectType string) bool {
@@ -392,6 +514,18 @@ func needsReaction(effectType string) bool {
 }
 
 var reactionTraits = []string{"agility", "strength", "finesse", "instinct", "presence", "knowledge"}
+
+// traitOptions lists the six traits for a select; a non-empty none adds an empty first choice
+func traitOptions(none string) []selectOption {
+	var options []selectOption
+	if none != "" {
+		options = append(options, selectOption{"", none})
+	}
+	for _, trait := range reactionTraits {
+		options = append(options, selectOption{trait, traitLabel(trait)})
+	}
+	return options
+}
 
 func traitLabel(trait string) string {
 	if trait == "" {

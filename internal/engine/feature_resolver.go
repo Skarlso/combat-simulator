@@ -3,6 +3,7 @@ package engine
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
 )
@@ -27,7 +28,12 @@ type DCCheckResult struct {
 	FearGenerated int
 	// RedirectedTo is the ally who stepped in and took the damage instead of the target
 	RedirectedTo *models.Combatant
+	// What was added to the dice, and what made up the damage roll beyond its own dice
+	RollParts     []models.LogPart
+	DamageParts   []models.LogPart
+	DamageFormula string
 	// Damage tracking (populated during effect resolution)
+	TargetsHit      int                    // Targets an area effect damaged
 	DamageDealt     int                    // HP damage actually dealt to target
 	DamageRoll      int                    // Raw damage before resistance/threshold
 	ProcessedDamage int                    // Damage after resistance/immunity/vulnerability
@@ -115,6 +121,9 @@ func (fr *FeatureResolver) resolveEffects(
 			hasArea = hasArea || isAreaEffect(effect)
 		}
 		if !hasArea || !result.VsDefense || len(fr.areaTargets(actor, target, state, result)) == 0 {
+			if result.VsDefense && target != nil {
+				fr.ProcessTriggeredFeatures(target, actor, state, models.TriggerOnEvaded, false)
+			}
 			return fmt.Errorf("%s: %w", name, ErrFeatureMissed)
 		}
 		// The roll still succeeded against someone, so only a Fear result passes the spotlight
@@ -201,6 +210,18 @@ func (fr *FeatureResolver) ResolveEffect(
 		return fr.applyCondition(actor, target, models.ConditionStunned, effect.Duration)
 	case models.FeatureEffectApplyRestrained:
 		return fr.applyCondition(actor, target, models.ConditionRestrained, effect.Duration)
+	case models.FeatureEffectApplyAdvantage:
+		return fr.applyCondition(actor, actor, models.ConditionAdvantage, effect.Duration)
+	case models.FeatureEffectApplyDisadvantage:
+		return fr.applyCondition(actor, target, models.ConditionDisadvantage, effect.Duration)
+	case models.FeatureEffectDefensePenalty:
+		if target != nil {
+			// Does not stack: the largest penalty stands
+			target.DefensePenalty = max(target.DefensePenalty, actor.RiderAmount(effect, 0, nil))
+		}
+		return nil
+	case models.FeatureEffectMarkHP:
+		return fr.resolveMarkHP(effect, target, result)
 	case models.FeatureEffectApplyTaunt:
 		return fr.applyCondition(actor, target, models.ConditionTaunted, effect.Duration)
 	case models.FeatureEffectApplyHidden:
@@ -220,7 +241,9 @@ func (fr *FeatureResolver) ResolveEffect(
 		state.AddFear(effect.Magnitude)
 		return nil
 	case models.FeatureEffectGrantArmor:
-		return fr.resolveGrantArmor(effect, target)
+		return fr.resolveGrantArmor(effect, actor, state)
+	case models.FeatureEffectArmorClear:
+		return fr.resolveArmorClear(effect, actor, state)
 	case models.FeatureEffectAllySpotlight:
 		return fr.resolveAllySpotlight(effect, actor, state)
 	case models.FeatureEffectSummonAllies:
@@ -229,7 +252,10 @@ func (fr *FeatureResolver) ResolveEffect(
 	// Passives read elsewhere (damage pipeline, stat block load, shielding) and tokens handled by the activation
 	case models.FeatureEffectDamageResistance, models.FeatureEffectDamageVulnerability,
 		models.FeatureEffectDamageReduction, models.FeatureEffectSpotlightModifier,
-		models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend, models.FeatureEffectRedirectDamage:
+		models.FeatureEffectTokenPlace, models.FeatureEffectTokenSpend, models.FeatureEffectRedirectDamage,
+		models.FeatureEffectDamageBonus, models.FeatureEffectSeverityReduction,
+		models.FeatureEffectConditionImmunity, models.FeatureEffectTokenOnDamage,
+		models.FeatureEffectDamageMultiplier, models.FeatureEffectAttackBonus, models.FeatureEffectEvasionBonus:
 		return nil
 
 	default:
@@ -239,7 +265,8 @@ func (fr *FeatureResolver) ResolveEffect(
 
 // rollDCCheck makes the actor's roll against a target's defense or a fixed Difficulty.
 // Players roll Duality Dice and generate Hope or Fear; adversaries roll a d20.
-func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType string, fixedDC int, state *models.CombatState) DCCheckResult {
+// rollTrait names the trait a PC rolls with: "" for the weapon trait, "spellcast", or a trait.
+func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType string, fixedDC int, rollTrait string, state *models.CombatState) DCCheckResult {
 	result := DCCheckResult{Success: true}
 
 	switch dcType {
@@ -257,31 +284,46 @@ func (fr *FeatureResolver) rollDCCheck(actor, target *models.Combatant, dcType s
 
 	hasAdv := target != nil && target.HasCondition(models.ConditionVulnerable)
 	hasDisadv := target != nil && target.HasCondition(models.ConditionHidden)
+	hasAdv = hasAdv || actor.HasCondition(models.ConditionAdvantage)
+	hasDisadv = hasDisadv || actor.HasCondition(models.ConditionDisadvantage)
 
+	result.RollParts = []models.LogPart{{Label: actor.RollLabel(rollTrait), Value: actor.RollModifier(rollTrait)}}
 	if actor.Side != models.SidePlayer {
 		roll := rollAdversaryD20(fr.dice, actor.GetAttackBonus(), hasAdv, hasDisadv)
+		// The GM rolls a second d20 and keeps the better or worse one, so there is no number to add
+		if hasAdv && !hasDisadv {
+			result.RollParts = append(result.RollParts, models.LogPart{Label: "advantage"})
+		} else if hasDisadv && !hasAdv {
+			result.RollParts = append(result.RollParts, models.LogPart{Label: "disadvantage"})
+		}
 		result.D20Roll = roll.D20Roll
 		result.TotalRoll = roll.Total
 		result.IsCritical = roll.IsCritical
 		result.Success = roll.IsCritical || roll.Total >= result.DC
+		if result.Success && !roll.IsCritical && result.VsDefense && fr.evades(target, actor, roll.Total, state) {
+			result.Success = false
+		}
 		return result
 	}
 
-	hasAdv = hasAdv || actor.HasCondition(models.ConditionAdvantage)
-	hasDisadv = hasDisadv || actor.HasCondition(models.ConditionDisadvantage)
-	hopeModifier := actor.GetAttackBonus()
+	result.RollParts = append(result.RollParts, actor.AttackRollParts(fr.dice)...)
 	if hasAdv && !hasDisadv {
-		hopeModifier += fr.dice.RollDice(1, 6, 0)
+		result.RollParts = append(result.RollParts, models.LogPart{Label: "advantage d6", Value: fr.dice.RollDice(1, 6, 0)})
 	} else if hasDisadv && !hasAdv {
-		hopeModifier -= fr.dice.RollDice(1, 6, 0)
+		result.RollParts = append(result.RollParts, models.LogPart{Label: "disadvantage d6", Value: -fr.dice.RollDice(1, 6, 0)})
 	}
 
-	roll := fr.dice.RollDuality(hopeModifier, 0)
+	roll := fr.dice.RollDuality(models.SumParts(result.RollParts), 0)
 	result.HopeDie = roll.HopeDie
 	result.FearDie = roll.FearDie
 	result.TotalRoll = roll.WithSpirit
 	result.IsCritical = roll.IsCritical
 
+	actor.RolledFear = roll.Result == models.ResultFear
+	actor.LastRollTotal = roll.WithSpirit
+	if roll.IsCritical {
+		actor.LastRollTotal = criticalRollTotal
+	}
 	if roll.Result == models.ResultFear {
 		state.AddFear(1)
 		result.FearGenerated = 1
@@ -314,10 +356,10 @@ func spendTokens(effects []models.FeatureEffect, held *int) error {
 }
 
 // placeTokens adds every token_place effect to held, capped at limit when limit is set
-func placeTokens(effects []models.FeatureEffect, held *int, limit int) {
+func placeTokens(effects []models.FeatureEffect, actor *models.Combatant, held *int, limit int) {
 	for _, effect := range effects {
 		if effect.Category == models.FeatureEffectTokenPlace {
-			*held += effect.Magnitude
+			*held += effect.Magnitude * actor.ScaleValue(effect.ScaleBy)
 		}
 	}
 	if limit > 0 && *held > limit {
@@ -364,6 +406,16 @@ func (fr *FeatureResolver) CanActivateDomainAbility(ability models.DomainAbility
 	if ability.MaxUses > 0 && ability.UsesLeft <= 0 {
 		return false
 	}
+	for _, effect := range ability.Effects {
+		// Taking Fear from the GM needs Fear to take
+		if effect.Category == models.FeatureEffectFearGenerate && effect.Magnitude < 0 && state != nil && state.FearPool == 0 {
+			return false
+		}
+		// "All other targets" needs someone besides the target
+		if effect.OthersOnly && state != nil && len(state.GetEnemiesOf(actor)) < 2 {
+			return false
+		}
+	}
 	held := ability.TokensHeld
 	return spendTokens(ability.Effects, &held) == nil && !lacksRecipient(ability.Effects, actor, state)
 }
@@ -386,7 +438,7 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 		feature.UsesLeft--
 	}
 
-	dcResult = fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, state)
+	dcResult = fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, "", state)
 
 	if dcResult.Success || !feature.CostOnSuccess {
 		state.SpendFear(feature.FearCost)
@@ -399,7 +451,8 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 	if err := fr.resolveEffects("feature "+feature.Name, feature.Effects, actor, target, state, &dcResult); err != nil {
 		return err, dcResult
 	}
-	placeTokens(feature.Effects, &feature.TokensHeld, feature.TokensMax)
+	placeTokens(feature.Effects, actor, &feature.TokensHeld, feature.TokensMax)
+	actor.DropBlockedConditions()
 	return nil, dcResult
 }
 
@@ -424,7 +477,7 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 		ability.UsesLeft--
 	}
 
-	dcResult = fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, state)
+	dcResult = fr.rollDCCheck(actor, target, ability.DCType, ability.FixedDC, ability.RollTrait, state)
 
 	if err := spendTokens(ability.Effects, &ability.TokensHeld); err != nil {
 		return err, dcResult
@@ -432,15 +485,37 @@ func (fr *FeatureResolver) ActivateDomainAbility(
 	if err := fr.resolveEffects("ability "+ability.Name, ability.Effects, actor, target, state, &dcResult); err != nil {
 		return err, dcResult
 	}
-	placeTokens(ability.Effects, &ability.TokensHeld, ability.TokensMax)
+	placeTokens(ability.Effects, actor, &ability.TokensHeld, ability.TokensMax)
+	actor.DropBlockedConditions()
 	return nil, dcResult
+}
+
+// afterDamageDealt steps the actor's token dice once a damage roll has marked a Hit Point,
+// and logs any feature whose die ran out
+func (fr *FeatureResolver) afterDamageDealt(actor *models.Combatant, state *models.CombatState) {
+	if actor == nil {
+		return
+	}
+	for _, name := range actor.StepTokensOnDamage() {
+		if state == nil {
+			continue
+		}
+		state.MarkConsequence()
+		state.RecordAction(models.ActionParams{
+			Actor:       actor,
+			ActionType:  models.ActionUseAbility,
+			FeatureName: name,
+			IsFeature:   true,
+			Result:      "Ends: its die passed the maximum",
+		})
+	}
 }
 
 // ErrFeatureMissed marks a feature whose attack or DC roll failed: a normal outcome, not a fault.
 var ErrFeatureMissed = errors.New("failed DC check")
 
 // recordTriggered logs a passive that fired, so reactions show up in the combat log
-func recordTriggered(state *models.CombatState, actor *models.Combatant, name string, err error, dcResult DCCheckResult) {
+func recordTriggered(state *models.CombatState, actor, target *models.Combatant, name string, err error, dcResult DCCheckResult) {
 	recordReactions(state, name, dcResult)
 	result := "Triggered"
 	switch {
@@ -449,7 +524,7 @@ func recordTriggered(state *models.CombatState, actor *models.Combatant, name st
 	case err != nil:
 		result = fmt.Sprintf("Triggered: %v", err)
 	}
-	state.RecordAction(models.ActionParams{
+	params := models.ActionParams{
 		Actor:         actor,
 		ActionType:    models.ActionUseAbility,
 		FeatureName:   name,
@@ -460,7 +535,20 @@ func recordTriggered(state *models.CombatState, actor *models.Combatant, name st
 		D20Roll:       dcResult.D20Roll,
 		TotalRoll:     dcResult.TotalRoll,
 		TargetDefense: dcResult.DC,
-	})
+		RollParts:     dcResult.RollParts,
+		VsDefense:     dcResult.VsDefense,
+	}
+	// A passive that dealt damage shows whom it hit and how the damage came about
+	if dcResult.DamageRoll > 0 || dcResult.DamageDealt > 0 {
+		params.Target = target
+		if dcResult.RedirectedTo != nil {
+			params.Target = dcResult.RedirectedTo
+		}
+		params.DamageRoll, params.DamageParts, params.DamageFormula = dcResult.DamageRoll, dcResult.DamageParts, dcResult.DamageFormula
+		params.ProcessedDamage, params.HPDamage, params.Threshold = dcResult.ProcessedDamage, dcResult.DamageDealt, dcResult.Threshold
+		params.TargetsHit, params.DamageResult = dcResult.TargetsHit, dcResult.DamageResult
+	}
+	state.RecordAction(params)
 }
 
 // ProcessTriggeredFeatures fires the actor's passives whose trigger matches
@@ -479,8 +567,9 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		if !fr.CanActivateAdversaryFeature(feature, actor, state) {
 			continue
 		}
+		state.MarkConsequence()
 		err, dcResult := fr.ActivateAdversaryFeature(feature, actor, target, state)
-		recordTriggered(state, actor, feature.Name, err, dcResult)
+		recordTriggered(state, actor, target, feature.Name, err, dcResult)
 	}
 
 	for i := range actor.DomainAbilities {
@@ -488,11 +577,147 @@ func (fr *FeatureResolver) ProcessTriggeredFeatures(
 		if !ability.Passive || !fr.shouldTrigger(ability.Trigger, triggerType, isCritical, actor, target) {
 			continue
 		}
-		if !fr.CanActivateDomainAbility(*ability, actor, state) {
+		if !actor.KeepsHalfStress(ability.StressCost) || alreadyInPlace(ability.Effects, actor, target) || !fr.CanActivateDomainAbility(*ability, actor, state) {
 			continue
 		}
+		state.MarkConsequence()
 		err, dcResult := fr.ActivateDomainAbility(ability, actor, target, state)
-		recordTriggered(state, actor, ability.Name, err, dcResult)
+		recordTriggered(state, actor, target, ability.Name, err, dcResult)
+	}
+}
+
+// alreadyInPlace reports a passive that would only repeat what its target already suffers:
+// every effect is a condition the target has or a penalty at least as large as the new one
+func alreadyInPlace(effects []models.FeatureEffect, actor, target *models.Combatant) bool {
+	if target == nil || len(effects) == 0 {
+		return false
+	}
+	for _, effect := range effects {
+		switch effect.Category {
+		case models.FeatureEffectApplyVulnerable:
+			if !target.HasCondition(models.ConditionVulnerable) && !target.ImmuneTo(models.ConditionVulnerable) {
+				return false
+			}
+		case models.FeatureEffectApplyDisadvantage:
+			if !target.HasCondition(models.ConditionDisadvantage) {
+				return false
+			}
+		case models.FeatureEffectDefensePenalty:
+			if target.DefensePenalty < actor.RiderAmount(effect, 0, nil) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// damageRiders fires the attacker's on_damage_roll passives for a weapon attack that hit. Each
+// pays its cost; they return what each adds to the damage roll, and what multiplies it and why.
+func (fr *FeatureResolver) damageRiders(actor, target *models.Combatant, state *models.CombatState) (parts []models.LogPart, factor int, multipliers []string) {
+	factor = 1
+	if actor == nil || state == nil {
+		return parts, factor, multipliers
+	}
+	for i := range actor.DomainAbilities {
+		ability := &actor.DomainAbilities[i]
+		if !ability.Passive || !fr.shouldTrigger(ability.Trigger, models.TriggerOnDamageRoll, false, actor, target) {
+			continue
+		}
+		if !actor.KeepsHalfStress(ability.StressCost) || !fr.CanActivateDomainAbility(*ability, actor, state) {
+			continue
+		}
+		tokens := ability.TokensHeld
+		err, dcResult := fr.ActivateDomainAbility(ability, actor, target, state)
+		recordTriggered(state, actor, target, ability.Name, err, dcResult)
+		if err != nil {
+			continue
+		}
+		for _, effect := range ability.Effects {
+			switch effect.Category {
+			case models.FeatureEffectDamageBonus:
+				parts = append(parts, models.LogPart{Label: ability.Name, Value: actor.RiderAmount(effect, tokens, fr.dice)})
+			case models.FeatureEffectDamageMultiplier:
+				factor *= max(effect.Magnitude, 1)
+				multipliers = append(multipliers, ability.Name)
+			}
+		}
+	}
+	return parts, factor, multipliers
+}
+
+// finishDamage applies the multipliers and halvings that come after everything is added up,
+// recording each as a part so the log still sums to the total
+func finishDamage(total int, parts []models.LogPart, factor int, multipliers []string, halvings ...string) (int, []models.LogPart) {
+	if factor > 1 {
+		parts = append(parts, models.LogPart{Label: fmt.Sprintf("%s x%d", strings.Join(multipliers, ", "), factor), Value: total * (factor - 1)})
+		total *= factor
+	}
+	for _, why := range halvings {
+		parts = append(parts, models.LogPart{Label: why, Value: total/2 - total})
+		total /= 2
+	}
+	return total, parts
+}
+
+// evades lets a PC's on_attacked passives turn an attack roll that would hit into a miss.
+// A reaction is only paid for when its best result could still beat the roll.
+func (fr *FeatureResolver) evades(defender, attacker *models.Combatant, attackTotal int, state *models.CombatState) bool {
+	if defender == nil || state == nil {
+		return false
+	}
+	short := attackTotal - defender.GetDefense() + 1
+	for i := range defender.DomainAbilities {
+		ability := &defender.DomainAbilities[i]
+		if !ability.Passive || !fr.shouldTrigger(ability.Trigger, models.TriggerOnAttacked, false, defender, attacker) {
+			continue
+		}
+		best := 0
+		for _, effect := range ability.Effects {
+			if effect.Category == models.FeatureEffectEvasionBonus {
+				best += defender.RiderAmount(effect, ability.TokensHeld, maxRoller{})
+			}
+		}
+		if best < short || !defender.KeepsStressReserve(ability.StressCost) || !fr.CanActivateDomainAbility(*ability, defender, state) {
+			continue
+		}
+		tokens := ability.TokensHeld
+		err, dcResult := fr.ActivateDomainAbility(ability, defender, attacker, state)
+		recordTriggered(state, defender, attacker, ability.Name, err, dcResult)
+		if err != nil {
+			continue
+		}
+		for _, effect := range ability.Effects {
+			if effect.Category == models.FeatureEffectEvasionBonus {
+				short -= defender.RiderAmount(effect, tokens, fr.dice)
+			}
+		}
+		if short <= 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// criticalRollTotal stands for a critical success when a roll is reused: it beats any Difficulty
+const criticalRollTotal = 1000
+
+// maxRoller rolls every die at its highest face, to see the most a bonus could be
+type maxRoller struct{}
+
+func (maxRoller) RollDice(diceCount, diceSize, flatBonus int) int {
+	return diceCount*diceSize + flatBonus
+}
+
+// logReactions records the on_damage_incoming passives a target paid for to soften a hit
+func logReactions(state *models.CombatState, target *models.Combatant, damageRes models.DamageResult) {
+	if state == nil {
+		return
+	}
+	for _, name := range damageRes.Reactions {
+		state.MarkConsequence()
+		recordTriggered(state, target, nil, name, nil, DCCheckResult{})
 	}
 }
 
@@ -510,8 +735,10 @@ func (fr *FeatureResolver) shouldTrigger(
 	if triggerType == models.TriggerOnCritical && !isCritical {
 		return false
 	}
-	if trigger.Filter != "" {
-		return fr.evaluateFilter(trigger.Filter, actor, target)
+	for _, part := range strings.Split(trigger.Filter, "+") {
+		if part != "" && !fr.evaluateFilter(part, actor, target) {
+			return false
+		}
 	}
 	return true
 }
@@ -528,7 +755,15 @@ func (fr *FeatureResolver) evaluateFilter(filter string, actor *models.Combatant
 		return actor.HasCondition(models.ConditionHidden)
 	case "if_ally_adjacent":
 		return false
+	case "if_target_vulnerable":
+		return target != nil && target.HasCondition(models.ConditionVulnerable)
+	case "if_target_fully_stressed":
+		return target != nil && target.MeetsFilter("if_fully_stressed")
+	case "if_dealt_severe":
+		return target != nil && target.LastSeverity == models.ThresholdSevere
+	case "if_took_severe":
+		return actor.LastSeverity == models.ThresholdSevere
 	default:
-		return true
+		return actor.MeetsFilter(filter)
 	}
 }
