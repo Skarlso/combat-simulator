@@ -60,6 +60,8 @@ func (ce *CombatEngine) executeTurn(actor *models.Combatant, decision *strategy.
 
 	// Process start-of-turn triggered features
 	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerStartTurn, false)
+	// A stance that could not be paid for when the fight began gets another chance
+	ce.featureResolver.ProcessTriggeredFeatures(actor, nil, state, models.TriggerStartCombat, false)
 
 	// Burning/poison ticks can defeat the actor before they act
 	if !actor.IsAlive() {
@@ -155,6 +157,7 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, before
 		DamageRoll:      dcResult.DamageRoll,
 		DamageParts:     dcResult.DamageParts,
 		DamageFormula:   dcResult.DamageFormula,
+		Notes:           dcResult.Notes,
 		RollParts:       dcResult.RollParts,
 		VsDefense:       dcResult.VsDefense,
 		ProcessedDamage: dcResult.ProcessedDamage,
@@ -492,15 +495,24 @@ func (ce *CombatEngine) drainPendingSpotlights(state *models.CombatState, dm Dec
 	}
 }
 
+// beginCombat switches on what combatants declare before the fight starts, such as Unstoppable:
+// nobody has to wait for their first turn, or be hit before they ever get one
+func (ce *CombatEngine) beginCombat(state *models.CombatState) {
+	for _, c := range slices.Concat(state.Players, state.Enemies) {
+		ce.featureResolver.ProcessTriggeredFeatures(c, nil, state, models.TriggerStartCombat, false)
+	}
+}
+
 func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker DecisionMaker, maxTurns int, enemyFearUsage strategy.ResourceUsageStrategy) *CombatOutcome {
 	turnCount := 0
 	roundCount := 0
+	ce.beginCombat(state)
 
 	for !state.IsCombatOver() && turnCount < maxTurns {
 		// === PLAYER PHASE ===
 		for !state.IsCombatOver() && turnCount < maxTurns {
 			if ce.shouldGMSeizeSpotlight(state, enemyFearUsage) {
-				state.SpendFear(1)
+				state.SpendFearFor(1, "to seize the spotlight")
 				state.ConsecutivePlayerTurns = 0
 				gmActor := &models.Combatant{Name: "GM"}
 				state.RecordAction(models.ActionParams{
@@ -566,7 +578,7 @@ func (ce *CombatEngine) RunCombat(state *models.CombatState, decisionMaker Decis
 
 		for !state.IsCombatOver() && turnCount < maxTurns &&
 			ce.shouldSpendFearForAdditional(state, enemyFearUsage) {
-			state.SpendFear(1)
+			state.SpendFearFor(1, "for another spotlight")
 			nextEnemy := ce.chooseGMAdversary(state)
 			if nextEnemy == nil {
 				break

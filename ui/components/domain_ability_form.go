@@ -68,7 +68,7 @@ var (
 		{"on_damage_taken", "On Damage Taken"}, {"on_hit_taken", "When an attack succeeds against you"},
 		{"on_damage_incoming", "Before marking HP (softens the hit)"}, {"on_attacked", "When an attack would hit you (evade)"},
 		{"on_evaded", "When an attack against you fails"}, {"on_ally_damaged", "When an ally would take damage"},
-		{"start_turn", "Start of Turn"}, {"end_turn", "End of Turn"},
+		{"start_combat", "Start of the Fight"}, {"start_turn", "Start of Turn"}, {"end_turn", "End of Turn"},
 	}
 	triggerFilterOptions = []selectOption{
 		{"", "None"}, {"if_target_below_50_hp", "Target below 50% HP"}, {"if_hidden", "If hidden"}, {"if_ally_adjacent", "If ally adjacent"},

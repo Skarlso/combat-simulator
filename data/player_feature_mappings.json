@@ -21,7 +21,7 @@
     },
     "Unstoppable": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "max_uses": 1,
       "refresh_type": "long_rest",
       "uses_tokens": true,
@@ -33,7 +33,7 @@
           "tokens_max": 6
         }
       ],
-      "note": "Switches on at the start of the PC's first turn. The tokens are the die value: it starts at 1 and the feature ends when it would pass the maximum (d4, or d6 from level 5, read from the PC's level when added).",
+      "note": "Switches on when the fight starts. The tokens are the die value: it starts at 1 and the feature ends when it would pass the maximum (d4, or d6 from level 5, read from the PC's level when added).",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -174,14 +174,14 @@
     },
     "Toxic Concoctions": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "stress_cost": 1,
       "max_uses": 1,
       "refresh_type": "long_rest",
       "uses_tokens": true,
       "token_name": "Poison",
       "tokens_max": 3,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. 3 tokens, the average of 1d4+1. Always Leech Weed, one token per damage roll that marks a Hit Point.",
+      "note": "Switches on when the fight starts and lasts the fight. 3 tokens, the average of 1d4+1. Always Leech Weed, one token per damage roll that marks a Hit Point.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -633,13 +633,13 @@
     },
     "Transcendence": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "max_uses": 1,
       "refresh_type": "long_rest",
       "uses_tokens": true,
       "token_name": "Transcendence",
       "tokens_max": 1,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. Always +1 Proficiency and +2 Evasion.",
+      "note": "Switches on when the fight starts and lasts the fight. Always +1 Proficiency and +2 Evasion.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -686,14 +686,14 @@
     },
     "No Mercy": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "hope_cost": 3,
       "max_uses": 1,
       "refresh_type": "rest",
       "uses_tokens": true,
       "token_name": "No Mercy",
       "tokens_max": 1,
-      "note": "Switches on at the start of a turn once 3 Hope are held, and lasts the fight.",
+      "note": "Switches on when the fight starts, or at the start of a later turn once 3 Hope are held, and lasts the fight.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -773,13 +773,13 @@
     },
     "Circle of Power": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "max_uses": 1,
       "refresh_type": "rest",
       "uses_tokens": true,
       "token_name": "Circle",
       "tokens_max": 3,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. Assumes Spellcast trait 3 and that you stay in the circle. A token goes with each damage roll that marks a Hit Point rather than each action roll. The +2 to thresholds and the allies' bonuses are not modelled.",
+      "note": "Switches on when the fight starts and lasts the fight. Assumes Spellcast trait 3 and that you stay in the circle. A token goes with each damage roll that marks a Hit Point rather than each action roll. The +2 to thresholds and the allies' bonuses are not modelled.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -940,14 +940,14 @@
     },
     "Ignition": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "stress_cost": 1,
       "max_uses": 1,
       "refresh_type": "scene",
       "uses_tokens": true,
       "token_name": "Ignition",
       "tokens_max": 1,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight.",
+      "note": "Switches on when the fight starts and lasts the fight.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -963,14 +963,14 @@
     },
     "Eye of the Storm": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "hope_cost": 2,
       "max_uses": 1,
       "refresh_type": "scene",
       "uses_tokens": true,
       "token_name": "Eye of the Storm",
       "tokens_max": 1,
-      "note": "Switches on at the start of a turn once 2 Hope are held, on yourself, and lasts the fight (SRD: until you take Severe damage).",
+      "note": "Switches on when the fight starts, or at the start of a later turn once 2 Hope are held, on yourself, and lasts the fight (SRD: until you take Severe damage).",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",

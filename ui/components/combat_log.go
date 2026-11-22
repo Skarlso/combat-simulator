@@ -177,8 +177,18 @@ func (cl *CombatLog) renderLog(outcome *engine.CombatOutcome) app.UI {
 			app.Span().Class("log-col-target").Body(app.Text(targetText), stateLine(action.TargetState)),
 			app.Span().Class("log-col-dice").Body(diceRollCell(action)),
 			app.Span().Class("log-col-damage").Body(damageCell(action)),
-			app.Span().Class("log-col-result").Text(resultText(action)),
-			app.Span().Class("log-col-pools").Text(poolsText(action)),
+			app.Span().Class("log-col-result").Body(
+				app.Text(resultText(action)),
+				app.Range(action.Notes).Slice(func(i int) app.UI {
+					return app.Span().Class("log-note").Text(action.Notes[i])
+				}),
+			),
+			app.Span().Class("log-col-pools").Body(
+				app.Text(poolsText(action)),
+				app.If(len(action.FearChanges) > 0, func() app.UI {
+					return app.Span().Class("log-state").Text(fearChangesText(action.FearChanges))
+				}),
+			),
 		))
 	}
 
@@ -340,6 +350,24 @@ func resultText(action models.ActionRecord) string {
 		text += fmt.Sprintf(" (armor: %d→%d slots)", action.ArmorSlotsBefore, action.ArmorSlotsAfter)
 	}
 	return text
+}
+
+// fearChangesText spells out what moved the Fear pool on this row: "Fear -1 for another
+// spotlight, +2 no Armor Slot to mark". The same reason on several targets is added up.
+func fearChangesText(changes []models.LogPart) string {
+	var order []string
+	totals := map[string]int{}
+	for _, c := range changes {
+		if _, seen := totals[c.Label]; !seen {
+			order = append(order, c.Label)
+		}
+		totals[c.Label] += c.Value
+	}
+	parts := make([]string, len(order))
+	for i, label := range order {
+		parts[i] = fmt.Sprintf("%+d %s", totals[label], label)
+	}
+	return "Fear " + strings.Join(parts, ", ")
 }
 
 func poolsText(action models.ActionRecord) string {

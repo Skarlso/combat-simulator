@@ -32,6 +32,8 @@ type DCCheckResult struct {
 	RollParts     []models.LogPart
 	DamageParts   []models.LogPart
 	DamageFormula string
+	// Things the row should spell out because no number on it shows them
+	Notes []string
 	// Damage tracking (populated during effect resolution)
 	TargetsHit      int                    // Targets an area effect damaged
 	DamageDealt     int                    // HP damage actually dealt to target
@@ -234,11 +236,11 @@ func (fr *FeatureResolver) ResolveEffect(
 	case models.FeatureEffectHPHeal:
 		return fr.resolveHPHeal(effect, actor, state)
 	case models.FeatureEffectArmorDamage:
-		return fr.resolveArmorDamage(effect, target, state)
+		return fr.resolveArmorDamage(effect, target, state, result)
 	case models.FeatureEffectHopeDrain:
 		return fr.resolveHopeDrain(effect, target)
 	case models.FeatureEffectFearGenerate:
-		state.AddFear(effect.Magnitude)
+		state.AddFearFor(effect.Magnitude, "from the feature")
 		return nil
 	case models.FeatureEffectGrantArmor:
 		return fr.resolveGrantArmor(effect, actor, state)
@@ -441,7 +443,7 @@ func (fr *FeatureResolver) ActivateAdversaryFeature(
 	dcResult = fr.rollDCCheck(actor, target, feature.DCType, feature.FixedDC, "", state)
 
 	if dcResult.Success || !feature.CostOnSuccess {
-		state.SpendFear(feature.FearCost)
+		state.SpendFearFor(feature.FearCost, "to use "+feature.Name)
 		actor.AddStress(feature.StressCost)
 	}
 
@@ -537,6 +539,7 @@ func recordTriggered(state *models.CombatState, actor, target *models.Combatant,
 		TargetDefense: dcResult.DC,
 		RollParts:     dcResult.RollParts,
 		VsDefense:     dcResult.VsDefense,
+		Notes:         dcResult.Notes,
 	}
 	// A passive that dealt damage shows whom it hit and how the damage came about
 	if dcResult.DamageRoll > 0 || dcResult.DamageDealt > 0 {

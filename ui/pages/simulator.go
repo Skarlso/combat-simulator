@@ -175,6 +175,12 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 						p.players = append(p.players, c)
 						ctx.Update()
 					},
+					OnUpdate: func(ctx app.Context, idx int, c *models.Combatant) {
+						if idx >= 0 && idx < len(p.players) {
+							p.players[idx] = c
+							ctx.Update()
+						}
+					},
 					OnRemove: func(ctx app.Context, idx int) {
 						if idx >= 0 && idx < len(p.players) {
 							p.players = append(p.players[:idx], p.players[idx+1:]...)
@@ -195,6 +201,12 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 					OnAdd: func(ctx app.Context, c *models.Combatant) {
 						p.enemies = append(p.enemies, c)
 						ctx.Update()
+					},
+					OnUpdate: func(ctx app.Context, idx int, c *models.Combatant) {
+						if idx >= 0 && idx < len(p.enemies) {
+							p.enemies[idx] = c
+							ctx.Update()
+						}
 					},
 					OnRemove: func(ctx app.Context, idx int) {
 						if idx >= 0 && idx < len(p.enemies) {

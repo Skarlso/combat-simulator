@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
@@ -18,6 +19,7 @@ type AdversaryList struct {
 	Adversaries []*models.Combatant
 	Registry    *parser.AdversaryRegistry
 	OnAdd       func(app.Context, *models.Combatant)
+	OnUpdate    func(app.Context, int, *models.Combatant)
 	OnRemove    func(app.Context, int)
 
 	// Library picker state
@@ -27,7 +29,9 @@ type AdversaryList struct {
 	libraryType   string
 	libraryAdds   int
 
-	showForm            bool
+	showForm bool
+	// Row the form is editing; -1 while it builds a new adversary
+	editingIndex        int
 	sectionOpen         map[string]bool
 	newName             string
 	newTier             string
@@ -60,8 +64,14 @@ func (al *AdversaryList) Render() app.UI {
 				al.showLibrary = !al.showLibrary
 				ctx.Update()
 			}),
-			app.Button().Class(toggleClass("btn btn-small", al.showForm, "active")).Text("+ Custom").OnClick(func(ctx app.Context, e app.Event) {
-				al.showForm = !al.showForm
+			app.Button().Class(toggleClass("btn btn-small", al.showForm && al.editingIndex < 0, "active")).Text("+ Custom").OnClick(func(ctx app.Context, e app.Event) {
+				// From an edit, "+ Custom" switches the open form to a blank one
+				if al.editingIndex >= 0 {
+					al.resetForm()
+					al.showForm = true
+				} else {
+					al.showForm = !al.showForm
+				}
 				ctx.Update()
 			}),
 			app.Button().Class(toggleClass("btn btn-small", al.importer.show, "active")).Text("Import JSON").OnClick(func(ctx app.Context, e app.Event) {
@@ -227,7 +237,7 @@ func (al *AdversaryList) renderList() app.UI {
 
 	items := make([]app.UI, len(al.Adversaries))
 	for i, adversary := range al.Adversaries {
-		items[i] = app.Div().Class("adversary-item combatant-item").Body(
+		items[i] = app.Div().Class(toggleClass("adversary-item combatant-item", al.editingIndex == i, "editing")).Body(
 			app.Div().Class("adversary-info").Body(
 				app.Div().Class("item-title").Body(
 					app.Text(adversary.Name),
@@ -248,10 +258,18 @@ func (al *AdversaryList) renderList() app.UI {
 				),
 			),
 			app.Div().Class("item-actions").Body(
+				app.Button().Class("btn btn-small").Text("Edit").OnClick(func(ctx app.Context, e app.Event) {
+					al.startEditing(ctx, i)
+				}),
 				app.Button().Class("btn btn-small").Text("Duplicate").OnClick(func(ctx app.Context, e app.Event) {
 					al.duplicateAdversary(ctx, i)
 				}),
 				app.Button().Class("btn btn-danger btn-small").Text("Remove").OnClick(func(ctx app.Context, e app.Event) {
+					if al.editingIndex == i {
+						al.showForm = false
+						al.resetForm()
+					}
+					al.editingIndex = indexAfterRemoval(al.editingIndex, i)
 					if al.OnRemove != nil {
 						al.OnRemove(ctx, i)
 					}
@@ -271,14 +289,20 @@ func (al *AdversaryList) section(key, label string, body ...app.UI) []app.UI {
 }
 
 var (
-	tierOptions         = []selectOption{{"Tier 1", "Tier 1"}, {"Tier 2", "Tier 2"}, {"Tier 3", "Tier 3"}, {"Tier 4", "Tier 4"}, {"Tier 5", "Tier 5"}}
-	customTypeOptions   = []selectOption{{"Minion", "Minion"}, {"Standard", "Standard"}, {"Elite", "Elite"}, {"Solo", "Solo"}, {"Horde", "Horde"}}
+	tierOptions = []selectOption{{"Tier 1", "Tier 1"}, {"Tier 2", "Tier 2"}, {"Tier 3", "Tier 3"}, {"Tier 4", "Tier 4"}, {"Tier 5", "Tier 5"}}
+	// Every SRD adversary type, so a library stat block can be edited without losing its own
+	customTypeOptions = []selectOption{{"Minion", "Minion"}, {"Standard", "Standard"}, {"Elite", "Elite"}, {"Solo", "Solo"}, {"Horde", "Horde"},
+		{"Bruiser", "Bruiser"}, {"Leader", "Leader"}, {"Ranged", "Ranged"}, {"Skulk", "Skulk"}, {"Social", "Social"}, {"Support", "Support"}}
 	summonTemplateLabel = "Summon Template Only (won't fight unless summoned)"
 )
 
 // renderAddForm renders the form for adding a new adversary
 func (al *AdversaryList) renderAddForm() app.UI {
-	body := []app.UI{app.H4().Text("Add New Adversary")}
+	title, saveText := "Add New Adversary", "Add Adversary"
+	if al.editingIndex >= 0 {
+		title, saveText = "Edit "+al.Adversaries[al.editingIndex].Name, "Save Changes"
+	}
+	body := []app.UI{app.H4().Text(title)}
 	body = append(body, al.section("identity", "Identity",
 		textField("Name", "Ancient Witch", &al.newName, false),
 		app.Div().Class("form-row").Body(
@@ -319,8 +343,8 @@ func (al *AdversaryList) renderAddForm() app.UI {
 			OnChange:             func(updated []*models.AdversaryFeature) { al.newFeatures = updated },
 		},
 	)...)
-	body = append(body, formActions("Add Adversary", al.newName == "" || al.newTier == "" || al.newType == "",
-		func(ctx app.Context, e app.Event) { al.addAdversary(ctx) },
+	body = append(body, formActions(saveText, al.newName == "" || al.newTier == "" || al.newType == "",
+		func(ctx app.Context, e app.Event) { al.saveAdversary(ctx) },
 		func(ctx app.Context, e app.Event) {
 			al.showForm = false
 			al.resetForm()
@@ -328,7 +352,38 @@ func (al *AdversaryList) renderAddForm() app.UI {
 		},
 	))
 
-	return app.Div().Class("add-form").Body(body...)
+	return app.Div().Class("add-form").ID(adversaryFormID).Body(body...)
+}
+
+const adversaryFormID = "adversary-form"
+
+// startEditing opens the form on an existing adversary. Features are copied, so nothing
+// changes until the form is saved.
+func (al *AdversaryList) startEditing(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(al.Adversaries) {
+		return
+	}
+	adv := al.Adversaries[idx]
+	al.resetForm()
+	al.editingIndex = idx
+	al.showForm = true
+	al.sectionOpen = map[string]bool{"identity": true, "stats": true, "combat": true, "features": true}
+
+	al.newName = adv.Name
+	al.newTier, al.newType = adv.Tier, adv.AdversaryType
+	al.newDifficulty, al.newATK = adv.Difficulty, adv.ATK
+	al.newHP, al.newStress = adv.HPMax, adv.StressMax
+	al.newMinorThreshold, al.newMajorThreshold = adv.Thresholds()
+	al.newDamageDice = adv.DamageDice
+	al.newMotives = adv.Motives
+	al.newIsSummonTemplate = adv.IsSummonTemplate
+	for _, feature := range adv.AdversaryFeatures {
+		feature.Effects = slices.Clone(feature.Effects)
+		al.newFeatures = append(al.newFeatures, &feature)
+	}
+
+	ctx.Update()
+	ctx.ScrollTo(adversaryFormID)
 }
 
 func (al *AdversaryList) duplicateAdversary(ctx app.Context, idx int) {
@@ -343,13 +398,24 @@ func (al *AdversaryList) duplicateAdversary(ctx app.Context, idx int) {
 	}
 }
 
-// addAdversary creates a new adversary and adds it to the list
-func (al *AdversaryList) addAdversary(ctx app.Context) {
+// saveAdversary adds the form's adversary, or replaces the one being edited with it
+func (al *AdversaryList) saveAdversary(ctx app.Context) {
+	editing := al.editingIndex >= 0 && al.editingIndex < len(al.Adversaries)
 	adversary := models.NewAdversary(
 		fmt.Sprintf("enemy-%d", len(al.Adversaries)),
 		al.newName, al.newTier, al.newType, al.newDifficulty, al.newATK, al.newHP, al.newStress,
 		[]int{al.newMinorThreshold, al.newMajorThreshold},
 	)
+	if editing {
+		// Start from the original so its ID, Experiences and spotlight limit are kept
+		original := *al.Adversaries[al.editingIndex]
+		adversary = &original
+		adversary.Name, adversary.Tier, adversary.AdversaryType = al.newName, al.newTier, al.newType
+		adversary.Difficulty, adversary.ATK = al.newDifficulty, al.newATK
+		adversary.HP, adversary.HPMax, adversary.StressMax = al.newHP, al.newHP, al.newStress
+		adversary.CustomThresholds = []int{al.newMinorThreshold, al.newMajorThreshold}
+		adversary.AdversaryFeatures, adversary.Resistances = nil, nil
+	}
 	adversary.DamageDice = al.newDamageDice
 	adversary.Motives = al.newMotives
 	adversary.Tactics = al.newMotives
@@ -359,7 +425,10 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 	}
 	adversary.ApplyPassiveResistances()
 
-	if al.OnAdd != nil {
+	switch {
+	case editing && al.OnUpdate != nil:
+		al.OnUpdate(ctx, al.editingIndex, adversary)
+	case !editing && al.OnAdd != nil:
 		al.OnAdd(ctx, adversary)
 	}
 	al.showForm = false
@@ -369,6 +438,7 @@ func (al *AdversaryList) addAdversary(ctx app.Context) {
 
 // resetForm resets the form to default values
 func (al *AdversaryList) resetForm() {
+	al.editingIndex = -1
 	al.newName = ""
 	al.newTier = "Tier 1"
 	al.newType = "Standard"

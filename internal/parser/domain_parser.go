@@ -314,7 +314,7 @@ func playerFeatures(file playerFeaturesFile) []LibraryAbility {
 var (
 	knownTriggers = []models.FeatureTriggerType{"",
 		models.TriggerOnAttack, models.TriggerOnHit, models.TriggerOnDamageTaken, models.TriggerOnHitTaken,
-		models.TriggerOnCritical, models.TriggerStartTurn, models.TriggerEndTurn, models.TriggerOnAllyDamaged,
+		models.TriggerOnCritical, models.TriggerStartTurn, models.TriggerStartCombat, models.TriggerEndTurn, models.TriggerOnAllyDamaged,
 		models.TriggerOnMiss, models.TriggerOnDamageDealt, models.TriggerOnEvaded,
 		models.TriggerOnDamageRoll, models.TriggerOnDamageIncoming, models.TriggerOnAttacked,
 	}

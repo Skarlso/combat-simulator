@@ -849,13 +849,13 @@ button, input, select, textarea {
 
 .log-row {
   display: grid;
-  grid-template-columns: 56px 190px 150px 190px minmax(200px, 1fr) minmax(280px, 1.7fr) minmax(220px, 1.2fr) 112px;
+  grid-template-columns: 56px 176px 150px 176px minmax(200px, 1fr) minmax(280px, 1.7fr) minmax(220px, 1.2fr) 160px;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
   border-bottom: 1px solid var(--border);
   font-size: var(--text-xs);
   /* The columns' own minimums plus gaps and padding: narrower than this and cells would spill past the row's background */
-  min-width: calc(56px + 190px + 150px + 190px + 200px + 280px + 220px + 112px + 7 * var(--space-2) + 2 * var(--space-3));
+  min-width: calc(56px + 176px + 150px + 176px + 200px + 280px + 220px + 160px + 7 * var(--space-2) + 2 * var(--space-3));
   align-items: start;
 }
 
@@ -878,8 +878,8 @@ button, input, select, textarea {
 .log-row-critical { background: var(--hope-soft); box-shadow: inset 3px 0 0 var(--hope); }
 .log-row-feature { background: var(--fear-soft); box-shadow: inset 3px 0 0 var(--fear); }
 
-.log-col-turn,
-.log-col-pools { white-space: nowrap; }
+.log-col-turn { white-space: nowrap; }
+.log-col-pools .log-state { white-space: normal; }
 
 .log-col-turn { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .log-col-actor { font-weight: 500; }
@@ -891,7 +891,8 @@ button, input, select, textarea {
 .log-col-damage,
 .log-col-result { white-space: normal; overflow-wrap: break-word; line-height: 1.4; }
 
-.log-damage-roll { display: block; }
+.log-damage-roll,
+.log-note { display: block; }
 .log-damage-marked { font-weight: 700; }
 .log-severity { color: var(--text-2); font-weight: 400; }
 
@@ -998,7 +999,8 @@ button, input, select, textarea {
 .ability-effect,
 .ability-desc { font-size: var(--text-xs); color: var(--text-muted); margin-top: 2px; }
 
-.ability-item.editing { border-color: var(--fear); background: var(--fear-soft); }
+.ability-item.editing,
+.combatant-item.editing { border-color: var(--fear); background: var(--fear-soft); }
 
 /* Responsive */
 @media (max-width: 768px) {

@@ -12,7 +12,7 @@ import (
 func unstoppable(dieSize int) models.DomainAbility {
 	return models.DomainAbility{
 		Name: "Unstoppable", Passive: true, MaxUses: 1, UsesLeft: 1, RefreshType: "long_rest",
-		Trigger:    models.FeatureTriggerCondition{Type: models.TriggerStartTurn},
+		Trigger:    models.FeatureTriggerCondition{Type: models.TriggerStartCombat},
 		UsesTokens: true, TokenName: "Unstoppable Die", TokensMax: dieSize,
 		Effects: []models.FeatureEffect{
 			{Category: models.FeatureEffectTokenPlace, Magnitude: 1},
@@ -215,5 +215,41 @@ func TestGrantArmorLandsOnTheActorNotTheTarget(t *testing.T) {
 	}
 	if guardian.ArmorSlots != 2 || ogre.ArmorSlots != 0 {
 		t.Errorf("armor: guardian %d, ogre %d; want 2 / 0", guardian.ArmorSlots, ogre.ArmorSlots)
+	}
+}
+
+// A PC who is hit before their first turn must already be Unstoppable.
+func TestStancesSwitchOnWhenTheFightStarts(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 9}, &firstPicker{})
+	first, waiting := tPlayer("p1", "First"), tPlayer("p2", "Waiting")
+	first.DomainAbilities = []models.DomainAbility{unstoppable(4)}
+	waiting.DomainAbilities = []models.DomainAbility{unstoppable(4)}
+	noMercy := models.DomainAbility{
+		Name: "No Mercy", Passive: true, HopeCost: 3, MaxUses: 1, UsesLeft: 1, UsesTokens: true, TokensMax: 1,
+		Trigger: models.FeatureTriggerCondition{Type: models.TriggerStartCombat},
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectTokenPlace, Magnitude: 1}, {Category: models.FeatureEffectAttackBonus, Magnitude: 1}},
+	}
+	first.DomainAbilities = append(first.DomainAbilities, noMercy)
+	ogre := tEnemy("e1", "Ogre", 20)
+	state := newStateWith([]*models.Combatant{first, waiting}, []*models.Combatant{ogre}, 2, 0)
+
+	ce.beginCombat(state)
+	if first.DomainAbilities[0].TokensHeld != 1 || waiting.DomainAbilities[0].TokensHeld != 1 || len(resultsFor(state, "Unstoppable")) != 2 {
+		t.Fatalf("dice %d / %d, log %v; want both PCs Unstoppable before anyone acts", first.DomainAbilities[0].TokensHeld, waiting.DomainAbilities[0].TokensHeld, resultsFor(state, "Unstoppable"))
+	}
+	// 9 is Severe for a level 3 PC; taken as Major by the one who has not had a turn
+	ce.executeAttack(ogre, waiting, state)
+	if waiting.HP != 8 {
+		t.Errorf("waiting PC at %d HP, want 8", waiting.HP)
+	}
+
+	// No Mercy costs 3 Hope: not affordable at the start with 2, so it waits for a turn that can pay
+	if first.DomainAbilities[1].TokensHeld != 0 || first.Hope != 2 {
+		t.Fatalf("No Mercy on with %d Hope left; want it waiting", first.Hope)
+	}
+	first.Hope = 3
+	ce.ExecuteTurnWithDecision(first, &strategy.ActionDecision{Target: ogre}, state)
+	if first.DomainAbilities[1].TokensHeld != 1 || len(resultsFor(state, "Unstoppable")) != 2 {
+		t.Errorf("No Mercy tokens %d, Unstoppable log %v; want No Mercy on and no second Unstoppable", first.DomainAbilities[1].TokensHeld, resultsFor(state, "Unstoppable"))
 	}
 }

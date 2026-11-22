@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"net/url"
+	"slices"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
 	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
@@ -17,9 +18,12 @@ type CombatantList struct {
 	Combatants []*models.Combatant
 	Side       models.Side
 	OnAdd      func(app.Context, *models.Combatant)
+	OnUpdate   func(app.Context, int, *models.Combatant)
 	OnRemove   func(app.Context, int)
 
-	showForm           bool
+	showForm bool
+	// Row the form is editing; -1 while it adds a new combatant
+	editingIndex       int
 	sectionOpen        map[string]bool
 	newName            string
 	newLevel           int
@@ -53,7 +57,13 @@ func (cl *CombatantList) Render() app.UI {
 		app.Div().Class("list-header").Body(
 			app.H3().Text(cl.Title),
 			app.Button().Class("btn btn-small").Text("+ Add").OnClick(func(ctx app.Context, e app.Event) {
-				cl.showForm = !cl.showForm
+				// From an edit, "+ Add" switches the open form to a blank one
+				if cl.editingIndex >= 0 {
+					cl.resetForm()
+					cl.showForm = true
+				} else {
+					cl.showForm = !cl.showForm
+				}
 				ctx.Update()
 			}),
 			app.Button().Class("btn btn-small").Text("Import JSON").OnClick(func(ctx app.Context, e app.Event) {
@@ -153,7 +163,7 @@ func (cl *CombatantList) renderList() app.UI {
 
 	items := make([]app.UI, len(cl.Combatants))
 	for i, combatant := range cl.Combatants {
-		items[i] = app.Div().Class("combatant-item").Body(
+		items[i] = app.Div().Class(toggleClass("combatant-item", cl.editingIndex == i, "editing")).Body(
 			app.Div().Class("combatant-info").Body(
 				app.Div().Class("item-title").Body(
 					app.Text(combatant.Name),
@@ -180,10 +190,19 @@ func (cl *CombatantList) renderList() app.UI {
 				),
 			),
 			app.Div().Class("item-actions").Body(
+				app.Button().Class("btn btn-small").Text("Edit").OnClick(func(ctx app.Context, e app.Event) {
+					cl.startEditing(ctx, i)
+				}),
 				app.Button().Class("btn btn-small").Text("Duplicate").OnClick(func(ctx app.Context, e app.Event) {
 					cl.duplicateCombatant(ctx, i)
 				}),
 				app.Button().Class("btn btn-danger btn-small").Text("Remove").OnClick(func(ctx app.Context, e app.Event) {
+					// Removing the row being edited closes its form; removing one above it shifts the index
+					if cl.editingIndex == i {
+						cl.showForm = false
+						cl.resetForm()
+					}
+					cl.editingIndex = indexAfterRemoval(cl.editingIndex, i)
 					if cl.OnRemove != nil {
 						cl.OnRemove(ctx, i)
 					}
@@ -204,7 +223,11 @@ func (cl *CombatantList) section(key, label string, body ...app.UI) []app.UI {
 
 // renderAddForm renders the form for adding a new combatant
 func (cl *CombatantList) renderAddForm() app.UI {
-	body := []app.UI{app.H4().Text("Add New Combatant")}
+	title, saveText := "Add New Combatant", "Add Combatant"
+	if cl.editingIndex >= 0 {
+		title, saveText = "Edit "+cl.Combatants[cl.editingIndex].Name, "Save Changes"
+	}
+	body := []app.UI{app.H4().Text(title)}
 	body = append(body, cl.section("identity", "Identity",
 		textField("Name", "Character name", &cl.newName, false),
 		app.Div().Class("form-row").Body(numberField("Level", &cl.newLevel, 1, 10)),
@@ -252,8 +275,8 @@ func (cl *CombatantList) renderAddForm() app.UI {
 			PCLevel:   func() int { return cl.newLevel },
 		},
 	)...)
-	body = append(body, formActions("Add Combatant", cl.newName == "",
-		func(ctx app.Context, e app.Event) { cl.addCombatant(ctx) },
+	body = append(body, formActions(saveText, cl.newName == "",
+		func(ctx app.Context, e app.Event) { cl.saveCombatant(ctx) },
 		func(ctx app.Context, e app.Event) {
 			cl.showForm = false
 			cl.resetForm()
@@ -261,7 +284,53 @@ func (cl *CombatantList) renderAddForm() app.UI {
 		},
 	))
 
-	return app.Div().Class("add-form").Body(body...)
+	return app.Div().Class("add-form").ID(partyFormID).Body(body...)
+}
+
+const partyFormID = "party-form"
+
+// indexAfterRemoval is where the edited row ends up once row removed is gone; -1 if it was that row
+func indexAfterRemoval(editing, removed int) int {
+	switch {
+	case editing == removed:
+		return -1
+	case editing > removed:
+		return editing - 1
+	}
+	return editing
+}
+
+// startEditing opens the form on an existing combatant. Abilities are copied, so nothing
+// changes until the form is saved.
+func (cl *CombatantList) startEditing(ctx app.Context, idx int) {
+	if idx < 0 || idx >= len(cl.Combatants) {
+		return
+	}
+	pc := cl.Combatants[idx]
+	cl.resetForm()
+	cl.editingIndex = idx
+	cl.showForm = true
+	cl.sectionOpen = map[string]bool{"identity": true, "stats": true, "combat": true, "abilities": true}
+
+	cl.newName = pc.Name
+	cl.newLevel = pc.Level
+	cl.newEvasion = pc.Evasion
+	cl.newProficiency = pc.Proficiency
+	cl.newTraits = pc.Traits
+	cl.newWeaponTrait, cl.newSpellcastTrait = pc.WeaponTrait, pc.SpellcastTrait
+	cl.newHP = pc.HPMax
+	cl.newStress = pc.StressMax
+	cl.newArmor = pc.ArmorSlots
+	cl.newDamageDice = pc.DamageDice
+	cl.newMinorThreshold, cl.newMajorThreshold = pc.Thresholds()
+	cl.newHealthPotions, cl.newStaminaPotions = pc.HealthPotions, pc.StaminaPotions
+	for _, ability := range pc.DomainAbilities {
+		ability.Effects = slices.Clone(ability.Effects)
+		cl.newDomainAbilities = append(cl.newDomainAbilities, &ability)
+	}
+
+	ctx.Update()
+	ctx.ScrollTo(partyFormID)
 }
 
 func (cl *CombatantList) duplicateCombatant(ctx app.Context, idx int) {
@@ -276,15 +345,25 @@ func (cl *CombatantList) duplicateCombatant(ctx app.Context, idx int) {
 	}
 }
 
-// addCombatant creates a new combatant and adds it to the list
-func (cl *CombatantList) addCombatant(ctx app.Context) {
+// saveCombatant adds the form's combatant, or replaces the one being edited with it
+func (cl *CombatantList) saveCombatant(ctx app.Context) {
+	editing := cl.editingIndex >= 0 && cl.editingIndex < len(cl.Combatants)
 	combatant := models.NewCombatant(
 		fmt.Sprintf("%s-%d", cl.Side, len(cl.Combatants)),
 		cl.newName, cl.Side, cl.newLevel, cl.newEvasion, cl.newProficiency, cl.newHP, cl.newStress,
 	)
+	if editing {
+		// Start from the original so its ID and anything the form does not show are kept
+		original := *cl.Combatants[cl.editingIndex]
+		combatant = &original
+		combatant.Name, combatant.Level, combatant.Evasion, combatant.Proficiency = cl.newName, cl.newLevel, cl.newEvasion, cl.newProficiency
+		combatant.HP, combatant.HPMax, combatant.StressMax = cl.newHP, cl.newHP, cl.newStress
+		combatant.DomainAbilities, combatant.Resistances = nil, nil
+	}
 	combatant.Traits = cl.newTraits
 	combatant.WeaponTrait, combatant.SpellcastTrait = cl.newWeaponTrait, cl.newSpellcastTrait
-	combatant.ArmorSlots = cl.newArmor
+	// ArmorMax follows ArmorSlots when the fight starts; a stale one would outlive a lowered score
+	combatant.ArmorSlots, combatant.ArmorMax = cl.newArmor, 0
 	combatant.DamageDice = cl.newDamageDice
 	combatant.CustomThresholds = []int{cl.newMinorThreshold, cl.newMajorThreshold}
 	combatant.HealthPotions = cl.newHealthPotions
@@ -294,7 +373,10 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 	}
 	combatant.ApplyPassiveResistances()
 
-	if cl.OnAdd != nil {
+	switch {
+	case editing && cl.OnUpdate != nil:
+		cl.OnUpdate(ctx, cl.editingIndex, combatant)
+	case !editing && cl.OnAdd != nil:
 		cl.OnAdd(ctx, combatant)
 	}
 	cl.showForm = false
@@ -304,6 +386,7 @@ func (cl *CombatantList) addCombatant(ctx app.Context) {
 
 // resetForm resets the form to default values
 func (cl *CombatantList) resetForm() {
+	cl.editingIndex = -1
 	cl.newName = ""
 	cl.newLevel = 1
 	cl.newEvasion = 10

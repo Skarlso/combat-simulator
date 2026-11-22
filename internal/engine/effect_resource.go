@@ -161,13 +161,17 @@ func fullArmorClear(e models.FeatureEffect) func(*models.Combatant) int {
 	}
 }
 
-func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveArmorDamage(effect models.FeatureEffect, target *models.Combatant, state *models.CombatState, result *DCCheckResult) error {
 	if target == nil || !target.IsAlive() {
 		return nil
 	}
 
-	if hpMarked := target.LoseArmorSlots(effect.Magnitude); hpMarked > 0 && effect.FallbackFear > 0 {
-		state.AddFear(effect.FallbackFear)
+	hpMarked := target.LoseArmorSlots(effect.Magnitude)
+	if hpMarked > 0 && result != nil {
+		result.Notes = append(result.Notes, fmt.Sprintf("%s marks %d HP for having no Armor Slot to mark", target.Name, hpMarked))
+	}
+	if hpMarked > 0 && effect.FallbackFear > 0 {
+		state.AddFearFor(effect.FallbackFear, "no Armor Slot to mark")
 	}
 	return nil
 }

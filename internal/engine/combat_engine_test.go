@@ -2,6 +2,7 @@ package engine
 
 import (
 	"math/rand"
+	"slices"
 	"strings"
 	"testing"
 
@@ -781,8 +782,12 @@ func TestLogRowCoversEverythingTheActionCostTheTarget(t *testing.T) {
 		t.Errorf("second: armor %d -> %d, HP %d -> %d; want 1 -> 0 and 9 -> 7", row.ArmorSlotsBefore, row.ArmorSlotsAfter, row.TargetHPBefore, row.TargetHPAfter)
 	}
 	// No slot left: the acid costs a Hit Point on top of the 2 from the damage
-	if row := spit(); row.ArmorUsed || row.TargetHPBefore != 7 || row.TargetHPAfter != 4 {
+	row := spit()
+	if row.ArmorUsed || row.TargetHPBefore != 7 || row.TargetHPAfter != 4 {
 		t.Errorf("third: armor used %v, HP %d -> %d; want no armor and 7 -> 4", row.ArmorUsed, row.TargetHPBefore, row.TargetHPAfter)
+	}
+	if len(row.Notes) != 1 || row.Notes[0] != "Hero marks 1 HP for having no Armor Slot to mark" {
+		t.Errorf("notes = %v, want the acid's Hit Point named", row.Notes)
 	}
 }
 
@@ -889,5 +894,36 @@ func TestAttackRowComesBeforeWhatItSetsOff(t *testing.T) {
 	}
 	if bath.Target != "Hero" || bath.TargetHPBefore != 10 || bath.TargetHPAfter != 8 || hero.HP != 8 {
 		t.Errorf("Acid Bath row: %s %d -> %d HP (hero now %d); want Hero 10 -> 8", bath.Target, bath.TargetHPBefore, bath.TargetHPAfter, hero.HP)
+	}
+}
+
+// A row whose Fear total did not move can still have spent and gained Fear: the log names both.
+func TestLogRowNamesWhatMovedTheFearPool(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 3}, &firstPicker{})
+	hero, friend := tPlayer("p1", "Hero"), tPlayer("p2", "Friend")
+	ogre := tEnemy("e1", "Ogre", 20)
+	ogre.AdversaryFeatures = []models.AdversaryFeature{{Name: "Spit Acid", DCType: "target", Effects: []models.FeatureEffect{
+		{Category: models.FeatureEffectArmorDamage, Magnitude: 1, TargetType: models.FeatureTargetAOE, FallbackFear: 1},
+		{Category: models.FeatureEffectAreaDamage, DiceFormula: "2d6", DamageType: "physical"},
+	}}}
+	state := newStateWith([]*models.Combatant{hero, friend}, []*models.Combatant{ogre}, 0, 2)
+
+	// The GM pays for another spotlight; neither PC has an Armor Slot for the acid
+	state.SpendFearFor(1, "for another spotlight")
+	ce.executeFeature(ogre, hero, &ogre.AdversaryFeatures[0], state)
+	row := lastRow(state, models.ActionUseAbility)
+	want := []models.LogPart{{Label: "for another spotlight", Value: -1}, {Label: "no Armor Slot to mark", Value: 1}, {Label: "no Armor Slot to mark", Value: 1}}
+	if row.FearPoolAfter != 3 || !slices.Equal(row.FearChanges, want) {
+		t.Errorf("Fear %d, changes %v; want 3 and %v", row.FearPoolAfter, row.FearChanges, want)
+	}
+
+	// A dodge is logged while the attack is still resolving: the spotlight's Fear stays on the attack row
+	dodge := passive("I See It Coming", models.TriggerOnAttacked, "", models.FeatureEffect{Category: models.FeatureEffectEvasionBonus, Magnitude: 99})
+	hero.DomainAbilities = []models.DomainAbility{dodge}
+	state.SpendFearFor(1, "for another spotlight")
+	ce.executeAttack(ogre, hero, state)
+	attack, dodged := lastRow(state, models.ActionAttack), state.ActionHistory[len(state.ActionHistory)-2]
+	if dodged.FeatureName != "I See It Coming" || len(dodged.FearChanges) != 0 || len(attack.FearChanges) != 1 || attack.FearChanges[0].Value != -1 {
+		t.Errorf("dodge row %q changes %v, attack row changes %v; want the spend on the attack row only", dodged.FeatureName, dodged.FearChanges, attack.FearChanges)
 	}
 }

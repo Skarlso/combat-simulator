@@ -36,16 +36,19 @@ type CombatState struct {
 
 	// The action being resolved, so its log row can go ahead of what it sets off
 	mark *actionMark
+	// Fear spent and gained, with the reason, since the last log row that could own it
+	fearChanges []LogPart
 }
 
 // actionMark remembers where an action's log row belongs and how things stood there: set at
 // the first thing the action sets off, so the row reads as "this happened, then these followed"
 type actionMark struct {
-	set    bool
-	index  int
-	states map[*Combatant]*CombatantState
-	hope   int
-	fear   int
+	set         bool
+	index       int
+	states      map[*Combatant]*CombatantState
+	hope        int
+	fear        int
+	fearChanges []LogPart
 }
 
 // BeginAction starts tracking a main action (an attack or an activation)
@@ -61,6 +64,7 @@ func (cs *CombatState) MarkConsequence() {
 	}
 	m := cs.mark
 	m.set, m.index, m.hope, m.fear = true, len(cs.ActionHistory), cs.TotalHope(), cs.FearPool
+	m.fearChanges, cs.fearChanges = cs.fearChanges, nil
 	m.states = make(map[*Combatant]*CombatantState, len(cs.Players)+len(cs.Enemies))
 	for _, c := range slices.Concat(cs.Players, cs.Enemies) {
 		m.states[c] = StateOf(c)
@@ -138,6 +142,10 @@ type ActionRecord struct {
 	FearGenerated    int      // Fear tokens generated this action
 	HopePoolAfter    int      // Party's total Hope after this action
 	FearPoolAfter    int      // Fear pool after this action
+	// Fear this row spent or gained beyond the roll's own, each with its reason
+	FearChanges []LogPart
+	// Things the row spells out because none of its numbers show them
+	Notes []string
 	// Where the actor and the target stand after this action; nil when there is none
 	ActorState  *CombatantState
 	TargetState *CombatantState
@@ -231,6 +239,24 @@ func (cs *CombatState) AddFear(amount int) {
 	cs.FearPool = min(max(cs.FearPool+amount, 0), MaxFearPool)
 }
 
+// AddFearFor changes the Fear pool and notes why, so the log can show it on the row that caused it
+func (cs *CombatState) AddFearFor(amount int, why string) {
+	before := cs.FearPool
+	cs.AddFear(amount)
+	if cs.FearPool != before {
+		cs.fearChanges = append(cs.fearChanges, LogPart{Label: why, Value: cs.FearPool - before})
+	}
+}
+
+// SpendFearFor spends Fear if there is enough, and notes why
+func (cs *CombatState) SpendFearFor(amount int, why string) bool {
+	if amount <= 0 || !cs.SpendFear(amount) {
+		return amount <= 0
+	}
+	cs.fearChanges = append(cs.fearChanges, LogPart{Label: why, Value: -amount})
+	return true
+}
+
 // SpendFear deducts from Fear pool
 func (cs *CombatState) SpendFear(amount int) bool {
 	if cs.FearPool >= amount {
@@ -253,6 +279,7 @@ type ActionParams struct {
 	DamageBonus     int
 	DamageFormula   string
 	VsDefense       bool
+	Notes           []string
 	RollParts       []LogPart
 	DamageParts     []LogPart
 	TargetsHit      int
@@ -277,6 +304,13 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 	// Matching Duality Dice, or the GM's natural 20
 	isCritical := (p.HopeDie > 0 && p.HopeDie == p.FearDie) || p.D20Roll == 20
 
+	// Fear spent or gained since the last row is this row's, unless this is a side row logged
+	// while a main action is still resolving: then it stays for the action's own row
+	var fearChanges []LogPart
+	if p.Main || cs.mark == nil || cs.mark.set {
+		fearChanges, cs.fearChanges = cs.fearChanges, nil
+	}
+
 	// A main row whose action set something off is shown as things stood before that
 	var mark *actionMark
 	if p.Main {
@@ -294,6 +328,7 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 	hope, fear := cs.TotalHope(), cs.FearPool
 	if mark != nil {
 		hope, fear = mark.hope, mark.fear
+		fearChanges = append(slices.Clone(mark.fearChanges), fearChanges...)
 	}
 
 	record := ActionRecord{
@@ -325,6 +360,8 @@ func (cs *CombatState) RecordAction(p ActionParams) {
 		FearGenerated:   p.FearGenerated,
 		HopePoolAfter:   hope,
 		FearPoolAfter:   fear,
+		FearChanges:     fearChanges,
+		Notes:           p.Notes,
 		ActorState:      stateOf(p.Actor),
 		TargetState:     stateOf(p.Target),
 	}

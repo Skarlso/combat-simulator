@@ -86,6 +86,8 @@ const (
 	TriggerOnHitTaken    FeatureTriggerType = "on_hit_taken" // a successful attack against this combatant, damage or not
 	TriggerOnCritical    FeatureTriggerType = "on_critical"
 	TriggerStartTurn     FeatureTriggerType = "start_turn"
+	// Declared before the fight: fires when it starts, and at the start of the owner's turns while uses are left
+	TriggerStartCombat   FeatureTriggerType = "start_combat"
 	TriggerEndTurn       FeatureTriggerType = "end_turn"
 	TriggerOnAllyDamaged FeatureTriggerType = "on_ally_damaged" // an ally is about to take damage from an attack
 	TriggerOnMiss        FeatureTriggerType = "on_miss"         // the owner's basic attack failed

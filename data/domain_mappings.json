@@ -381,13 +381,13 @@
     },
     "Deadly Focus": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "max_uses": 1,
       "refresh_type": "rest",
       "uses_tokens": true,
       "token_name": "Focus",
       "tokens_max": 1,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. The focus is assumed to follow your target.",
+      "note": "Switches on when the fight starts and lasts the fight. The focus is assumed to follow your target.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -456,13 +456,13 @@
     },
     "Frenzy": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "max_uses": 1,
       "refresh_type": "long_rest",
       "uses_tokens": true,
       "token_name": "Frenzy",
       "tokens_max": 1,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. Losing Armor Slots and the +8 Severe threshold are not modelled.",
+      "note": "Switches on when the fight starts and lasts the fight. Losing Armor Slots and the +8 Severe threshold are not modelled.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
@@ -1243,14 +1243,14 @@
     },
     "Wild Surge": {
       "passive": true,
-      "trigger": "start_turn",
+      "trigger": "start_combat",
       "stress_cost": 1,
       "max_uses": 1,
       "refresh_type": "long_rest",
       "uses_tokens": true,
       "token_name": "Wild Surge Die",
       "tokens_max": 6,
-      "note": "Switches on at the start of the PC's first turn and lasts the fight. The die steps up on damage rolls that mark a Hit Point rather than on every action roll, so it lasts longer. The Stress when it ends is not marked.",
+      "note": "Switches on when the fight starts and lasts the fight. The die steps up on damage rolls that mark a Hit Point rather than on every action roll, so it lasts longer. The Stress when it ends is not marked.",
       "effects": [
         {
           "category": "FeatureEffectTokenPlace",
