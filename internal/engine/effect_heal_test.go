@@ -1,11 +1,12 @@
 package engine
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 func healParty() (*models.Combatant, *models.Combatant, *models.Combatant, *models.CombatState) {
@@ -195,5 +196,33 @@ func TestDrinkingPotions(t *testing.T) {
 	want := []string{"Drinks a Health Potion: clears 3 HP", "Drinks a Stamina Potion: clears 3 Stress", "No potion left"}
 	if strings.Join(results, "|") != strings.Join(want, "|") {
 		t.Errorf("log = %v, want %v", results, want)
+	}
+}
+
+// A heal is aimed at an enemy by the AI but never touches it: the row names whom it reached.
+func TestHealRowNamesWhoWasHealed(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{}, &firstPicker{})
+	healer, _, _, state := healParty()
+	ogre := state.Enemies[0]
+	hands := models.DomainAbility{Name: "Healing Hands", DCType: "fixed", FixedDC: 13,
+		Effects: []models.FeatureEffect{{Category: models.FeatureEffectHPHeal, Magnitude: 2, TargetType: models.FeatureTargetAlly}}}
+	// The roll is not against the ogre, so the ogre being Vulnerable gives it no advantage
+	ogre.AddCondition(&models.ActiveCondition{Type: models.ConditionVulnerable, Duration: models.DurationUntilCleared})
+
+	ce.executeAbility(healer, ogre, &hands, state)
+	row := lastRow(state, models.ActionUseAbility)
+	if row.Target != "Wounded" || row.TargetHPBefore != 5 || row.TargetHPAfter != 7 || !slices.Equal(row.Notes, []string{"Wounded clears 2 HP"}) {
+		t.Errorf("ally heal row: target %q, %d -> %d HP, notes %v; want Wounded 5 -> 7", row.Target, row.TargetHPBefore, row.TargetHPAfter, row.Notes)
+	}
+	if slices.ContainsFunc(row.RollParts, func(p models.LogPart) bool { return strings.Contains(p.Label, "advantage") }) {
+		t.Errorf("heal roll took advantage from the enemy's Vulnerable: %v", row.RollParts)
+	}
+
+	healer.HP = 4
+	mend := models.DomainAbility{Name: "Mend", Effects: []models.FeatureEffect{{Category: models.FeatureEffectHPHeal, Magnitude: 3}}}
+	ce.executeAbility(healer, ogre, &mend, state)
+	row = lastRow(state, models.ActionUseAbility)
+	if row.Target != "" || !slices.Equal(row.Notes, []string{"Healer clears 3 HP"}) {
+		t.Errorf("self heal row: target %q, notes %v; want no target and the healer named", row.Target, row.Notes)
 	}
 }

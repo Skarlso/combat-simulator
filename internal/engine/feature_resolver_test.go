@@ -3,7 +3,7 @@ package engine
 import (
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func newTestFR(dice *mockDiceRoller) *FeatureResolver {
@@ -95,7 +95,7 @@ func TestActivateAdversaryFeatureTokenPlaceAfterEffects(t *testing.T) {
 	}
 	actor.AdversaryFeatures = []models.AdversaryFeature{*feat}
 
-	err, _ := fr.ActivateAdversaryFeature(&actor.AdversaryFeatures[0], actor, target, state)
+	_, err := fr.ActivateAdversaryFeature(&actor.AdversaryFeatures[0], actor, target, state)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestActivateAdversaryFeaturePaysCostsAndDecrementsUses(t *testing.T) {
 		},
 	}
 
-	err, _ := fr.ActivateAdversaryFeature(feat, actor, target, state)
+	_, err := fr.ActivateAdversaryFeature(feat, actor, target, state)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestActivateAdversaryFeatureBlockedLeavesStateIntact(t *testing.T) {
 		},
 	}
 
-	err, _ := fr.ActivateAdversaryFeature(feat, actor, target, state)
+	_, err := fr.ActivateAdversaryFeature(feat, actor, target, state)
 	if err == nil {
 		t.Fatal("expected error when Fear pool insufficient")
 	}
@@ -259,7 +259,7 @@ func TestActivateDomainAbilityTokenPlaceAfterEffects(t *testing.T) {
 		},
 	}
 
-	err, _ := fr.ActivateDomainAbility(ability, actor, target, state)
+	_, err := fr.ActivateDomainAbility(ability, actor, target, state)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -339,7 +339,7 @@ func TestDomainAbilityTokensPersistAcrossTurns(t *testing.T) {
 
 	ability := &actor.DomainAbilities[0]
 	for turn := 1; turn <= 4; turn++ {
-		if err, _ := fr.ActivateDomainAbility(ability, actor, target, state); err != nil {
+		if _, err := fr.ActivateDomainAbility(ability, actor, target, state); err != nil {
 			t.Fatalf("turn %d: %v", turn, err)
 		}
 	}
@@ -396,7 +396,7 @@ func TestDomainAbilityTokensChargeThenRelease(t *testing.T) {
 		t.Fatalf("release TokensHeld = %d, want 4 after two charges", release.TokensHeld)
 	}
 
-	if err, _ := fr.ActivateDomainAbility(release, actor, target, state); err != nil {
+	if _, err := fr.ActivateDomainAbility(release, actor, target, state); err != nil {
 		t.Fatalf("release activation failed: %v", err)
 	}
 
@@ -712,7 +712,7 @@ func TestDomainAbilitySpendsOnlyTheActorsHope(t *testing.T) {
 	}
 
 	actor.Hope = 3
-	if err, _ := fr.ActivateDomainAbility(ability, actor, target, state); err != nil {
+	if _, err := fr.ActivateDomainAbility(ability, actor, target, state); err != nil {
 		t.Fatal(err)
 	}
 	if actor.Hope != 1 || ally.Hope != 6 {
@@ -817,7 +817,7 @@ func TestAttackFeatureMissesAgainstHighEvasion(t *testing.T) {
 		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDirectDamage, DiceFormula: "3d4+10"}},
 	}
 
-	err, res := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
+	res, err := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
 	if err == nil || res.Success {
 		t.Fatalf("17 vs Evasion 18 should miss, got err=%v success=%v", err, res.Success)
 	}
@@ -848,7 +848,7 @@ func TestCostOnSuccessIsNotPaidOnMiss(t *testing.T) {
 	}
 
 	hero.Evasion = 10
-	if err, _ := fr.ActivateAdversaryFeature(feature, guard, hero, state); err != nil {
+	if _, err := fr.ActivateAdversaryFeature(feature, guard, hero, state); err != nil {
 		t.Fatal(err)
 	}
 	if guard.Stress != 1 || !hero.HasCondition(models.ConditionRestrained) {
@@ -867,7 +867,7 @@ func TestFeatureAttackCriticalAddsMaxDice(t *testing.T) {
 		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDirectDamage, DiceFormula: "3d4+10"}},
 	}
 
-	err, res := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
+	res, err := fr.ActivateAdversaryFeature(feature, wolf, hero, state)
 	if err != nil || !res.IsCritical {
 		t.Fatalf("natural 20 should crit, err=%v crit=%v", err, res.IsCritical)
 	}
@@ -888,7 +888,7 @@ func TestAbilityCriticalAddsMaxDice(t *testing.T) {
 		Effects: []models.FeatureEffect{{Category: models.FeatureEffectDamage, DiceFormula: "2d8+1", DamageType: "magic"}},
 	}
 
-	err, res := fr.ActivateDomainAbility(ability, hero, ogre, state)
+	res, err := fr.ActivateDomainAbility(ability, hero, ogre, state)
 	if err != nil || !res.IsCritical {
 		t.Fatalf("matching dice should crit, err=%v crit=%v", err, res.IsCritical)
 	}
@@ -989,7 +989,7 @@ func TestAreaAttackComparesRollToEachTarget(t *testing.T) {
 	}
 
 	// The chosen target is the one the roll misses; the other is still hit
-	if err, _ := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err != nil {
+	if _, err := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err != nil {
 		t.Fatalf("should succeed against the target it beats: %v", err)
 	}
 	if nimble.HP != nimble.HPMax {
@@ -1001,7 +1001,7 @@ func TestAreaAttackComparesRollToEachTarget(t *testing.T) {
 
 	slow.Evasion = 25
 	hpBefore := slow.HP
-	if err, _ := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err == nil {
+	if _, err := fr.ActivateAdversaryFeature(feature, actor, nimble, state); err == nil {
 		t.Error("should fail when the roll beats nobody")
 	}
 	if slow.HP != hpBefore {
@@ -1043,7 +1043,7 @@ func TestAreaEffectReachesLimitedTargets(t *testing.T) {
 		},
 	}
 	chosen := players[2]
-	if err, _ := fr.ActivateAdversaryFeature(feature, actor, chosen, state); err != nil {
+	if _, err := fr.ActivateAdversaryFeature(feature, actor, chosen, state); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1102,7 +1102,7 @@ func TestReactionRollHalvesOrNegatesDamage(t *testing.T) {
 
 			feature := hellfire()
 			feature.Effects[0].HalfOnSuccess = c.half
-			if err, _ := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
+			if _, err := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
 				t.Fatal(err)
 			}
 
@@ -1125,7 +1125,7 @@ func TestReactionRollUsesTheNamedTrait(t *testing.T) {
 	target.Traits = models.Traits{Agility: 2, Instinct: -1}
 	state := newStateWith([]*models.Combatant{target}, []*models.Combatant{actor}, 0, 0)
 
-	if err, _ := fr.ActivateAdversaryFeature(hellfire(), actor, target, state); err != nil {
+	if _, err := fr.ActivateAdversaryFeature(hellfire(), actor, target, state); err != nil {
 		t.Fatal(err)
 	}
 	if dice.lastModifier != 2 {
@@ -1159,7 +1159,7 @@ func TestTargetRollsOneReactionPerActivation(t *testing.T) {
 			{Category: models.FeatureEffectApplyVulnerable, Duration: "until_cleared", TargetType: models.FeatureTargetAOE, ReactionTrait: "agility"},
 		},
 	}
-	if err, _ := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
+	if _, err := fr.ActivateAdversaryFeature(feature, actor, target, state); err != nil {
 		t.Fatal(err)
 	}
 

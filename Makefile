@@ -1,9 +1,11 @@
-.PHONY: help build build-wasm build-example run serve clean test static-pages
+.PHONY: help build build-wasm build-server run serve static-pages clean test fmt lint deps dev all
 
 # Variables
 BINARY_NAME=wasm-server
 WASM_OUTPUT=web/app.wasm
 STATIC_DIR=docs
+# Repository name when the static site is served from a GitHub Pages project URL (user.github.io/<name>/)
+PAGES_REPO?=
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -29,9 +31,12 @@ serve: build-wasm build-server ## Build and run the web server
 
 run: serve ## Alias for serve
 
-static-pages: build-wasm ## Generate static website for GitHub Pages
+static-pages: build-wasm ## Generate a self-contained static site in docs/ (PAGES_REPO=<name> for a GitHub Pages project site)
 	@echo "Generating static pages..."
-	go run ./cmd/static-gen/
+	go run ./cmd/static-gen/ -repo "$(PAGES_REPO)"
+	mkdir -p $(STATIC_DIR)/web
+	cp $(WASM_OUTPUT) $(STATIC_DIR)/web/
+	cp -R web/static $(STATIC_DIR)/web/
 	@echo "Static pages generated in $(STATIC_DIR)/"
 
 clean: ## Clean build artifacts

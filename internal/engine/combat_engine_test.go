@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 type mockDiceRoller struct {
@@ -857,9 +857,9 @@ func TestLogKeepsAFixedDifficultyAndNamesWhatCutTheDamage(t *testing.T) {
 }
 
 func lastRow(state *models.CombatState, kind models.ActionType) models.ActionRecord {
-	for i := len(state.ActionHistory) - 1; i >= 0; i-- {
-		if state.ActionHistory[i].ActionType == kind {
-			return state.ActionHistory[i]
+	for _, row := range slices.Backward(state.ActionHistory) {
+		if row.ActionType == kind {
+			return row
 		}
 	}
 	return models.ActionRecord{}
@@ -925,5 +925,28 @@ func TestLogRowNamesWhatMovedTheFearPool(t *testing.T) {
 	attack, dodged := lastRow(state, models.ActionAttack), state.ActionHistory[len(state.ActionHistory)-2]
 	if dodged.FeatureName != "I See It Coming" || len(dodged.FearChanges) != 0 || len(attack.FearChanges) != 1 || attack.FearChanges[0].Value != -1 {
 		t.Errorf("dodge row %q changes %v, attack row changes %v; want the spend on the attack row only", dodged.FeatureName, dodged.FearChanges, attack.FearChanges)
+	}
+}
+
+// An area attack that misses the chosen target still goes ahead against whoever it hits. The row
+// shows the roll against the chosen target, so it says who was missed and who was hit.
+func TestAreaRowSaysWhoTheRollMissedAndHit(t *testing.T) {
+	ce := newMockEngine(&mockDiceRoller{damage: 3, d20: 10}, &firstPicker{})
+	hero, friend := tPlayer("p1", "Hero"), tPlayer("p2", "Friend")
+	hero.Evasion, friend.Evasion = 18, 9
+	ogre := tEnemy("e1", "Ogre", 20)
+	ogre.AdversaryFeatures = []models.AdversaryFeature{{Name: "Spit Acid", DCType: "target", Effects: []models.FeatureEffect{
+		{Category: models.FeatureEffectAreaDamage, DiceFormula: "2d6", DamageType: "physical"},
+	}}}
+	state := newStateWith([]*models.Combatant{hero, friend}, []*models.Combatant{ogre}, 0, 2)
+
+	ce.executeFeature(ogre, hero, &ogre.AdversaryFeatures[0], state)
+	row := lastRow(state, models.ActionUseAbility)
+	want := []string{"The roll misses Hero but hits Friend (Evasion 9)"}
+	if row.Result != "Success" || row.TargetDefense != 18 || row.TotalRoll >= 18 || !slices.Equal(row.Notes, want) {
+		t.Errorf("row: %q, roll %d vs %d, notes %v; want Success with %v", row.Result, row.TotalRoll, row.TargetDefense, row.Notes, want)
+	}
+	if hero.HP != hero.HPMax || friend.HP == friend.HPMax {
+		t.Errorf("Hero %d/%d, Friend %d/%d; only Friend should be hurt", hero.HP, hero.HPMax, friend.HP, friend.HPMax)
 	}
 }

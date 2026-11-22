@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/parser"
 )
 
 // Guards the shipped JSON: the parsers reject unknown enum strings at load time.

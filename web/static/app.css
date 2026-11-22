@@ -1,4 +1,4 @@
-/* Daggerheart Combat Simulator: design tokens + components.
+/* Combat simulator: design tokens + components.
    Theme: light/dark via color-scheme + light-dark(); [data-theme] overrides the OS. */
 
 :root {
@@ -159,6 +159,9 @@ button, input, select, textarea {
   border-top: 1px solid var(--border);
   text-align: center;
 }
+
+.app-footer p + p { margin-top: var(--space-2); font-size: var(--text-xs); }
+.app-footer a { color: inherit; }
 
 /* Toolbar: tabs + run controls */
 .toolbar {
@@ -369,13 +372,6 @@ button, input, select, textarea {
 .btn-ghost:hover:not(:disabled) { background: var(--surface-2); border-color: transparent; }
 
 .btn-small { padding: 0.3rem 0.65rem; font-size: var(--text-xs); }
-
-.btn-lg { padding: 0.6rem 1.25rem; font-size: var(--text-m); }
-
-/* Legacy layout wrapper kept for compatibility */
-.action-buttons { display: flex; gap: var(--space-3); align-items: center; }
-
-.status-text { color: var(--text-muted); font-size: var(--text-s); }
 
 /* Forms */
 .form-group { margin-bottom: var(--space-3); min-width: 0; }
@@ -711,8 +707,6 @@ button, input, select, textarea {
 .strategy-column h4 { margin-bottom: var(--space-2); }
 
 /* Results */
-.results-section { min-width: 0; }
-
 .results-overview,
 .results-statistics,
 .results-chart { margin-bottom: var(--space-5); }

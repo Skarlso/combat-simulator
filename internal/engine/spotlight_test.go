@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func TestChooseNextEmpty(t *testing.T) {
@@ -39,7 +39,7 @@ func TestChooseNextForcedByThreshold(t *testing.T) {
 	high := models.NewCombatant("p2", "High", models.SidePlayer, 3, 12, 2, 15, 8)
 	high.SpotlightTokens = 5
 
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		result := selector.ChooseNext([]*models.Combatant{low, high}, 5)
 		if result != high {
 			t.Error("combatant at threshold should always be forced")
@@ -57,7 +57,7 @@ func TestChooseNextWeightedDistribution(t *testing.T) {
 	heavy.SpotlightTokens = 10
 
 	counts := map[string]int{}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		result := selector.ChooseNext([]*models.Combatant{zero, heavy}, 20)
 		counts[result.Name]++
 	}

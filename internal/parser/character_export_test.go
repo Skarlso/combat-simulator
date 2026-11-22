@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func TestExportedPartyImportsBack(t *testing.T) {

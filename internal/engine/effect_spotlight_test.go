@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // featureDM uses an adversary's first active feature when it has one, else a basic attack

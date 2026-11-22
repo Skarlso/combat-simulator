@@ -1,4 +1,4 @@
-module github.com/skarlso/daggerheart-combat-simulator
+module github.com/skarlso/combat-simulator
 
 go 1.26.1
 

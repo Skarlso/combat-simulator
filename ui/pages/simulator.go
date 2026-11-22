@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/data"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
-	"github.com/skarlso/daggerheart-combat-simulator/ui/components"
+	"github.com/skarlso/combat-simulator/data"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/internal/simulation"
+	"github.com/skarlso/combat-simulator/ui/components"
 )
 
 // SimulatorPage is the main page for running simulations
@@ -45,7 +45,6 @@ func (p *SimulatorPage) OnNav(ctx app.Context) {
 			app.Log("Summoning features will not work in this session")
 		} else {
 			p.adversaryRegistry = registry
-			app.Log("Adversary registry initialized successfully")
 		}
 
 		p.initialized = true
@@ -85,10 +84,9 @@ func (p *SimulatorPage) Render() app.UI {
 					app.Div().
 						Class("builder").
 						Body(
-							app.If(p.errorMessage != "", func() app.UI {
-								return app.Div().Class("error-message").Text(p.errorMessage)
-							}),
-							p.renderTabContent(),
+							append([]app.UI{
+								app.Div().Class("error-message").Hidden(p.errorMessage == "").Text(p.errorMessage),
+							}, p.renderTabContent()...)...,
 						),
 					app.If(p.result != nil, func() app.UI {
 						return p.renderResults()
@@ -160,12 +158,13 @@ func (p *SimulatorPage) renderTab(id, label string, count int) app.UI {
 		})
 }
 
-// renderTabContent renders the active tab's content
-func (p *SimulatorPage) renderTabContent() app.UI {
-	switch p.currentTab {
-	case "players":
-		return app.Div().
+// renderTabContent renders every tab and shows the active one. A hidden tab stays mounted,
+// so a form left half-filled is still there when its tab is opened again.
+func (p *SimulatorPage) renderTabContent() []app.UI {
+	return []app.UI{
+		app.Div().
 			Class("tab-content").
+			Hidden(p.currentTab != "players").
 			Body(
 				&components.CombatantList{
 					Title:      "Party",
@@ -188,11 +187,10 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 						}
 					},
 				},
-			)
-
-	case "enemies":
-		return app.Div().
+			),
+		app.Div().
 			Class("tab-content").
+			Hidden(p.currentTab != "enemies").
 			Body(
 				&components.AdversaryList{
 					Title:       "Adversaries",
@@ -215,18 +213,14 @@ func (p *SimulatorPage) renderTabContent() app.UI {
 						}
 					},
 				},
-			)
-
-	case "config":
-		return app.Div().
+			),
+		app.Div().
 			Class("tab-content").
+			Hidden(p.currentTab != "config").
 			Body(
 				app.H2().Text("Simulation Settings"),
 				&components.ConfigForm{Config: &p.config},
-			)
-
-	default:
-		return app.Div().Text("Unknown tab")
+			),
 	}
 }
 

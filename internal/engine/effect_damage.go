@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // rollEffectDamage rolls an effect's damage: its own formula, or the actor's standard attack.

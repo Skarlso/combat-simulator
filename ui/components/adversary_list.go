@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/data"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/data"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/parser"
 )
 
 // AdversaryList displays and manages a list of adversaries

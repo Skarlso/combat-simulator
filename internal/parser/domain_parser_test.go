@@ -3,7 +3,7 @@ package parser
 import (
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func find(t *testing.T, library []LibraryAbility, name string) LibraryAbility {

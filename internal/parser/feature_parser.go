@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // FeatureMapping represents a mapping from feature name to quantized effects
@@ -81,7 +81,7 @@ func NewFeatureParserFromBytes(data []byte) (*FeatureParser, error) {
 	}
 
 	for name, mapping := range mappingFile.Mappings {
-		for _, part := range strings.Split(mapping.TriggerFilter, "+") {
+		for part := range strings.SplitSeq(mapping.TriggerFilter, "+") {
 			if !slices.Contains(knownFilters, part) {
 				return nil, fmt.Errorf("mapping %q: unknown trigger filter %q", name, part)
 			}

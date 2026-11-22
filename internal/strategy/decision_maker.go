@@ -3,7 +3,7 @@ package strategy
 import (
 	"math/rand"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // ActionDecision represents the AI's choice for a turn

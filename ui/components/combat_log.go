@@ -5,9 +5,9 @@ import (
 	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/engine"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
+	"github.com/skarlso/combat-simulator/internal/engine"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/simulation"
 )
 
 // CombatLog shows one simulated combat row by row, with where every number came from

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // AdversaryJSONFeature represents a feature in the JSON

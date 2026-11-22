@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/simulation"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // Every stat block must run against a sample party without the engine logging an effect error.
@@ -150,7 +150,7 @@ func TestEveryModelledAbilitySimulatesCleanly(t *testing.T) {
 			continue
 		}
 		fired := 0
-		for build := 0; build < 2; build++ {
+		for build := range 2 {
 			hero := models.NewCombatant("pc1", "Hero", models.SidePlayer, 5, 11, 2, 8, 6)
 			hero.Traits = models.Traits{Agility: 2, Strength: 3, Finesse: 2, Instinct: 1, Presence: 1, Knowledge: 3}
 			hero.WeaponTrait, hero.SpellcastTrait = "strength", "knowledge"

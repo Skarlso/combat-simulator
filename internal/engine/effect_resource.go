@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func (fr *FeatureResolver) applyCondition(source, target *models.Combatant, condType models.ConditionType, duration string) error {
@@ -77,26 +77,58 @@ func (fr *FeatureResolver) recipients(effect models.FeatureEffect, actor *models
 	return state.Recipients(actor, effect.TargetType, need)
 }
 
-func (fr *FeatureResolver) resolveStressClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveStressClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, result *DCCheckResult) error {
 	amount, err := fr.rollAmount(effect)
 	if err != nil {
 		return err
 	}
 	for _, c := range fr.recipients(effect, actor, state, models.StressHeld) {
+		before := models.StateOf(c)
+		held := c.Stress
 		c.ClearStress(amount)
+		result.restored(c, before, held-c.Stress, "Stress")
 	}
 	return nil
 }
 
-func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveHPHeal(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, result *DCCheckResult) error {
 	amount, err := fr.rollAmount(effect)
 	if err != nil {
 		return err
 	}
 	for _, c := range fr.recipients(effect, actor, state, models.MissingHP) {
+		before := models.StateOf(c)
+		hp := c.HP
 		c.Heal(amount)
+		result.restored(c, before, c.HP-hp, "HP")
 	}
 	return nil
+}
+
+// restored notes whom a restoring effect reached and what it cleared
+func (r *DCCheckResult) restored(c *models.Combatant, before *models.CombatantState, cleared int, what string) {
+	if r == nil || cleared <= 0 {
+		return
+	}
+	if !slices.Contains(r.Restored, c) {
+		if len(r.Restored) == 0 {
+			r.restoredBefore = before
+		}
+		r.Restored = append(r.Restored, c)
+	}
+	r.Notes = append(r.Notes, fmt.Sprintf("%s clears %d %s", c.Name, cleared, what))
+}
+
+// restoresOnly reports an ability that does nothing but heal, clear Stress or clear Armor Slots
+func restoresOnly(effects []models.FeatureEffect) bool {
+	for _, e := range effects {
+		switch e.Category {
+		case models.FeatureEffectHPHeal, models.FeatureEffectStressClear, models.FeatureEffectArmorClear:
+		default:
+			return false
+		}
+	}
+	return len(effects) > 0
 }
 
 // lacksRecipient reports an ally-targeted heal or stress clear with nobody who would gain from it,
@@ -106,14 +138,7 @@ func lacksRecipient(effects []models.FeatureEffect, actor *models.Combatant, sta
 		return false
 	}
 	// An ability that does nothing but restore waits until its whole amount is needed
-	onlyRestores := true
-	for _, e := range effects {
-		switch e.Category {
-		case models.FeatureEffectHPHeal, models.FeatureEffectStressClear, models.FeatureEffectArmorClear:
-		default:
-			onlyRestores = false
-		}
-	}
+	onlyRestores := restoresOnly(effects)
 
 	for _, e := range effects {
 		var need func(*models.Combatant) int
@@ -184,9 +209,10 @@ func (fr *FeatureResolver) resolveGrantArmor(effect models.FeatureEffect, actor 
 	return nil
 }
 
-func (fr *FeatureResolver) resolveArmorClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {
+func (fr *FeatureResolver) resolveArmorClear(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState, result *DCCheckResult) error {
 	for _, c := range fr.recipients(effect, actor, state, models.MarkedArmor) {
-		c.ClearArmorSlots(effect.Magnitude)
+		before := models.StateOf(c)
+		result.restored(c, before, c.ClearArmorSlots(effect.Magnitude), "Armor Slots")
 	}
 	return nil
 }

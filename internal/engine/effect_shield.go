@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func healthPercent(c *models.Combatant) int {
@@ -38,7 +38,7 @@ func (fr *FeatureResolver) shieldFor(defender *models.Combatant, damage int, sta
 			if !wantsToShield(ally, defender, damage) || !fr.CanActivateDomainAbility(*ability, ally, state) {
 				continue
 			}
-			err, dcResult := fr.ActivateDomainAbility(ability, ally, defender, state)
+			dcResult, err := fr.ActivateDomainAbility(ability, ally, defender, state)
 			recordTriggered(state, ally, defender, ability.Name, err, dcResult)
 			if err != nil {
 				continue

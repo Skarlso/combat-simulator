@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // resolveAllySpotlight queues spotlights for the actor's allies; the combat engine

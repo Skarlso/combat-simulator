@@ -1,7 +1,7 @@
 package engine
 
 import (
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // CombatResolver handles attack resolution and damage calculation

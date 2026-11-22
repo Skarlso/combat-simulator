@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func newTestResolver() *CombatResolver {
@@ -21,7 +21,7 @@ func TestResolveAttackPlayerHit(t *testing.T) {
 	state := models.NewCombatState([]*models.Combatant{attacker}, []*models.Combatant{defender}, 0, 3, 5)
 
 	hitCount := 0
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		defenderCopy := models.CloneCombatant(defender, "e1")
 		stateCopy := models.NewCombatState([]*models.Combatant{attacker}, []*models.Combatant{defenderCopy}, 0, 3, 5)
 		result := resolver.ResolveAttack(attacker, defenderCopy, "1d6", stateCopy)
@@ -56,7 +56,7 @@ func TestResolveAttackGeneratesHopeOrFear(t *testing.T) {
 	hopeGenerated := false
 	fearGenerated := false
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		defenderCopy := models.CloneCombatant(defender, "e1")
 		state := models.NewCombatState([]*models.Combatant{attacker}, []*models.Combatant{defenderCopy}, 0, 0, 5)
 		result := resolver.ResolveAttack(attacker, defenderCopy, "1d6", state)

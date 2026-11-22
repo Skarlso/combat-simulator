@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // unstoppable mirrors the Guardian mapping in data/player_feature_mappings.json

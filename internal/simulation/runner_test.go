@@ -3,8 +3,8 @@ package simulation
 import (
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 func newTestConfig() SimulationConfig {

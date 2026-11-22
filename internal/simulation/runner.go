@@ -5,10 +5,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/engine"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/engine"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // SimulationConfig defines parameters for Monte Carlo simulation
@@ -181,18 +181,4 @@ type SimulationResult struct {
 	MinTurns       int
 	MaxTurns       int
 	CombatOutcomes []*engine.CombatOutcome
-}
-
-// Summary returns a human-readable summary
-func (sr *SimulationResult) Summary() string {
-	return fmt.Sprintf(
-		"Simulations: %d | Player Wins: %d (%.1f%%) | Enemy Wins: %d (%.1f%%) | Avg Turns: %.1f | Avg Rounds: %.1f",
-		sr.TotalRuns,
-		sr.PlayerWins,
-		sr.PlayerWinRate*100,
-		sr.EnemyWins,
-		sr.EnemyWinRate*100,
-		sr.AverageTurns,
-		sr.AverageRounds,
-	)
 }

@@ -3,8 +3,8 @@ package engine
 import (
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 func passive(name string, trigger models.FeatureTriggerType, filter string, effects ...models.FeatureEffect) models.DomainAbility {
@@ -94,11 +94,11 @@ func TestStandingBonusFollowsItsFilter(t *testing.T) {
 	adrenaline := passive("Adrenaline", "", "if_vulnerable", models.FeatureEffect{Category: models.FeatureEffectDamageBonus, Magnitude: 1, ScaleBy: "level"})
 	_, hero, _, _ := duel(&mockDiceRoller{}, 0, adrenaline)
 
-	if got := hero.DamageBonus(models.DamagePhysical, nil); got != 0 {
+	if got := models.SumParts(hero.DamageBonusParts(models.DamagePhysical, nil)); got != 0 {
 		t.Errorf("bonus = %d while not Vulnerable, want 0", got)
 	}
 	hero.AddCondition(&models.ActiveCondition{Type: models.ConditionVulnerable, Duration: models.DurationUntilCleared})
-	if got := hero.DamageBonus(models.DamagePhysical, nil); got != 3 {
+	if got := models.SumParts(hero.DamageBonusParts(models.DamagePhysical, nil)); got != 3 {
 		t.Errorf("bonus = %d while Vulnerable, want the level, 3", got)
 	}
 }
@@ -308,8 +308,8 @@ func TestStandingEvasionAndAttackBonuses(t *testing.T) {
 	noMercy := passive("No Mercy", "", "", models.FeatureEffect{Category: models.FeatureEffectAttackBonus, Magnitude: 1})
 	_, hero, _, _ := duel(&mockDiceRoller{}, 2, shield, noMercy)
 
-	if hero.GetDefense() != 12 || hero.AttackRollBonus(nil) != 1 {
-		t.Errorf("Evasion %d, attack bonus %d; want 12 and 1", hero.GetDefense(), hero.AttackRollBonus(nil))
+	if hero.GetDefense() != 12 || models.SumParts(hero.AttackRollParts(nil)) != 1 {
+		t.Errorf("Evasion %d, attack bonus %d; want 12 and 1", hero.GetDefense(), models.SumParts(hero.AttackRollParts(nil)))
 	}
 	hero.Hope = 1
 	if hero.GetDefense() != 10 {
@@ -455,7 +455,7 @@ func TestTokensAndDiceScaleWithTheActor(t *testing.T) {
 	}
 
 	tokens := models.DomainAbility{Name: "Thorns", UsesTokens: true, Effects: []models.FeatureEffect{{Category: models.FeatureEffectTokenPlace, Magnitude: 1, ScaleBy: "spellcast"}}}
-	if err, _ := fr.ActivateDomainAbility(&tokens, hero, ogre, state); err != nil || tokens.TokensHeld != 3 {
+	if _, err := fr.ActivateDomainAbility(&tokens, hero, ogre, state); err != nil || tokens.TokensHeld != 3 {
 		t.Errorf("tokens = %d (err %v), want 3", tokens.TokensHeld, err)
 	}
 }

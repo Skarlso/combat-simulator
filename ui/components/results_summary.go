@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
+	"github.com/skarlso/combat-simulator/internal/simulation"
 )
 
 // ResultsSummary displays simulation results

@@ -3,7 +3,7 @@ package engine
 import (
 	"math/rand"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // SpotlightSelector chooses the next combatant to act

@@ -2,7 +2,14 @@ package ui
 
 import (
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/ui/pages"
+	"github.com/skarlso/combat-simulator/ui/pages"
+)
+
+// Title must not carry the Daggerheart name (DPCGL 2.5a); Tagline is where the licence wants it,
+// next to "Compatible" (2.5c)
+const (
+	Title   = "Combat Simulator"
+	Tagline = "Daggerheart™ Compatible"
 )
 
 // App is the root component
@@ -30,8 +37,8 @@ func (a *App) Render() app.UI {
 						Class("brand").
 						Body(
 							app.Span().Class("brand-mark"),
-							app.H1().Text("Daggerheart Combat Simulator"),
-							app.Span().Class("brand-meta").Text("Monte Carlo · SRD 2.0"),
+							app.H1().Text(Title),
+							app.Span().Class("brand-meta").Text(Tagline+" · SRD 2.0"),
 						),
 					app.Div().
 						Class("header-actions").
@@ -52,6 +59,14 @@ func (a *App) Render() app.UI {
 				Class("app-footer").
 				Body(
 					app.P().Text("Built with Go + WASM"),
+					// Wording set by the Darrington Press Community Gaming License, section 4
+					app.P().Body(
+						app.Text("This product includes materials from the Daggerheart System Reference Document 2.0, © Critical Role, LLC. under the terms of the "),
+						app.A().Href("https://www.darringtonpress.com/license").Text("Darrington Press Community Gaming (DPCGL) License"),
+						app.Text(". More information can be found at "),
+						app.A().Href("https://www.daggerheart.com").Text("https://www.daggerheart.com"),
+						app.Text(". There are no previous modifications by others."),
+					),
 				),
 		)
 }

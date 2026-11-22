@@ -3,7 +3,7 @@ package engine
 import (
 	"math/rand"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // DiceRoller handles all dice rolling operations
@@ -84,7 +84,7 @@ func (dr *StandardDiceRoller) RollDuality(hopeModifier, fearModifier int) Dualit
 // RollDice rolls dice and adds flat bonus
 func (dr *StandardDiceRoller) RollDice(diceCount, diceSize, flatBonus int) int {
 	total := flatBonus
-	for i := 0; i < diceCount; i++ {
+	for range diceCount {
 		total += dr.rng.Intn(diceSize) + 1
 	}
 	return total

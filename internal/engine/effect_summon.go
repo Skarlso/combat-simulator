@@ -3,7 +3,7 @@ package engine
 import (
 	"fmt"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func (fr *FeatureResolver) resolveSummon(effect models.FeatureEffect, actor *models.Combatant, state *models.CombatState) error {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // CharacterFile represents a bulk PC import document.

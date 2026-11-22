@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func newSeededRoller(seed int64) *StandardDiceRoller {
@@ -23,7 +23,7 @@ func TestRollDiceRanges(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for i := 0; i < 100; i++ {
+			for range 100 {
 				v := roller.RollDice(1, tt.size, 0)
 				if v < 1 || v > tt.size {
 					t.Errorf("RollDice(1, %d) = %d, want 1-%d", tt.size, v, tt.size)
@@ -75,7 +75,7 @@ func TestRollDice(t *testing.T) {
 func TestRollDuality(t *testing.T) {
 	roller := newSeededRoller(42)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		result := roller.RollDuality(2, 0)
 
 		if result.HopeDie < 1 || result.HopeDie > 12 {
@@ -112,7 +112,7 @@ func TestRollDuality(t *testing.T) {
 func TestRollD20Attack(t *testing.T) {
 	roller := newSeededRoller(42)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		result := roller.RollD20Attack(5)
 		if result.D20Roll < 1 || result.D20Roll > 20 {
 			t.Errorf("D20Roll = %d, want 1-20", result.D20Roll)

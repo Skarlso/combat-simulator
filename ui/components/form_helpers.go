@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 func validateDiceNotation(s string) string {
@@ -468,11 +468,12 @@ func renderAccordionHeader(label string, open bool, toggle func(app.Context, app
 	)
 }
 
-// accordion renders a collapsible section; open controls the body, toggle flips it
+// accordion renders a collapsible section; open controls the body, toggle flips it.
+// A closed body stays mounted: removing it shifts the sections after it and resets their components.
 func accordion(label string, open bool, toggle func(app.Context, app.Event), body ...app.UI) []app.UI {
 	return []app.UI{
 		renderAccordionHeader(label, open, toggle),
-		app.If(open, func() app.UI { return app.Div().Class("accordion-body").Body(body...) }),
+		app.Div().Class("accordion-body").Hidden(!open).Body(body...),
 	}
 }
 

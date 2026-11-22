@@ -318,7 +318,7 @@ func (c *Combatant) takeDamage(rawDamage int, damageType DamageType, roller Dice
 
 // severityMatches checks an on_damage_incoming filter against how severe the hit is right now
 func severityMatches(filter string, severity DamageThreshold) bool {
-	for _, part := range strings.Split(filter, "+") {
+	for part := range strings.SplitSeq(filter, "+") {
 		switch part {
 		case "if_severe":
 			if severity != ThresholdSevere {
@@ -484,7 +484,7 @@ func (c *Combatant) ScaleValue(by string) int {
 
 // MeetsFilter checks the filters that only look at the combatant's own state; any other passes
 func (c *Combatant) MeetsFilter(filter string) bool {
-	for _, part := range strings.Split(filter, "+") {
+	for part := range strings.SplitSeq(filter, "+") {
 		ok := true
 		switch part {
 		case "if_vulnerable":
@@ -585,19 +585,9 @@ func (c *Combatant) DamageBonusParts(damageType DamageType, roller DiceRoller) [
 	return c.passiveParts(FeatureEffectDamageBonus, damageType, roller)
 }
 
-// DamageBonus is the total standing damage_bonus effects add to a damage roll of this type
-func (c *Combatant) DamageBonus(damageType DamageType, roller DiceRoller) int {
-	return SumParts(c.DamageBonusParts(damageType, roller))
-}
-
 // AttackRollParts is what each standing attack_bonus effect adds to attack and action rolls
 func (c *Combatant) AttackRollParts(roller DiceRoller) []LogPart {
 	return c.passiveParts(FeatureEffectAttackBonus, DamagePhysical, roller)
-}
-
-// AttackRollBonus is the total standing attack_bonus effects add to attack and action rolls
-func (c *Combatant) AttackRollBonus(roller DiceRoller) int {
-	return SumParts(c.AttackRollParts(roller))
 }
 
 // RiderAmount rolls one effect of a reactive passive for its owner: Magnitude and dice, scaled

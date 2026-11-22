@@ -938,17 +938,17 @@ func TestSeverityReductionToNoneSavesTheArmorSlot(t *testing.T) {
 func TestDamageBonusFollowsTheTokenDie(t *testing.T) {
 	pc := newTestPlayer()
 	pc.DomainAbilities = []DomainAbility{unstoppableDie(3, 4)}
-	if got := pc.DamageBonus(DamagePhysical, nil); got != 3 {
+	if got := SumParts(pc.DamageBonusParts(DamagePhysical, nil)); got != 3 {
 		t.Errorf("bonus at die value 3 = %d, want 3", got)
 	}
 	pc.DomainAbilities[0].TokensHeld = 0
-	if got := pc.DamageBonus(DamagePhysical, nil); got != 0 {
+	if got := SumParts(pc.DamageBonusParts(DamagePhysical, nil)); got != 0 {
 		t.Errorf("bonus with no die = %d, want 0", got)
 	}
 
 	// Without tokens a passive bonus is simply always on
 	pc.DomainAbilities = []DomainAbility{{Passive: true, Effects: []FeatureEffect{{Category: FeatureEffectDamageBonus, Magnitude: 2}}}}
-	if got := pc.DamageBonus(DamagePhysical, nil); got != 2 {
+	if got := SumParts(pc.DamageBonusParts(DamagePhysical, nil)); got != 2 {
 		t.Errorf("flat passive bonus = %d, want 2", got)
 	}
 }

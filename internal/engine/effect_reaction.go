@@ -1,6 +1,6 @@
 package engine
 
-import "github.com/skarlso/daggerheart-combat-simulator/internal/models"
+import "github.com/skarlso/combat-simulator/internal/models"
 
 type reactionResult struct {
 	success  bool

@@ -2,8 +2,8 @@ package components
 
 import (
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/simulation"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/simulation"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // ConfigForm allows configuring simulation parameters

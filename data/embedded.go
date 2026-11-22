@@ -4,7 +4,7 @@ import (
 	"embed"
 	"fmt"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/internal/parser"
 )
 
 //go:embed *.json

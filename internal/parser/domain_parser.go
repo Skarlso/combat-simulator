@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // AbilityMapping is how the mapping files describe one player ability the engine can run
@@ -150,9 +150,7 @@ func LoadAbilityLibrary(mappingData, domainData, featureData [][]byte) ([]Librar
 		if err := json.Unmarshal(raw, &file); err != nil {
 			return nil, fmt.Errorf("ability mappings %d: %w", i, err)
 		}
-		for name, mapping := range file.Mappings {
-			mappings[name] = mapping
-		}
+		maps.Copy(mappings, file.Mappings)
 	}
 
 	var library []LibraryAbility
@@ -327,7 +325,7 @@ func buildMappedAbility(name, description string, m AbilityMapping) (models.Doma
 	if !slices.Contains(knownTriggers, models.FeatureTriggerType(m.Trigger)) {
 		return models.DomainAbility{}, fmt.Errorf("unknown trigger %q", m.Trigger)
 	}
-	for _, part := range strings.Split(m.TriggerFilter, "+") {
+	for part := range strings.SplitSeq(m.TriggerFilter, "+") {
 		if !slices.Contains(knownFilters, part) {
 			return models.DomainAbility{}, fmt.Errorf("unknown trigger filter %q", part)
 		}

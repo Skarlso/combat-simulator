@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/models"
 )
 
 // AdversaryRegistry stores adversary templates for summoning

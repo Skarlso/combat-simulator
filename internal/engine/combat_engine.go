@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/strategy"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/strategy"
 )
 
 // AdversaryRegistry hands out fresh copies of stat blocks for summoning
@@ -141,6 +141,12 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, before
 	if dcResult.RedirectedTo != nil {
 		target, before = dcResult.RedirectedTo, nil
 	}
+	if dcResult.restoresOnly {
+		target, before = nil, nil
+		if len(dcResult.Restored) == 1 && dcResult.Restored[0] != actor {
+			target, before = dcResult.Restored[0], dcResult.restoredBefore
+		}
+	}
 
 	if err != nil {
 		result = fmt.Sprintf("Failed: %v", err)
@@ -182,14 +188,14 @@ func (ce *CombatEngine) recordActivation(actor, target *models.Combatant, before
 func (ce *CombatEngine) executeAbility(actor *models.Combatant, target *models.Combatant, ability *models.DomainAbility, state *models.CombatState) {
 	before := models.StateOf(target)
 	state.BeginAction()
-	err, dcResult := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
+	dcResult, err := ce.featureResolver.ActivateDomainAbility(ability, actor, target, state)
 	ce.recordActivation(actor, target, before, ability.Name, false, err, dcResult, state)
 }
 
 func (ce *CombatEngine) executeFeature(actor *models.Combatant, target *models.Combatant, feature *models.AdversaryFeature, state *models.CombatState) {
 	before := models.StateOf(target)
 	state.BeginAction()
-	err, dcResult := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
+	dcResult, err := ce.featureResolver.ActivateAdversaryFeature(feature, actor, target, state)
 	ce.recordActivation(actor, target, before, feature.Name, true, err, dcResult, state)
 }
 

@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/maxence-charriere/go-app/v10/pkg/app"
-	"github.com/skarlso/daggerheart-combat-simulator/data"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/models"
-	"github.com/skarlso/daggerheart-combat-simulator/internal/parser"
+	"github.com/skarlso/combat-simulator/data"
+	"github.com/skarlso/combat-simulator/internal/models"
+	"github.com/skarlso/combat-simulator/internal/parser"
 )
 
 // DomainAbilityForm manages a PC's abilities: domain cards, class and heritage features, or custom ones
@@ -440,7 +440,7 @@ func triggerSuffix(trigger models.FeatureTriggerCondition) string {
 		parts = append(parts, optionLabel(abilityTriggerOptions, string(trigger.Type)))
 	}
 	if trigger.Filter != "" {
-		for _, filter := range strings.Split(trigger.Filter, "+") {
+		for filter := range strings.SplitSeq(trigger.Filter, "+") {
 			parts = append(parts, optionLabel(triggerFilterOptions, filter))
 		}
 	}
