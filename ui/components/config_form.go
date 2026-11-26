@@ -43,6 +43,24 @@ func (cf *ConfigForm) Render() app.UI {
 				),
 			),
 		),
+		section("Death Moves", cf.renderLastManStanding()),
+	)
+}
+
+var lastManStandingOptions = []selectOption{
+	{string(strategy.DeathMoveBlazeOfGlory), "Blaze of Glory (take it down with them)"},
+	{string(strategy.DeathMoveRiskItAll), "Risk It All (roll to stay up)"},
+}
+
+func (cf *ConfigForm) renderLastManStanding() app.UI {
+	return app.Div().Class("form-group").Body(
+		app.Label().Text("Last Man Standing"),
+		app.Select().
+			OnChange(func(ctx app.Context, e app.Event) {
+				cf.Config.LastManStanding = strategy.DeathMove(selectedOption(ctx, lastManStandingOptions))
+			}).
+			Body(optionElements(lastManStandingOptions, string(cf.Config.LastManStanding))...),
+		app.Span().Class("form-help").Text("For the last PC standing when a Blaze of Glory would finish the last adversary. The kill ends the fight as a draw, the roll can still win it. Every other death move is picked from the state of the fight."),
 	)
 }
 

@@ -54,7 +54,6 @@ type StrategyConfig struct {
 	ConditionClearing   ConditionClearStrategy
 	TargetSelection     TargetSelectionStrategy
 	AbilityUsage        AbilityUsageStrategy
-	DeathMove           DeathMoveStrategy
 	LowHPThreshold      int
 	HighThreatThreshold int
 }
@@ -66,7 +65,6 @@ func DefaultGreedyConfig() StrategyConfig {
 		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetLowestHP,
 		AbilityUsage:        AbilityAlways,
-		DeathMove:           DeathMoveBlazeOfGlory,
 		LowHPThreshold:      30,
 		HighThreatThreshold: 10,
 	}
@@ -79,7 +77,6 @@ func DefaultConservativeConfig() StrategyConfig {
 		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetHighestThreat,
 		AbilityUsage:        AbilitySparingly,
-		DeathMove:           DeathMoveAvoidDeath,
 		LowHPThreshold:      50,
 		HighThreatThreshold: 8,
 	}
@@ -92,7 +89,6 @@ func DefaultDesperateConfig() StrategyConfig {
 		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetLowestHP,
 		AbilityUsage:        AbilityContextual,
-		DeathMove:           DeathMoveRiskItAll,
 		LowHPThreshold:      40,
 		HighThreatThreshold: 12,
 	}
@@ -105,7 +101,6 @@ func DefaultRandomConfig() StrategyConfig {
 		ConditionClearing:   ClearImmediately,
 		TargetSelection:     TargetRandom,
 		AbilityUsage:        AbilityContextual,
-		DeathMove:           DeathMoveRiskItAll,
 		LowHPThreshold:      35,
 		HighThreatThreshold: 10,
 	}

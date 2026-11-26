@@ -40,6 +40,10 @@ type SimulationConfig struct {
 	// PCs drink a Health Potion at or below this HP percentage (0 = never)
 	PotionHPThreshold int
 
+	// Death move of the last PC standing when a Blaze of Glory would finish the last
+	// adversary: Blaze of Glory ends the fight as a draw, Risk It All can still win it
+	LastManStanding strategy.DeathMove
+
 	// Combat limits
 	MaxTurnsPerCombat int
 
@@ -65,6 +69,7 @@ func DefaultSimulationConfig() SimulationConfig {
 		SpotlightWeightFactor: 0.2,
 		PlayerStrategy:        strategy.DefaultDesperateConfig(),
 		EnemyStrategy:         strategy.DefaultGreedyConfig(),
+		LastManStanding:       strategy.DeathMoveBlazeOfGlory,
 		MaxTurnsPerCombat:     100,
 		RandomSeed:            0,
 	}
@@ -148,8 +153,8 @@ func (sr *SimulationRunner) runSingleCombat() *engine.CombatOutcome {
 	dice := engine.NewStandardDiceRoller(sr.rng)
 	spotlight := engine.NewHybridSpotlightSelector(sr.rng, sr.config.SpotlightWeightFactor)
 	combatEngine := engine.NewCombatEngine(dice, spotlight)
-	combatEngine.SetDeathMove(sr.config.PlayerStrategy.DeathMove)
 	combatEngine.SetAreaTargetLimit(sr.config.AreaTargets)
+	combatEngine.SetLastManStanding(sr.config.LastManStanding)
 	if sr.config.AdversaryRegistry != nil {
 		combatEngine.SetAdversaryRegistry(sr.config.AdversaryRegistry)
 	}

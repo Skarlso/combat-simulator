@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to the same pull request replaces the run in progress
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Format
+        run: test -z "$(gofmt -l .)" || { gofmt -d .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      # The pages workflow only runs on main: a broken site should fail here first
+      - name: Build the static site
+        run: make static-pages
