@@ -454,8 +454,9 @@ func TestFearSeizePlusAdditional(t *testing.T) {
 }
 
 func TestCombatEndsCleanlyMidGMTurn(t *testing.T) {
+	// The second roll is the lone PC's Risk It All, lost to Fear
 	dice := &mockDiceRoller{
-		dualityQueue: []DualityRollResult{fearDuality(20)},
+		dualityQueue: []DualityRollResult{fearDuality(20), fearDuality(20)},
 		damage:       2,
 	}
 	ce := newMockEngine(dice, &firstPicker{})
@@ -523,7 +524,8 @@ func TestStunnedSkipsExactlyOneTurn(t *testing.T) {
 }
 
 func TestDefeatedByConditionTickDoesNotAct(t *testing.T) {
-	ce := newMockEngine(&mockDiceRoller{damage: 5}, &firstPicker{})
+	// The roll is the lone PC's Risk It All, lost to Fear
+	ce := newMockEngine(&mockDiceRoller{damage: 5, dualityQueue: []DualityRollResult{fearDuality(1)}}, &firstPicker{})
 	player := tPlayer("p1", "Hero")
 	player.HP = 1
 	enemy := tEnemy("e1", "Ogre", 10)
@@ -577,21 +579,22 @@ func TestAdversaryClearsConditionWithoutRoll(t *testing.T) {
 	}
 }
 
-func fallenPlayerState(deathMove strategy.DeathMoveStrategy, dice *mockDiceRoller) (*CombatEngine, *models.Combatant, *models.Combatant, *models.CombatState) {
+// fallenPlayerState puts a PC on their last Hit Point against an ogre, with any allies still standing
+func fallenPlayerState(dice *mockDiceRoller, allies ...*models.Combatant) (*CombatEngine, *models.Combatant, *models.Combatant, *models.CombatState) {
 	ce := newMockEngine(dice, &firstPicker{})
-	ce.SetDeathMove(deathMove)
 	player := tPlayer("p1", "Hero")
 	player.DamageDice = "1d8"
 	player.Stress = 3
 	player.HP = 0
 	player.IsDefeated = true
 	enemy := tEnemy("e1", "Ogre", 10)
-	state := newStateWith([]*models.Combatant{player}, []*models.Combatant{enemy}, 0, 0)
+	state := newStateWith(append([]*models.Combatant{player}, allies...), []*models.Combatant{enemy}, 0, 0)
 	return ce, player, enemy, state
 }
 
 func TestDeathMoveAvoidDeath(t *testing.T) {
-	ce, player, enemy, state := fallenPlayerState(strategy.DeathMoveAvoidDeath, &mockDiceRoller{damage: 5})
+	// A healthy friend can finish the ogre alone
+	ce, player, enemy, state := fallenPlayerState(&mockDiceRoller{damage: 5}, tPlayer("p2", "Friend"))
 
 	ce.resolveDeathMoves(state)
 
@@ -624,7 +627,8 @@ func TestDeathMoveRiskItAll(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			dice := &mockDiceRoller{dualityQueue: []DualityRollResult{c.roll}}
-			ce, player, _, state := fallenPlayerState(strategy.DeathMoveRiskItAll, dice)
+			// Alone against a healthy ogre: only staying up can still win
+			ce, player, _, state := fallenPlayerState(dice)
 
 			ce.resolveDeathMoves(state)
 
@@ -641,15 +645,17 @@ func TestDeathMoveRiskItAll(t *testing.T) {
 func TestDeathMoveBlazeOfGlory(t *testing.T) {
 	// A roll that would miss on its own: Blaze of Glory still crits
 	dice := &mockDiceRoller{damage: 3, dualityQueue: []DualityRollResult{fearDuality(1)}}
-	ce, player, enemy, state := fallenPlayerState(strategy.DeathMoveBlazeOfGlory, dice)
+	ce, player, enemy, state := fallenPlayerState(dice)
+	// One critical from the grave: 2d8 rolls 3, +16 for the critical is Severe
+	enemy.HP = 3
 
 	ce.resolveDeathMoves(state)
 
 	if player.IsAlive() || !player.Fallen {
 		t.Error("the PC dies after a Blaze of Glory")
 	}
-	if enemy.HP == enemy.HPMax {
-		t.Error("the final action should hit automatically")
+	if enemy.IsAlive() {
+		t.Error("the final action should hit automatically and finish the ogre")
 	}
 	last := state.ActionHistory[len(state.ActionHistory)-1]
 	if last.ActionType != models.ActionDeathMove || !last.IsCritical {

@@ -104,10 +104,22 @@ About 15 triggers, for example: `on_hit`, `on_damage_taken`, `start_combat` and 
 Currently, there are four valid presets on how the AI should behave. The AI decides how to spend Hope and Fear basically.
 Which means, taking the spotlight, using Relentless, triggering Hope features, etc.
 
-- **Greedy**: spends resources freely, focuses the weakest target, Blaze of Glory
-- **Conservative**: hoards resources, targets the biggest threat, Avoid Death
-- **Desperate**: spends resources when low on Hit Points, Risk It All
+- **Greedy**: spends resources freely, focuses the weakest target
+- **Conservative**: hoards resources, targets the biggest threat
+- **Desperate**: spends resources when low on Hit Points
 - **Random**: random
+
+### Death Moves
+
+A PC picks their death move from the state of the fight, whatever the preset:
+
+- **Avoid Death**: the PCs still standing have at least as many Hit Points left as the adversaries, so they can finish it
+- **Blaze of Glory**: one adversary is left and the critical is certain to finish it
+- **Risk It All**: everything else, when the party needs the PC back on their feet
+
+The **Last Man Standing** setting covers the one case with two good answers: the last PC standing could finish
+the last adversary. Blaze of Glory (the default) takes it down with them and the fight is a draw. Risk It All
+rolls to stay up and can still win.
 
 ## What Is Not Modelled
 

@@ -41,11 +41,11 @@ const (
 	AbilityContextual AbilityUsageStrategy = "contextual" // Situational usage
 )
 
-// DeathMoveStrategy defines which death move a PC makes on marking their last Hit Point
-type DeathMoveStrategy string
+// DeathMove is a move a PC can make on marking their last Hit Point
+type DeathMove string
 
 const (
-	DeathMoveAvoidDeath   DeathMoveStrategy = "avoid_death"    // Fall unconscious, out of the fight
-	DeathMoveRiskItAll    DeathMoveStrategy = "risk_it_all"    // Roll Duality Dice to stay up or die
-	DeathMoveBlazeOfGlory DeathMoveStrategy = "blaze_of_glory" // One final critical action, then die
+	DeathMoveAvoidDeath   DeathMove = "avoid_death"    // Fall unconscious, out of the fight
+	DeathMoveRiskItAll    DeathMove = "risk_it_all"    // Roll Duality Dice to stay up or die
+	DeathMoveBlazeOfGlory DeathMove = "blaze_of_glory" // One final critical action, then die
 )

@@ -19,7 +19,7 @@ type CombatEngine struct {
 	spotlight       SpotlightSelector
 	resolver        *CombatResolver
 	featureResolver *FeatureResolver
-	deathMove       strategy.DeathMoveStrategy
+	lastManStanding strategy.DeathMove
 }
 
 // NewCombatEngine creates a combat engine with all components
@@ -43,9 +43,10 @@ func (ce *CombatEngine) SetAreaTargetLimit(limit int) {
 	ce.featureResolver.SetAreaTargetLimit(limit)
 }
 
-// SetDeathMove sets which death move PCs make when they mark their last Hit Point
-func (ce *CombatEngine) SetDeathMove(deathMove strategy.DeathMoveStrategy) {
-	ce.deathMove = deathMove
+// SetLastManStanding sets the death move of the last PC standing when a Blaze of Glory
+// would finish the last adversary: Blaze of Glory (the default) or Risk It All
+func (ce *CombatEngine) SetLastManStanding(deathMove strategy.DeathMove) {
+	ce.lastManStanding = deathMove
 }
 
 // ExecuteTurnWithDecision runs a single combatant's turn based on AI decision
@@ -247,7 +248,8 @@ func (ce *CombatEngine) resolveDeathMoves(state *models.CombatState) {
 			continue
 		}
 
-		switch ce.deathMove {
+		// Chosen one PC at a time: an earlier PC getting back up changes the fight for the next
+		switch strategy.ChooseDeathMove(state, pc, ce.lastManStanding) {
 		case strategy.DeathMoveRiskItAll:
 			ce.riskItAll(pc, state)
 		case strategy.DeathMoveBlazeOfGlory:
